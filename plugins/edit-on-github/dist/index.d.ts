@@ -1,10 +1,2 @@
-import { QuartzComponentConstructor } from '@quartz-community/types';
-
-interface Options {
-    /** "owner/repo" of THIS edition's repository — each edition sets its own. */
-    repo: string;
-    branch: string;
-}
-declare const EditOnGitHub: QuartzComponentConstructor<Partial<Options>>;
-
-export { EditOnGitHub as default };
+export { EditOnGitHub, EditOnGitHubOptions } from './components/index.js';
+export { QuartzComponent, QuartzComponentProps, StringResource } from '@quartz-community/types';

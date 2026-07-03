@@ -97,6 +97,13 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
   const opts = { ...defaultOptions, ...userOpts }
   return {
     name: "EditionIntegrations",
+    // No-op: this plugin only injects head resources via externalResources(),
+    // but Quartz's loader requires a transformer to expose at least one of
+    // textTransform/markdownPlugins/htmlPlugins to be recognized as a valid
+    // transformer instance (see quartz/plugins/loader/config-loader.ts).
+    htmlPlugins() {
+      return []
+    },
     externalResources() {
       const head: VNode[] = [
         h("style", { dangerouslySetInnerHTML: { __html: themeCss } }) as VNode,
