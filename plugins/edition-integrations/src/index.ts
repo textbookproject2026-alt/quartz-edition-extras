@@ -42,22 +42,26 @@ const defaultOptions: Options = {
 const themeCss = `
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 1.125rem;      /* 18px body */
-  line-height: 1.65;
 }
-article p { margin: 1.5rem 0; }  /* 24px vertical rhythm */
-h1 { font-size: 2.25rem;  font-weight: 700; line-height: 1.15; }
-h2 { font-size: 1.75rem;  font-weight: 700; line-height: 1.2; }
-h3 { font-size: 1.375rem; font-weight: 600; line-height: 1.3; }
-h4 { font-size: 1.125rem; font-weight: 600; line-height: 1.4; letter-spacing: 0.04em; }
-/* 720px reading measure (~72ch at 18px). If the page grid still allots a wider
-   centre track, narrow it here after a DevTools check — see setup guide step 5. */
-.center { max-width: 720px; }
-/* Purple links, bold + underlined, hover darkens (tertiary) — n-o.ooo signature.
-   Internal-link wash + external ↗ come from Quartz defaults via theme colours. */
+/* Constrain the reading column on the article itself — Quartz's grid track
+   runs wider (measured 850px), so cap here rather than via .center. */
+article {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+article p,
+article li {
+  font-size: 1.125rem;      /* 18px */
+  line-height: 1.65 !important;  /* base.scss sets ~1.42; override to spec */
+}
+article p { margin: 1.5rem 0; }
+article h1 { font-size: 2.25rem;  font-weight: 700; line-height: 1.15; }
+article h2 { font-size: 1.75rem;  font-weight: 700; line-height: 1.2; }
+article h3 { font-size: 1.375rem; font-weight: 600; line-height: 1.3; }
+article h4 { font-size: 1.125rem; font-weight: 600; line-height: 1.4; letter-spacing: 0.04em; }
 article a { font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 article a:hover { color: var(--tertiary); }
-/* Warm off-white for code, per palette "Background soft" */
 pre, article code { background-color: #F7F7F5; }
 `
 
