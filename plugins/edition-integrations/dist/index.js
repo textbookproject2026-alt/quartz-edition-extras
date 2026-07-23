@@ -89,7 +89,62 @@ var plausibleInit = `
 window.plausible = window.plausible || function () { (window.plausible.q = window.plausible.q || []).push(arguments) }
 window.plausible.init = window.plausible.init || function (o) { window.plausible.o = o || {} }
 window.plausible.init({ autoCapturePageviews: false })
-document.addEventListener("nav", function () { window.plausible("pageview") })
+`;
+var spaRuntime = `
+;(function () {
+  // Run-once guard, in case a future router change does re-execute head scripts:
+  // a second registration would mean two pageviews per navigation.
+  if (window.__editionIntegrations) return
+  window.__editionIntegrations = true
+
+  // Hypothes.is' boot script stamps this <link> into the document and returns
+  // early when it finds one already there \u2014 that is the client's own
+  // single-instance guard, and we reuse it as ours. <hypothesis-sidebar> is the
+  // visible half; the client is only healthy when both are present.
+  var BOOT_MARKER = 'link[type="application/annotator+html"]'
+  var SIDEBAR = "hypothesis-sidebar"
+  var CLIENT_ELEMENTS = "hypothesis-sidebar, hypothesis-notebook, hypothesis-profile, hypothesis-adder"
+  var INJECTED = "script[data-edition-hypothesis]"
+
+  function ensureHypothesis() {
+    // Already present and functioning \u2014 do nothing. One client only, never two
+    // sidebars.
+    if (document.querySelector(BOOT_MARKER) && document.querySelector(SIDEBAR)) return
+
+    // Otherwise the client is gone or half-dead. Sweep whatever survived before
+    // re-booting: a stale boot marker would make embed.js bail out and leave us
+    // with no sidebar at all, and a stranded sidebar element would leave us with
+    // two.
+    var stale = document.querySelectorAll(BOOT_MARKER + ", " + CLIENT_ELEMENTS + ", " + INJECTED)
+    for (var i = 0; i < stale.length; i++) stale[i].remove()
+
+    // window.hypothesisConfig is set by a sibling head script and lives on
+    // window, so it survives navigation and every re-boot picks up the same
+    // first-party settings.
+    var s = document.createElement("script")
+    s.async = true
+    s.src = "https://hypothes.is/embed.js"
+    s.setAttribute("data-edition-hypothesis", "")
+    document.head.appendChild(s)
+  }
+
+  // Exactly one pageview per real navigation. "nav" is already once-per-navigation,
+  // but a link pointing at the current page still round-trips through the router,
+  // so dedupe on pathname the way publish.js does. No-op when Plausible isn't
+  // configured for this edition.
+  var lastPath = null
+  function firePageview() {
+    if (typeof window.plausible !== "function") return
+    if (window.location.pathname === lastPath) return
+    lastPath = window.location.pathname
+    window.plausible("pageview")
+  }
+
+  document.addEventListener("nav", function () {
+    ensureHypothesis()
+    firePageview()
+  })
+})()
 `;
 var EditionIntegrations = (userOpts) => {
   const opts = { ...defaultOptions, ...userOpts };
@@ -105,8 +160,9 @@ var EditionIntegrations = (userOpts) => {
     externalResources() {
       const head = [
         _("style", { dangerouslySetInnerHTML: { __html: themeCss } }),
-        _("script", { dangerouslySetInnerHTML: { __html: hypothesisConfig(opts.hypothesisGroupId) } }),
-        _("script", { async: true, src: "https://hypothes.is/embed.js" })
+        _("script", {
+          dangerouslySetInnerHTML: { __html: hypothesisConfig(opts.hypothesisGroupId) }
+        })
       ];
       if (opts.plausibleScriptSrc) {
         head.push(
@@ -114,6 +170,7 @@ var EditionIntegrations = (userOpts) => {
           _("script", { async: true, src: opts.plausibleScriptSrc })
         );
       }
+      head.push(_("script", { dangerouslySetInnerHTML: { __html: spaRuntime } }));
       return { additionalHead: head };
     }
   };
