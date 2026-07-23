@@ -139,20 +139,46 @@ window.plausible.init({ autoCapturePageviews: false })
 //
 // So re-injection has to be driven by JS that outlives the swap. Everything below
 // hangs off the "nav" event — the same event Quartz's own Explorer component
-// listens on — which fires once on initial load (in both enableSPA modes) and once
-// per navigation, after the head patch and after history.pushState. Listeners are
-// bound to `document`, which is never replaced, so a single registration covers
-// the whole session. Deliberately NOT paired with window.addCleanup(): that tears
-// listeners down on prenav, which is exactly what this one must survive.
+// listens on — which fires once on initial load AND once per navigation. Verified
+// against Quartz v5 source rather than assumed:
+//
+//   * enableSPA: true  — quartz/components/scripts/spa.inline.ts ends with a
+//     top-level `notifyNav(getFullSlug(window))` (line 198), immediately after
+//     createRouter(). That is an unconditional initial-load dispatch.
+//   * enableSPA: false — quartz/plugins/emitters/componentResources.ts (the else
+//     branch at line 263) pushes a stub that does exactly one thing: dispatch a
+//     "nav" CustomEvent.
+//
+// Ordering also holds: both live in `afterDOMLoaded`, bundled into postscript.js,
+// which renderPage.tsx emits as an afterDOMReady resource at the end of <body>.
+// This script is an inline <head> script, so it executes during parse — the
+// listener is always registered before the initial-load dispatch. Hence NO
+// immediate ensureHypothesis() call at script execution: it would inject embed.js,
+// then the initial "nav" would fire while that async script is still in flight
+// (boot marker not yet stamped), and the handler would sweep the pending tag and
+// re-append it — a self-inflicted double boot. One code path, driven by "nav".
+//
+// Listeners are bound to `document`, which is never replaced, so a single
+// registration covers the whole session. Deliberately NOT paired with
+// window.addCleanup(): that tears listeners down on prenav, which is exactly what
+// this one must survive.
 //
 // This mirrors the canonical site's publish.js, which re-runs its injections on
 // History-API navigation for the same reason.
+//
+// TEMPORARY: "[edition-hyp]" console tracing at every decision point, to diagnose
+// the sidebar misbehaviour on the deployed edition. Remove once resolved.
 const spaRuntime = `
 ;(function () {
   // Run-once guard, in case a future router change does re-execute head scripts:
   // a second registration would mean two pageviews per navigation.
   if (window.__editionIntegrations) return
   window.__editionIntegrations = true
+
+  console.log("[edition-hyp] head script executed; guard passed, registering nav listener", {
+    path: window.location.pathname,
+    readyState: document.readyState,
+  })
 
   // Hypothes.is' boot script stamps this <link> into the document and returns
   // early when it finds one already there — that is the client's own
@@ -164,15 +190,28 @@ const spaRuntime = `
   var INJECTED = "script[data-edition-hypothesis]"
 
   function ensureHypothesis() {
+    var hasBootMarker = !!document.querySelector(BOOT_MARKER)
+    var hasSidebar = !!document.querySelector(SIDEBAR)
+    console.log("[edition-hyp] boot marker present?", hasBootMarker)
+    console.log("[edition-hyp] hypothesis-sidebar present?", hasSidebar)
+
     // Already present and functioning — do nothing. One client only, never two
     // sidebars.
-    if (document.querySelector(BOOT_MARKER) && document.querySelector(SIDEBAR)) return
+    if (hasBootMarker && hasSidebar) {
+      console.log("[edition-hyp] decision: BAIL (client healthy, leaving it alone)")
+      return
+    }
+
+    console.log("[edition-hyp] decision: SWEEP+INJECT (client missing or half-dead)")
 
     // Otherwise the client is gone or half-dead. Sweep whatever survived before
     // re-booting: a stale boot marker would make embed.js bail out and leave us
     // with no sidebar at all, and a stranded sidebar element would leave us with
     // two.
     var stale = document.querySelectorAll(BOOT_MARKER + ", " + CLIENT_ELEMENTS + ", " + INJECTED)
+    console.log("[edition-hyp] stale elements swept:", stale.length, Array.prototype.map.call(stale, function (el) {
+      return el.tagName.toLowerCase()
+    }))
     for (var i = 0; i < stale.length; i++) stale[i].remove()
 
     // window.hypothesisConfig is set by a sibling head script and lives on
@@ -182,7 +221,14 @@ const spaRuntime = `
     s.async = true
     s.src = "https://hypothes.is/embed.js"
     s.setAttribute("data-edition-hypothesis", "")
+    s.addEventListener("load", function () {
+      console.log("[edition-hyp] embed.js loaded")
+    })
+    s.addEventListener("error", function () {
+      console.log("[edition-hyp] embed.js FAILED to load")
+    })
     document.head.appendChild(s)
+    console.log("[edition-hyp] embed.js script appended to head")
   }
 
   // Exactly one pageview per real navigation. "nav" is already once-per-navigation,
@@ -197,7 +243,10 @@ const spaRuntime = `
     window.plausible("pageview")
   }
 
+  var navCount = 0
   document.addEventListener("nav", function () {
+    navCount++
+    console.log("[edition-hyp] nav event received #" + navCount, window.location.pathname)
     ensureHypothesis()
     firePageview()
   })

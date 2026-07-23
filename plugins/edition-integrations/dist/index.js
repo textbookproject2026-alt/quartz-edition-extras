@@ -97,6 +97,11 @@ var spaRuntime = `
   if (window.__editionIntegrations) return
   window.__editionIntegrations = true
 
+  console.log("[edition-hyp] head script executed; guard passed, registering nav listener", {
+    path: window.location.pathname,
+    readyState: document.readyState,
+  })
+
   // Hypothes.is' boot script stamps this <link> into the document and returns
   // early when it finds one already there \u2014 that is the client's own
   // single-instance guard, and we reuse it as ours. <hypothesis-sidebar> is the
@@ -107,15 +112,28 @@ var spaRuntime = `
   var INJECTED = "script[data-edition-hypothesis]"
 
   function ensureHypothesis() {
+    var hasBootMarker = !!document.querySelector(BOOT_MARKER)
+    var hasSidebar = !!document.querySelector(SIDEBAR)
+    console.log("[edition-hyp] boot marker present?", hasBootMarker)
+    console.log("[edition-hyp] hypothesis-sidebar present?", hasSidebar)
+
     // Already present and functioning \u2014 do nothing. One client only, never two
     // sidebars.
-    if (document.querySelector(BOOT_MARKER) && document.querySelector(SIDEBAR)) return
+    if (hasBootMarker && hasSidebar) {
+      console.log("[edition-hyp] decision: BAIL (client healthy, leaving it alone)")
+      return
+    }
+
+    console.log("[edition-hyp] decision: SWEEP+INJECT (client missing or half-dead)")
 
     // Otherwise the client is gone or half-dead. Sweep whatever survived before
     // re-booting: a stale boot marker would make embed.js bail out and leave us
     // with no sidebar at all, and a stranded sidebar element would leave us with
     // two.
     var stale = document.querySelectorAll(BOOT_MARKER + ", " + CLIENT_ELEMENTS + ", " + INJECTED)
+    console.log("[edition-hyp] stale elements swept:", stale.length, Array.prototype.map.call(stale, function (el) {
+      return el.tagName.toLowerCase()
+    }))
     for (var i = 0; i < stale.length; i++) stale[i].remove()
 
     // window.hypothesisConfig is set by a sibling head script and lives on
@@ -125,7 +143,14 @@ var spaRuntime = `
     s.async = true
     s.src = "https://hypothes.is/embed.js"
     s.setAttribute("data-edition-hypothesis", "")
+    s.addEventListener("load", function () {
+      console.log("[edition-hyp] embed.js loaded")
+    })
+    s.addEventListener("error", function () {
+      console.log("[edition-hyp] embed.js FAILED to load")
+    })
     document.head.appendChild(s)
+    console.log("[edition-hyp] embed.js script appended to head")
   }
 
   // Exactly one pageview per real navigation. "nav" is already once-per-navigation,
@@ -140,7 +165,10 @@ var spaRuntime = `
     window.plausible("pageview")
   }
 
+  var navCount = 0
   document.addEventListener("nav", function () {
+    navCount++
+    console.log("[edition-hyp] nav event received #" + navCount, window.location.pathname)
     ensureHypothesis()
     firePageview()
   })

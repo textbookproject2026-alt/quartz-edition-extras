@@ -48,9 +48,9 @@ describe("EditionIntegrations head injection", () => {
 
   it("guards against a second client: bails when marker and sidebar are both live", () => {
     const runtime = spaRuntime(headOf());
-    expect(runtime).toContain(
-      "if (document.querySelector(BOOT_MARKER) && document.querySelector(SIDEBAR)) return",
-    );
+    expect(runtime).toContain("var hasBootMarker = !!document.querySelector(BOOT_MARKER)");
+    expect(runtime).toContain("var hasSidebar = !!document.querySelector(SIDEBAR)");
+    expect(runtime).toContain("if (hasBootMarker && hasSidebar) {");
     // ...and sweeps half-dead leftovers before booting a replacement.
     expect(runtime).toContain("stale[i].remove()");
   });
