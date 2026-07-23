@@ -66,10 +66,32 @@ pre, article code { background-color: #F7F7F5; }
 `
 
 // --- 2. Hypothes.is -----------------------------------------------------------
-const hypothesisConfig = (groupId: string) => `
+// Quartz editions should match the canonical site: public, first-party annotation
+// always loads. Group-locking is an *upgrade* an edition can opt into by setting a
+// real hypothesisGroupId — never a prerequisite for the embed. So the embed loads
+// unconditionally (mirroring publish.js), and an unset or placeholder group id just
+// falls through quietly, leaving public annotation active.
+const HYPOTHESIS_GROUP_PLACEHOLDER = "GROUP_ID"
+
+// A configured hypothesisGroupId counts as "real" only when it's non-empty and not
+// a scaffolding placeholder left unfilled by the edition build (e.g. "" or a
+// "__TOKEN__"-style token). Anything else means "no group configured".
+const isRealGroupId = (groupId: string): boolean => {
+  const trimmed = groupId.trim()
+  return trimmed.length > 0 && !/^__.*__$/.test(trimmed)
+}
+
+const hypothesisConfig = (groupId: string) => {
+  // Group-locking is applied only for a real group id; otherwise the Publisher-tier
+  // seam keeps a neutral placeholder and public first-party annotation still loads.
+  const group = isRealGroupId(groupId) ? groupId.trim() : HYPOTHESIS_GROUP_PLACEHOLDER
+  return `
 window.hypothesisConfig = function () {
   return {
+    // First-party flow: sidebar collapsed, highlights always visible — same as the
+    // canonical site's publish.js.
     openSidebar: false,
+    showHighlights: 'always',
     // R1 hook — per-edition group locking. Requires Publisher-tier / third-party
     // auth; the services array 404s on the standard account tier (verified,
     // hypothesis-spike-baseline.md). When access lands, uncomment and set
@@ -79,11 +101,12 @@ window.hypothesisConfig = function () {
     //   apiUrl: "https://hypothes.is/api/",
     //   authority: "YOUR_AUTHORITY",
     //   grantToken: "GENERATED_PER_USER",
-    //   groups: ["${groupId || "GROUP_ID"}"],
+    //   groups: ["${group}"],
     // }],
   }
 }
 `
+}
 
 // --- 3. Plausible (per-site script, SPA-aware) ---------------------------------
 // The pa-*.js script's own autocapture doesn't know about Quartz's client-side

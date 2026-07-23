@@ -56,10 +56,20 @@ article a { font-weight: 600; text-decoration: underline; text-underline-offset:
 article a:hover { color: var(--tertiary); }
 pre, article code { background-color: #F7F7F5; }
 `;
-var hypothesisConfig = (groupId) => `
+var HYPOTHESIS_GROUP_PLACEHOLDER = "GROUP_ID";
+var isRealGroupId = (groupId) => {
+  const trimmed = groupId.trim();
+  return trimmed.length > 0 && !/^__.*__$/.test(trimmed);
+};
+var hypothesisConfig = (groupId) => {
+  const group = isRealGroupId(groupId) ? groupId.trim() : HYPOTHESIS_GROUP_PLACEHOLDER;
+  return `
 window.hypothesisConfig = function () {
   return {
+    // First-party flow: sidebar collapsed, highlights always visible \u2014 same as the
+    // canonical site's publish.js.
     openSidebar: false,
+    showHighlights: 'always',
     // R1 hook \u2014 per-edition group locking. Requires Publisher-tier / third-party
     // auth; the services array 404s on the standard account tier (verified,
     // hypothesis-spike-baseline.md). When access lands, uncomment and set
@@ -69,11 +79,12 @@ window.hypothesisConfig = function () {
     //   apiUrl: "https://hypothes.is/api/",
     //   authority: "YOUR_AUTHORITY",
     //   grantToken: "GENERATED_PER_USER",
-    //   groups: ["${groupId || "GROUP_ID"}"],
+    //   groups: ["${group}"],
     // }],
   }
 }
 `;
+};
 var plausibleInit = `
 window.plausible = window.plausible || function () { (window.plausible.q = window.plausible.q || []).push(arguments) }
 window.plausible.init = window.plausible.init || function (o) { window.plausible.o = o || {} }
