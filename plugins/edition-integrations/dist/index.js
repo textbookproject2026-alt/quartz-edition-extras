@@ -102,14 +102,54 @@ var spaRuntime = `
     readyState: document.readyState,
   })
 
-  // Hypothes.is' boot script stamps this <link> into the document and returns
-  // early when it finds one already there \u2014 that is the client's own
-  // single-instance guard, and we reuse it as ours. <hypothesis-sidebar> is the
-  // visible half; the client is only healthy when both are present.
+  // Hypothes.is' boot script stamps this <link> into <head> and returns early when
+  // it finds one already there \u2014 that is the client's own single-instance guard.
+  // <hypothesis-sidebar> is the visible half, and it lives in <body>.
   var BOOT_MARKER = 'link[type="application/annotator+html"]'
   var SIDEBAR = "hypothesis-sidebar"
   var CLIENT_ELEMENTS = "hypothesis-sidebar, hypothesis-notebook, hypothesis-profile, hypothesis-adder"
   var INJECTED = "script[data-edition-hypothesis]"
+  // Everything the client (or we) put in <head> that must outlive the head wipe:
+  // the boot marker, our embed tag, and any stylesheet/script the client loads
+  // from its own origin.
+  var PERSIST_IN_HEAD =
+    BOOT_MARKER + ", " + INJECTED + ', link[href*="hypothes.is"], script[src*="hypothes.is"]'
+
+  // Remembered so a lost boot marker can be restored faithfully rather than forged
+  // from guesswork.
+  var markerHref = null
+  var markerRel = null
+
+  // --- primary fix ---
+  // Quartz's router removes every <head> element without [data-persist]. Tagging
+  // the client's head state means the wipe simply passes over it, so the client is
+  // never seen as half-dead and embed.js is never re-loaded. Called on prenav
+  // (before the wipe), on nav, and after embed.js boots.
+  function persistClientHead(when) {
+    var els = document.head.querySelectorAll(PERSIST_IN_HEAD)
+    for (var i = 0; i < els.length; i++) {
+      els[i].setAttribute("data-persist", "")
+      if (els[i].matches(BOOT_MARKER)) {
+        markerHref = els[i].getAttribute("href")
+        markerRel = els[i].getAttribute("rel")
+      }
+    }
+    console.log("[edition-hyp] PERSIST tagged " + els.length + " head element(s) @ " + when)
+    return els.length
+  }
+
+  // Restores the client's single-instance guard WITHOUT re-loading embed.js \u2014 used
+  // only if the marker went missing while the sidebar is alive (i.e. the prenav
+  // tagging didn't get to it, i.e. the client booted mid-navigation).
+  function restoreBootMarker() {
+    var link = document.createElement("link")
+    link.setAttribute("type", "application/annotator+html")
+    link.setAttribute("rel", markerRel || "hypothesis-client")
+    link.setAttribute("href", markerHref || "https://hypothes.is/embed.js")
+    link.setAttribute("data-persist", "")
+    document.head.appendChild(link)
+    console.log("[edition-hyp] boot marker restored (no embed.js re-load)")
+  }
 
   function ensureHypothesis() {
     var hasBootMarker = !!document.querySelector(BOOT_MARKER)
@@ -117,19 +157,22 @@ var spaRuntime = `
     console.log("[edition-hyp] boot marker present?", hasBootMarker)
     console.log("[edition-hyp] hypothesis-sidebar present?", hasSidebar)
 
-    // Already present and functioning \u2014 do nothing. One client only, never two
-    // sidebars.
-    if (hasBootMarker && hasSidebar) {
-      console.log("[edition-hyp] decision: BAIL (client healthy, leaving it alone)")
+    // The sidebar is authoritative. If it exists, a live client owns this page \u2014
+    // regardless of what happened to the head marker. Re-injecting here is what
+    // produced the dead sidebar: the second client's connection is refused by the
+    // host frame. So never re-inject while a live sidebar is present.
+    if (hasSidebar) {
+      if (!hasBootMarker) restoreBootMarker()
+      persistClientHead("nav/bail")
+      console.log("[edition-hyp] decision: BAIL (live sidebar is authoritative)")
       return
     }
 
-    console.log("[edition-hyp] decision: SWEEP+INJECT (client missing or half-dead)")
+    console.log("[edition-hyp] decision: SWEEP+INJECT (sidebar genuinely absent)")
 
-    // Otherwise the client is gone or half-dead. Sweep whatever survived before
-    // re-booting: a stale boot marker would make embed.js bail out and leave us
-    // with no sidebar at all, and a stranded sidebar element would leave us with
-    // two.
+    // No sidebar: the client is genuinely gone. Sweep whatever survived before
+    // booting \u2014 a stale boot marker would make embed.js bail out and leave us with
+    // no sidebar at all.
     var stale = document.querySelectorAll(BOOT_MARKER + ", " + CLIENT_ELEMENTS + ", " + INJECTED)
     console.log("[edition-hyp] stale elements swept:", stale.length, Array.prototype.map.call(stale, function (el) {
       return el.tagName.toLowerCase()
@@ -137,14 +180,18 @@ var spaRuntime = `
     for (var i = 0; i < stale.length; i++) stale[i].remove()
 
     // window.hypothesisConfig is set by a sibling head script and lives on
-    // window, so it survives navigation and every re-boot picks up the same
+    // window, so it survives navigation and every boot picks up the same
     // first-party settings.
     var s = document.createElement("script")
     s.async = true
     s.src = "https://hypothes.is/embed.js"
     s.setAttribute("data-edition-hypothesis", "")
+    s.setAttribute("data-persist", "")
     s.addEventListener("load", function () {
       console.log("[edition-hyp] embed.js loaded")
+      // The client stamps its boot marker during load; tag it now so the very next
+      // navigation can't take it.
+      persistClientHead("embed.js load")
     })
     s.addEventListener("error", function () {
       console.log("[edition-hyp] embed.js FAILED to load")
@@ -164,6 +211,15 @@ var spaRuntime = `
     lastPath = window.location.pathname
     window.plausible("pageview")
   }
+
+  // Fires at spa.inline.ts line 87, before the head wipe at line 124 \u2014 the one
+  // moment where tagging [data-persist] actually saves the client's head state.
+  // This is the primary fix; the sidebar-authoritative check in ensureHypothesis()
+  // is the fallback for anything that slips past it.
+  document.addEventListener("prenav", function () {
+    console.log("[edition-hyp] prenav received (head wipe imminent)", window.location.pathname)
+    persistClientHead("prenav")
+  })
 
   var navCount = 0
   document.addEventListener("nav", function () {
