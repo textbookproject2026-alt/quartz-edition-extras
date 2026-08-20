@@ -30,7 +30,7 @@ import type { QuartzTransformerPlugin } from "@quartz-community/types";
 interface Options {
   /** Per-edition Plausible script src (https://plausible.io/js/pa-….js). "" disables analytics. */
   plausibleScriptSrc: string;
-  /** Hypothes.is group ID — only takes effect once the services block below is uncommented (Publisher tier, R1). */
+  /** Hypothes.is group ID — inert: it would only take effect if the commented services block below were enabled, and that is unused by decision (Publisher tier not bought, R1 closed). */
   hypothesisGroupId: string;
 }
 
@@ -71,11 +71,12 @@ pre, article code { background-color: #F7F7F5; }
 `;
 
 // --- 2. Hypothes.is -----------------------------------------------------------
-// Quartz editions should match the canonical site: public, first-party annotation
-// always loads. Group-locking is an *upgrade* an edition can opt into by setting a
-// real hypothesisGroupId — never a prerequisite for the embed. So the embed loads
-// unconditionally (mirroring publish.js), and an unset or placeholder group id just
-// falls through quietly, leaving public annotation active.
+// Quartz editions match the canonical site: public, first-party annotation always
+// loads, and that is the final arrangement — per-cohort isolation was considered
+// and not adopted. Group-locking is therefore unused by decision rather than a
+// pending upgrade. The embed loads unconditionally (mirroring publish.js), and an
+// unset or placeholder group id falls through quietly, leaving public annotation
+// active. The group-id plumbing below is kept as documented dead code.
 const HYPOTHESIS_GROUP_PLACEHOLDER = "GROUP_ID";
 
 // A configured hypothesisGroupId counts as "real" only when it's non-empty and not
@@ -87,8 +88,10 @@ const isRealGroupId = (groupId: string): boolean => {
 };
 
 const hypothesisConfig = (groupId: string) => {
-  // Group-locking is applied only for a real group id; otherwise the Publisher-tier
-  // seam keeps a neutral placeholder and public first-party annotation still loads.
+  // The Publisher-tier seam below is commented out and unused by decision, so this
+  // value is only ever interpolated into a comment. A real group id is echoed as-is;
+  // anything else keeps a neutral placeholder. Public first-party annotation loads
+  // either way.
   const group = isRealGroupId(groupId) ? groupId.trim() : HYPOTHESIS_GROUP_PLACEHOLDER;
   return `
 window.hypothesisConfig = function () {
@@ -97,10 +100,11 @@ window.hypothesisConfig = function () {
     // canonical site's publish.js.
     openSidebar: false,
     showHighlights: 'always',
-    // R1 hook — per-edition group locking. Requires Publisher-tier / third-party
-    // auth; the services array 404s on the standard account tier (verified,
-    // hypothesis-spike-baseline.md). When access lands, uncomment and set
-    // hypothesisGroupId in quartz.config.yaml:
+    // R1 hook — per-edition group locking. UNUSED BY DECISION: the Publisher
+    // tier will not be bought, so this is a record of the shape the swap would
+    // have taken, not a step waiting to be taken. It needs Publisher-tier /
+    // third-party auth; the services array 404s on the standard account tier
+    // (verified, hypothesis-spike-baseline.md). Do not uncomment:
     //
     // services: [{
     //   apiUrl: "https://hypothes.is/api/",

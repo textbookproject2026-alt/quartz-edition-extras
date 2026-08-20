@@ -70,10 +70,11 @@ window.hypothesisConfig = function () {
     // canonical site's publish.js.
     openSidebar: false,
     showHighlights: 'always',
-    // R1 hook \u2014 per-edition group locking. Requires Publisher-tier / third-party
-    // auth; the services array 404s on the standard account tier (verified,
-    // hypothesis-spike-baseline.md). When access lands, uncomment and set
-    // hypothesisGroupId in quartz.config.yaml:
+    // R1 hook \u2014 per-edition group locking. UNUSED BY DECISION: the Publisher
+    // tier will not be bought, so this is a record of the shape the swap would
+    // have taken, not a step waiting to be taken. It needs Publisher-tier /
+    // third-party auth; the services array 404s on the standard account tier
+    // (verified, hypothesis-spike-baseline.md). Do not uncomment:
     //
     // services: [{
     //   apiUrl: "https://hypothes.is/api/",
