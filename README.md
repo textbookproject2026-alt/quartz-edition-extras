@@ -1,0 +1,148 @@
+# quartz-edition-extras
+
+The two Quartz v5 plugins that department editions of the textbook install at build
+time. Nothing else lives here.
+
+**Every department edition builds against this repository.** The edition template's
+`quartz.config.yaml` names it by URL, and each edition's `quartz.lock.json` pins a
+specific commit of it. If this repo is deleted, renamed or made private, the next
+build of every edition fails — and nothing in the failure points here. Treat it as
+production infrastructure, not a scratch repo.
+
+- **Canonical textbook:** `textbookproject2026-alt/textbook`
+- **Edition template (consumer of this repo):** `textbookproject2026-alt/textbook-edition-template`
+- **Operating guide:** `docs/updating-department-editions.md` in the textbook repo —
+  how a change here reaches a live edition, and why it doesn't on its own.
+- **Service inventory:** `docs/INFRASTRUCTURE.md` in the textbook repo.
+
+---
+
+## The two plugins
+
+### `plugins/edition-integrations` — transformer
+
+Injects three things into every page's `<head>`, site-wide:
+
+1. **Theme fine-tuning CSS** — type scale, vertical rhythm, and a 720px reading
+   measure. Colours and font *families* come from the edition's
+   `quartz.config.yaml` theme block; this covers what that config cannot express,
+   and references Quartz's generated CSS variables so a palette change in the
+   config propagates automatically.
+2. **The Hypothes.is client**, sidebar collapsed — the same first-party flow the
+   canonical Obsidian Publish site runs from `publish.js`.
+3. **The per-site Plausible script** (`pa-….js`), stock configuration.
+
+**Options**
+
+| Option | Default | Notes |
+|---|---|---|
+| `plausibleScriptSrc` | `""` | The edition's own script address from Plausible → Site settings → Site installation. `""` simply disables analytics; nothing breaks. |
+| `hypothesisGroupId` | `""` | **Inert. Leave empty, permanently.** |
+
+`hypothesisGroupId` is documented dead code. It would only take effect if the
+commented `services` block in `src/index.ts` were enabled, and that is unused by
+decision: per-cohort annotation isolation would need Hypothes.is's Publisher tier,
+which the project decided not to buy. Config-based group locking also 404s on the
+standard tier. Do not fill it in and do not uncomment the block.
+
+**Why there is no SPA handling.** Editions run with `enableSPA: false`, so every
+navigation is a full page load and every head script runs again from scratch. Both
+integrations are therefore plain one-shot head injections — no re-injection on
+navigation, no persistence of client state across a route swap, no custom pageview
+firing. The SPA mode is incompatible with the annotation sidebar: it tears the
+Hypothes.is panel out of the page on every click and the panel cannot be revived.
+The history of that fight is in this repo's log (`998e606` … `1043f34`); the
+current answer is "don't run SPA", and the machinery for the other approach has
+been removed. Please don't reintroduce it.
+
+### `plugins/edit-on-github` — component
+
+Renders the **Edit on GitHub** link under each page title, mapped from Quartz's own
+slug→source-file data (`fileData.filePath`), so no path reverse-mapping is needed.
+
+| Option | Default | Notes |
+|---|---|---|
+| `repo` | `""` | The edition's own `owner/repository`. The template ships the placeholder `OWNER/REPO`; an edition that never replaced it gets a 404 on every page and no other visible symptom. |
+| `branch` | `"main"` | |
+
+Default position `beforeBody`, priority `25` — it sits with the page meta, under
+the title.
+
+---
+
+## How an edition consumes these
+
+From the template's `quartz.config.yaml`:
+
+```yaml
+  - source:
+      repo: "https://github.com/textbookproject2026-alt/quartz-edition-extras.git"
+      subdir: plugins/edition-integrations
+      name: edition-integrations
+```
+
+`npx quartz plugin install` resolves that to an exact commit and writes it into the
+edition's `quartz.lock.json`. **The pin never moves on its own.** An edition
+collects a change here only when its coordinator runs:
+
+```
+npx quartz plugin update edition-integrations
+```
+
+and then commits and pushes the updated lock file. The updated pin *is* the change.
+
+---
+
+## Working on a plugin
+
+Each plugin directory is a clone of
+[`quartz-community/plugin-template`](https://github.com/quartz-community/plugin-template)
+with `src/index.ts` replaced. Keep the template's `tsup.config.ts` and
+`tsconfig.json` untouched.
+
+```sh
+cd plugins/edition-integrations
+npm install
+npm run check     # typecheck + lint + format + test
+npm run build
+```
+
+**Commit `dist/`.** Quartz v5 plugins ship pre-built and are installed straight
+from the repository — there is no build step on the consumer's side. A source
+change without a rebuilt, committed `dist/` has no effect anywhere, and nothing
+warns you.
+
+### Releasing a change
+
+1. `npm run check && npm run build` in the plugin directory.
+2. Commit **both** `src/` and `dist/`.
+3. Push to `main`.
+4. **Bump the pin in the template**, in
+   `textbook-edition-template/quartz.lock.json` — otherwise every edition forked
+   from that point still starts on the old commit.
+5. Announce it to coordinators, naming the plugin, so they can run
+   `npx quartz plugin update <name>`. See
+   `docs/updating-department-editions.md` in the textbook repo.
+
+Step 4 is the one that gets missed, and it is invisible when it is.
+
+> **Known discrepancy, 4 September 2026.** The template pins both plugins at
+> `eece8e6`, seven commits behind this repo's `main`. Everything since — including
+> the Hypothes.is navigation fix series and the Publisher-tier correction — is
+> unreleased to every edition. Tracked as item 3.5 in
+> `docs/DOCS-REMEDIATION.md` in the textbook repo.
+
+---
+
+## Two things that look wrong and aren't
+
+- **Each plugin's own `README.md` is the upstream template's boilerplate**
+  ("Quartz Community Plugin Template"), and their `package.json` still carries the
+  template's `author`, `homepage` and `repository` fields. Nothing depends on
+  those values. This file is the real documentation.
+- **`node_modules/` is present in each plugin directory** but git-ignored.
+
+## Licence
+
+Each plugin carries the template's MIT `LICENSE`. The textbook itself is
+CC-BY-SA-4.0; that applies to content, not to this build machinery.
