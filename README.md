@@ -13,7 +13,8 @@ production infrastructure, not a scratch repo.
 - **Edition template (consumer of this repo):** `textbookproject2026-alt/textbook-edition-template`
 - **Operating guide:** `docs/updating-department-editions.md` in the textbook repo —
   how a change here reaches a live edition, and why it doesn't on its own.
-- **Service inventory:** `docs/INFRASTRUCTURE.md` in the textbook repo.
+- **Service inventory:** `docs/INFRASTRUCTURE.md` in `textbookproject2026-alt/textbook-registry`
+  (this repo is shared service S6 there; moved from the textbook repo on 22 Sep 2026).
 
 ---
 
