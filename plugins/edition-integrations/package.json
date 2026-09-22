@@ -10,8 +10,20 @@
     "type": "git",
     "url": "https://github.com/quartz-community/plugin-template"
   },
-  "keywords": ["quartz", "quartz-plugin", "remark", "rehype", "mdast", "hast"],
-  "files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
+  "keywords": [
+    "quartz",
+    "quartz-plugin",
+    "remark",
+    "rehype",
+    "mdast",
+    "hast"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -36,8 +48,12 @@
     "vfile": "^6.0.3"
   },
   "peerDependenciesMeta": {
-    "preact": { "optional": false },
-    "vfile": { "optional": true }
+    "preact": {
+      "optional": false
+    },
+    "vfile": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@quartz-community/types": "github:quartz-community/types",
@@ -52,6 +68,7 @@
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "github-slugger": "^2.0.0",
+    "happy-dom": "^20.14.5",
     "hast-util-to-jsx-runtime": "^2.3.6",
     "mdast-util-find-and-replace": "^3.0.2",
     "preact": "^10.28.2",
@@ -79,6 +96,9 @@
     "defaultEnabled": true,
     "defaultOptions": {
       "plausibleScriptSrc": "",
+      "siteDomain": "",
+      "tagHelper": true,
+      "annotationBadge": true,
       "hypothesisGroupId": ""
     }
   },

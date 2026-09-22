@@ -6,7 +6,10 @@
  *      from quartz.config.yaml theme, this covers what the config can't express)
  *   2. Hypothes.is client, sidebar collapsed — same first-party flow as the
  *      canonical site's publish.js
- *   3. Plausible per-site script (pa-*.js), stock configuration
+ *   3. Plausible per-site script (pa-*.js), stock configuration, behind a
+ *      hostname guard when `siteDomain` is set
+ *   4. window.tbTrack() for custom events, the annotation tag helper and the
+ *      annotation badge, ported from book one's publish.js (src/runtime.ts)
  *
  * and applies two HTML transforms to every page (src/transforms.ts):
  *   - same-page citations `#^id` point at the reference they name
@@ -32,16 +35,31 @@ import type { VNode } from "preact";
 import type { QuartzTransformerPlugin } from "@quartz-community/types";
 import { fixBlockRefLinks, titleFromFirstHeading } from "./transforms";
 import type { HastNode, PageData } from "./transforms";
+import { analyticsLoader, annotationBadge, noTracking, tagHelper, trackRuntime } from "./runtime";
 
 interface Options {
   /** Per-edition Plausible script src (https://plausible.io/js/pa-….js). "" disables analytics. */
   plausibleScriptSrc: string;
+  /**
+   * The one hostname Plausible counts on. When set, any other host (a
+   * *.pages.dev preview, localhost) loads no Plausible script and sends no
+   * event, not even a pageview. "" (the default) counts on every host, as
+   * editions always have.
+   */
+  siteDomain: string;
+  /** The "Tag your annotation" panel beside the open Hypothes.is sidebar. */
+  tagHelper: boolean;
+  /** The per-page annotation count, which opens the sidebar. */
+  annotationBadge: boolean;
   /** Hypothes.is group ID — inert: it would only take effect if the commented services block below were enabled, and that is unused by decision (Publisher tier not bought, R1 closed). */
   hypothesisGroupId: string;
 }
 
 const defaultOptions: Options = {
   plausibleScriptSrc: "",
+  siteDomain: "",
+  tagHelper: true,
+  annotationBadge: true,
   hypothesisGroupId: "",
 };
 
@@ -196,12 +214,21 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
           dangerouslySetInnerHTML: { __html: hypothesisConfig(opts.hypothesisGroupId) },
         }) as VNode,
       ];
-      if (opts.plausibleScriptSrc) {
+      const script = (js: string) =>
+        h("script", { dangerouslySetInnerHTML: { __html: js } }) as VNode;
+      if (opts.plausibleScriptSrc && opts.siteDomain) {
+        head.push(script(analyticsLoader(opts.plausibleScriptSrc, opts.siteDomain)));
+      } else if (opts.plausibleScriptSrc) {
         head.push(
-          h("script", { dangerouslySetInnerHTML: { __html: plausibleInit } }) as VNode,
+          script(plausibleInit),
           h("script", { async: true, src: opts.plausibleScriptSrc }) as VNode,
         );
       }
+      // With no analytics configured, events go nowhere, but the helpers can
+      // still call tbTrack() without checking.
+      head.push(script(opts.plausibleScriptSrc ? trackRuntime : noTracking));
+      if (opts.tagHelper) head.push(script(tagHelper));
+      if (opts.annotationBadge) head.push(script(annotationBadge));
       // Last, so window.hypothesisConfig above is already set when embed.js boots.
       head.push(h("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }) as VNode);
       return { additionalHead: head };
