@@ -8,6 +8,10 @@
  *      canonical site's publish.js
  *   3. Plausible per-site script (pa-*.js), stock configuration
  *
+ * and applies two HTML transforms to every page (src/transforms.ts):
+ *   - same-page citations `#^id` point at the reference they name
+ *   - with no frontmatter title, the first H1 becomes the page's title
+ *
  * Editions run with enableSPA: false, so every navigation is a full page load and
  * every head script runs again from scratch. Both integrations are therefore plain
  * one-shot head injections: no re-injection on navigation, no persistence of client
@@ -26,6 +30,8 @@
 import { h } from "preact";
 import type { VNode } from "preact";
 import type { QuartzTransformerPlugin } from "@quartz-community/types";
+import { fixBlockRefLinks, titleFromFirstHeading } from "./transforms";
+import type { HastNode, PageData } from "./transforms";
 
 interface Options {
   /** Per-edition Plausible script src (https://plausible.io/js/pa-….js). "" disables analytics. */
@@ -173,12 +179,15 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
   const opts = { ...defaultOptions, ...userOpts };
   return {
     name: "EditionIntegrations",
-    // No-op: this plugin only injects head resources via externalResources(),
-    // but Quartz's loader requires a transformer to expose at least one of
-    // textTransform/markdownPlugins/htmlPlugins to be recognized as a valid
-    // transformer instance (see quartz/plugins/loader/config-loader.ts).
+    // Runs after every markdown plugin, so note-properties has already filled
+    // in the filename as a fallback title, and the table of contents exists.
     htmlPlugins() {
-      return [];
+      return [
+        () => (tree: unknown, file: { value?: unknown; data: unknown }) => {
+          fixBlockRefLinks(tree as HastNode);
+          titleFromFirstHeading(tree as HastNode, file.data as PageData, String(file.value ?? ""));
+        },
+      ];
     },
     externalResources() {
       const head: VNode[] = [

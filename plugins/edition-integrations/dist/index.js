@@ -26,6 +26,56 @@ n = v.slice, l = { __e: function(n2, l2, u2, t2) {
   throw n2;
 } }, u = 0, "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout;
 
+// src/transforms.ts
+var walk = (node, fn) => {
+  fn(node);
+  for (const child of node.children ?? []) walk(child, fn);
+};
+var textOf = (node) => node.type === "text" ? node.value ?? "" : (node.children ?? []).map(textOf).join("");
+var BLOCK_REF = /^#(?:\^|%5[Ee])(.+)$/;
+var fixBlockRefLinks = (tree) => {
+  let changed = 0;
+  walk(tree, (node) => {
+    if (node.type !== "element" || node.tagName !== "a") return;
+    const href = node.properties?.href;
+    if (typeof href !== "string") return;
+    const match = BLOCK_REF.exec(href);
+    if (!match) return;
+    node.properties.href = `#${match[1]}`;
+    changed++;
+  });
+  return changed;
+};
+var hasOwnTitle = (source) => {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(source.trimStart());
+  if (!match) return false;
+  const line = /^title\s*:\s*(.*?)\s*$/m.exec(match[1]);
+  if (!line) return false;
+  const value = line[1].replace(/^(["'])(.*)\1$/, "$2").trim();
+  return value.length > 0;
+};
+var titleFromFirstHeading = (tree, data, source) => {
+  if (hasOwnTitle(source)) return null;
+  const children = tree.children ?? [];
+  const index = children.findIndex((n2) => n2.type === "element" && n2.tagName === "h1");
+  if (index === -1) return null;
+  const h1 = children[index];
+  const title = textOf(h1).replace(/\s+/g, " ").trim();
+  if (!title) return null;
+  children.splice(index, 1);
+  data.frontmatter = { ...data.frontmatter ?? {}, title };
+  const id = h1.properties?.id;
+  if (data.toc && typeof id === "string") {
+    const kept = data.toc.filter((entry) => entry.slug !== id);
+    if (kept.length !== data.toc.length) {
+      const top = Math.min(...kept.map((entry) => entry.depth));
+      data.toc = kept.map((entry) => ({ ...entry, depth: entry.depth - top }));
+      if (data.toc.length === 0) delete data.toc;
+    }
+  }
+  return title;
+};
+
 // src/index.ts
 var defaultOptions = {
   plausibleScriptSrc: "",
@@ -111,12 +161,15 @@ var EditionIntegrations = (userOpts) => {
   const opts = { ...defaultOptions, ...userOpts };
   return {
     name: "EditionIntegrations",
-    // No-op: this plugin only injects head resources via externalResources(),
-    // but Quartz's loader requires a transformer to expose at least one of
-    // textTransform/markdownPlugins/htmlPlugins to be recognized as a valid
-    // transformer instance (see quartz/plugins/loader/config-loader.ts).
+    // Runs after every markdown plugin, so note-properties has already filled
+    // in the filename as a fallback title, and the table of contents exists.
     htmlPlugins() {
-      return [];
+      return [
+        () => (tree, file) => {
+          fixBlockRefLinks(tree);
+          titleFromFirstHeading(tree, file.data, String(file.value ?? ""));
+        }
+      ];
     },
     externalResources() {
       const head = [

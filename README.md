@@ -33,6 +33,25 @@ Injects three things into every page's `<head>`, site-wide:
    canonical Obsidian Publish site runs from `publish.js`.
 3. **The per-site Plausible script** (`pa-….js`), stock configuration.
 
+It also applies two HTML transforms to every page (`src/transforms.ts`,
+BOOK-ONE-TO-QUARTZ §8 step 3):
+
+- **Same-page citations.** The authoring app writes Obsidian block references,
+  `[Bhaskar, 1979](#^ref-bhaskar-1979)`. Quartz gives the reference paragraph
+  `id="ref-bhaskar-1979"` but leaves the href as `#%5Eref-…`, so the click went
+  nowhere (32 links in book one's Chapter 3, and in every edition's copy). A
+  fragment-only `#^id` href becomes `#id`. Cross-page citations already worked
+  and are not touched.
+- **Titles from the first heading** (decision D4). A page with no frontmatter
+  `title` used to be titled by its filename (`chapter-03`) in `<title>`, the
+  explorer, search and the graph, with its own `# Chapter 3: …` as a second H1.
+  Now the first top-level H1 becomes the title and leaves the body, with its
+  table-of-contents entry. A page with a frontmatter `title`, or with no H1, is
+  unchanged.
+
+`scripts/check-citations-and-titles.mjs <source> <before> <after>` checks both
+against two builds of a book, one with the plugin as it was and one with the change.
+
 **Options**
 
 | Option | Default | Notes |
