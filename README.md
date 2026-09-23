@@ -22,13 +22,11 @@ production infrastructure, not a scratch repo.
 
 ### `plugins/edition-integrations` — transformer
 
-Injects three things into every page's `<head>`, site-wide:
+Injects these into every page's `<head>`, site-wide:
 
-1. **Theme fine-tuning CSS** — type scale, vertical rhythm, and a 720px reading
-   measure. Colours and font *families* come from the edition's
-   `quartz.config.yaml` theme block; this covers what that config cannot express,
-   and references Quartz's generated CSS variables so a palette change in the
-   config propagates automatically.
+1. **The design values from `design.yaml`** (below): the palette and fonts, the
+   type scale and reading measure, the lead paragraph, the annotation
+   highlight, and the print styles.
 2. **The Hypothes.is client**, sidebar collapsed — the same first-party flow the
    canonical Obsidian Publish site runs from `publish.js`.
 3. **The per-site Plausible script** (`pa-….js`), stock configuration. With
@@ -44,8 +42,8 @@ Injects three things into every page's `<head>`, site-wide:
    `annotation_badge_clicked`. The badge goes at the end of edit-on-github's
    controls row, or under the title when there is none.
 
-It also applies two HTML transforms to every page (`src/transforms.ts`,
-BOOK-ONE-TO-QUARTZ §8 step 3):
+It also applies three HTML transforms to every page (`src/transforms.ts`,
+BOOK-ONE-TO-QUARTZ §8 steps 3 and 6):
 
 - **Same-page citations.** The authoring app writes Obsidian block references,
   `[Bhaskar, 1979](#^ref-bhaskar-1979)`. Quartz gives the reference paragraph
@@ -59,9 +57,49 @@ BOOK-ONE-TO-QUARTZ §8 step 3):
   Now the first top-level H1 becomes the title and leaves the body, with its
   table-of-contents entry. A page with a frontmatter `title`, or with no H1, is
   unchanged.
+- **The lead paragraph.** A paragraph directly after the page's first H1 gets
+  class `tb-lead`, which `design.yaml`'s stylesheet sets larger, as book one's
+  `publish.css` does. It is marked before the title transform removes the H1.
+  A chapter that opens with anything else (Chapter 3 opens with a callout) has
+  no lead, as on Publish.
 
-`scripts/check-citations-and-titles.mjs <source> <before> <after>` checks both
-against two builds of a book, one with the plugin as it was and one with the change.
+`scripts/check-citations-and-titles.mjs <source> <before> <after>` checks the
+first two against two builds of a book, one with the plugin as it was and one
+with the change.
+
+#### `design.yaml`: the design values
+
+`plugins/edition-integrations/design.yaml` holds the palette (light, and dark
+for when dark mode is on), the fonts, the type scale, the reading measure and
+rhythm, the annotation highlight, the controls row's size, and the print
+settings (BOOK-ONE-TO-QUARTZ §4a). It was seeded from book one's `publish.css`.
+Two values wait for the client (D12): the accent stays `#7C6CF0`, and dark
+mode stays off.
+
+- **It is read when a book builds, not when the plugin is compiled.** Changing a
+  value needs no `npm run build`. Quartz's plugin install copies the whole plugin
+  directory, so the file arrives beside `dist/` with the rest of the plugin.
+- **It overrides the theme block** in `quartz.config.yaml`. Its stylesheet comes
+  after Quartz's and redefines the variables Quartz generates from that block
+  (`--light` … `--textHighlight`, the font variables, and the accent's
+  hue/saturation/lightness). The theme block is still needed for Quartz to
+  build, but its values no longer reach the page. Quartz's graph reads the
+  same variables when it draws, so the graph follows the palette.
+- **It defines the `--tb-*` tokens** that the controls row, the suggest modal,
+  the tag helper and the badge use. Their literal fallbacks stay, for an
+  edition that pins edit-on-github without this plugin.
+- **A bad value fails the build.** Every value must be a plain colour, size or
+  number. Anything else, or a missing or unknown key, stops the build with the
+  key's name, rather than breaking the page quietly.
+- **Print** shows the chapter alone: no explorer, graph, outline, breadcrumbs,
+  reading time, controls, footer or annotation layer. It prints at full width
+  in black, with underlined links, and without splitting code, quotes or tables.
+
+`scripts/check-design.mjs <out-dir> <design.yaml> [page.html] [--pdf <file>]`
+checks a build in headless Chrome: the stylesheet on every page, the variables
+the graph reads, the graph as drawn (this needs the network, because the graph
+loads d3 and pixi from jsDelivr), the controls row, dark mode off, the
+highlight, and print. `--pdf` saves the print.
 
 **Options**
 
@@ -107,6 +145,8 @@ the end of the row.
   `userMessage` contract (shown as text, capped at 200 characters; `error` is
   never shown). The button is rendered hidden and shown only once the script
   has armed it, so a reader with scripts blocked never meets a dead control.
+- **The row's size and colour** come from edition-integrations' `--tb-*`
+  tokens (`design.yaml`), with its own values as fallbacks.
 - **Events**, with book one's names: `edit_on_github_clicked`,
   `suggest_edit_opened`, `suggest_edit_submitted {outcome}`. They go through
   edition-integrations' `window.tbTrack()`, and are dropped silently where it
@@ -170,7 +210,8 @@ npm run build
 **Commit `dist/`.** Quartz v5 plugins ship pre-built and are installed straight
 from the repository — there is no build step on the consumer's side. A source
 change without a rebuilt, committed `dist/` has no effect anywhere, and nothing
-warns you.
+warns you. The one exception is `edition-integrations/design.yaml`, which is
+read at build time.
 
 ### Releasing a change
 

@@ -1,5 +1,5 @@
 /**
- * The two HTML transforms (BOOK-ONE-TO-QUARTZ §2 #1 and #2, §8 step 3).
+ * The HTML transforms (BOOK-ONE-TO-QUARTZ §2 #1 and #2, §8 steps 3 and 6).
  *
  * 1. Same-page citations. The authoring app writes Obsidian block references,
  *    `[Bhaskar, 1979](#^ref-bhaskar-1979)`. Quartz gives the reference paragraph
@@ -16,6 +16,12 @@
  *    no `title`, the first top-level H1 becomes the title and leaves the body,
  *    along with its table-of-contents entry. A page with a frontmatter `title`,
  *    or with no H1, is left exactly as it was.
+ *
+ * 3. The lead paragraph (§8 step 6). publish.css sets the paragraph right after
+ *    a chapter's H1 larger. Transform 2 removes that H1 from the body, so CSS
+ *    can no longer find the paragraph by position. It is marked `tb-lead`
+ *    first. A page whose H1 is followed by anything else (chapter 3 opens with
+ *    a callout) has no lead, as on Publish.
  *
  * No dependencies beyond the tree itself, so nothing new ships in dist/.
  */
@@ -114,4 +120,32 @@ export const titleFromFirstHeading = (
     }
   }
   return title;
+};
+
+// --- 3. the lead paragraph -------------------------------------------------------
+
+const isElement = (node: HastNode | undefined): node is HastNode => node?.type === "element";
+const isBlank = (node: HastNode): boolean => node.type === "text" && !(node.value ?? "").trim();
+
+/**
+ * Adds class `tb-lead` to a paragraph that directly follows the first
+ * top-level H1 (whitespace between them aside). Returns whether it did.
+ * Run before titleFromFirstHeading, which removes the H1.
+ */
+export const markLeadParagraph = (tree: HastNode): boolean => {
+  const children = tree.children ?? [];
+  const index = children.findIndex((n) => isElement(n) && n.tagName === "h1");
+  if (index === -1) return false;
+  const next = children.slice(index + 1).find((n) => !isBlank(n));
+  if (!isElement(next) || next.tagName !== "p") return false;
+  const props = (next.properties ??= {});
+  const existing = props.className;
+  const classes = Array.isArray(existing)
+    ? existing.map(String)
+    : typeof existing === "string"
+      ? existing.split(/\s+/).filter(Boolean)
+      : [];
+  if (!classes.includes("tb-lead")) classes.push("tb-lead");
+  props.className = classes;
+  return true;
 };

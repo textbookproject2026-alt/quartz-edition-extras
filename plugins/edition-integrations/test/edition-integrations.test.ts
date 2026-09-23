@@ -125,4 +125,16 @@ describe("Plausible", () => {
     const init = inlineScripts(head).find((html) => html.includes("plausible.init("));
     expect(init).toContain("window.plausible.q = window.plausible.q || []");
   });
+
+  it("puts design.yaml's fonts and stylesheet first in the head", () => {
+    const head = headOf();
+    expect(head[0]?.type).toBe("link");
+    expect((head[0]?.props as { href?: string }).href).toMatch(
+      /^https:\/\/fonts\.googleapis\.com\//,
+    );
+    expect(head[1]?.type).toBe("style");
+    const css = (head[1]?.props as ScriptProps).dangerouslySetInnerHTML?.__html ?? "";
+    expect(css).toContain("--secondary: #7C6CF0;");
+    expect(css).toContain("@media print");
+  });
 });
