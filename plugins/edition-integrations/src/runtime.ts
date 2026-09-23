@@ -303,8 +303,9 @@ export const tagHelper = `
  * no in-flight dedupe or re-injection loop to port. Counts are cached in
  * sessionStorage for 5 minutes, and dropped when the sidebar closes.
  *
- * It sits beside the Edit link when the page has one, else under the article
- * title; the controls row (§8 step 5) is its eventual home.
+ * It goes at the end of edit-on-github's controls row (§8 step 5); beside a
+ * bare Edit link, from an edit-on-github pinned before the row; else under the
+ * article title.
  */
 export const annotationBadge = `
 ;(function () {
@@ -351,6 +352,7 @@ export const annotationBadge = `
         "  background: var(--tb-bg-soft, #F7F7F5); color: var(--tb-muted, #6E6E73); cursor: pointer; }",
         "button." + BADGE_CLASS + ":hover { border-color: var(--tb-accent, #7C6CF0);",
         "  color: var(--tb-accent, #7C6CF0); background: var(--tb-accent-wash, #EEEBFD); }",
+        ".tb-page-controls button." + BADGE_CLASS + " { margin-left: 0; }",
         "@media print { button." + BADGE_CLASS + " { display: none !important; } }",
       ].join("\\n")
       document.head.appendChild(style)
@@ -369,7 +371,8 @@ export const annotationBadge = `
     }
 
     var place = function (count) {
-      var anchor = document.querySelector("a.edit-on-github") ||
+      var anchor = document.querySelector(".tb-page-controls") ||
+        document.querySelector("a.edit-on-github") ||
         document.querySelector("h1.article-title")
       if (!anchor || !anchor.parentNode) return
       injectStyle()
@@ -385,7 +388,8 @@ export const annotationBadge = `
         window.tbTrack("annotation_badge_clicked") // no count prop: page-identifying
         openSidebar(b, label)
       })
-      if (anchor.tagName === "A") anchor.insertAdjacentElement("afterend", b)
+      if (anchor.classList.contains("tb-page-controls")) anchor.appendChild(b)
+      else if (anchor.tagName === "A") anchor.insertAdjacentElement("afterend", b)
       else {
         var row = document.createElement("p")
         row.className = "tb-anno-badge-row"

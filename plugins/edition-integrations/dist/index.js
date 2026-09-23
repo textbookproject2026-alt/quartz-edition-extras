@@ -373,6 +373,7 @@ var annotationBadge = `
         "  background: var(--tb-bg-soft, #F7F7F5); color: var(--tb-muted, #6E6E73); cursor: pointer; }",
         "button." + BADGE_CLASS + ":hover { border-color: var(--tb-accent, #7C6CF0);",
         "  color: var(--tb-accent, #7C6CF0); background: var(--tb-accent-wash, #EEEBFD); }",
+        ".tb-page-controls button." + BADGE_CLASS + " { margin-left: 0; }",
         "@media print { button." + BADGE_CLASS + " { display: none !important; } }",
       ].join("\\n")
       document.head.appendChild(style)
@@ -391,7 +392,8 @@ var annotationBadge = `
     }
 
     var place = function (count) {
-      var anchor = document.querySelector("a.edit-on-github") ||
+      var anchor = document.querySelector(".tb-page-controls") ||
+        document.querySelector("a.edit-on-github") ||
         document.querySelector("h1.article-title")
       if (!anchor || !anchor.parentNode) return
       injectStyle()
@@ -407,7 +409,8 @@ var annotationBadge = `
         window.tbTrack("annotation_badge_clicked") // no count prop: page-identifying
         openSidebar(b, label)
       })
-      if (anchor.tagName === "A") anchor.insertAdjacentElement("afterend", b)
+      if (anchor.classList.contains("tb-page-controls")) anchor.appendChild(b)
+      else if (anchor.tagName === "A") anchor.insertAdjacentElement("afterend", b)
       else {
         var row = document.createElement("p")
         row.className = "tb-anno-badge-row"
