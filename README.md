@@ -31,7 +31,18 @@ Injects three things into every page's `<head>`, site-wide:
    config propagates automatically.
 2. **The Hypothes.is client**, sidebar collapsed — the same first-party flow the
    canonical Obsidian Publish site runs from `publish.js`.
-3. **The per-site Plausible script** (`pa-….js`), stock configuration.
+3. **The per-site Plausible script** (`pa-….js`), stock configuration. With
+   `siteDomain` set, it loads only on that host, so a `*.pages.dev` preview or
+   `localhost` counts nothing, not even a pageview.
+4. **Book one's reader runtime**, ported from its `publish.js` without the SPA
+   handling (`src/runtime.ts`, BOOK-ONE-TO-QUARTZ §8 step 4):
+   `window.tbTrack()` (the one door for custom events, a silent no-op when
+   Plausible is missing or guarded off), the **tag helper** beside the open
+   Hypothes.is sidebar, and the **annotation badge** (the page's public count,
+   which opens the sidebar). Their events keep book one's names:
+   `annotation_tag_copied {tag}`, `annotation_sidebar_opened`,
+   `annotation_badge_clicked`. The badge sits beside the Edit link, or under the
+   title when there is none.
 
 It also applies two HTML transforms to every page (`src/transforms.ts`,
 BOOK-ONE-TO-QUARTZ §8 step 3):
@@ -57,6 +68,9 @@ against two builds of a book, one with the plugin as it was and one with the cha
 | Option | Default | Notes |
 |---|---|---|
 | `plausibleScriptSrc` | `""` | The edition's own script address from Plausible → Site settings → Site installation. `""` simply disables analytics; nothing breaks. |
+| `siteDomain` | `""` | The one hostname Plausible counts on (a book's `site.domain`). `""` counts on every host, as editions always have. |
+| `tagHelper` | `true` | The tag helper panel. |
+| `annotationBadge` | `true` | The annotation count badge. |
 | `hypothesisGroupId` | `""` | **Inert. Leave empty, permanently.** |
 
 `hypothesisGroupId` is documented dead code. It would only take effect if the
