@@ -98,6 +98,8 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
     );
   };
 
+  // Size and colour come from edition-integrations' design.yaml (the --tb-*
+  // tokens), with this plugin's own values as fallbacks where it isn't installed.
   Component.css = `
 .tb-page-controls {
   display: flex;
@@ -110,10 +112,10 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
 .tb-page-controls button.tb-suggest-btn {
   display: inline-block;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--tb-size-controls, 0.85rem);
   font-weight: 600;
   line-height: 1.4;
-  color: var(--gray);
+  color: var(--tb-muted, var(--gray));
   text-decoration: none;
   background: none;
   border: 0;

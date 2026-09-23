@@ -86,10 +86,10 @@ var EditOnGitHub = (userOpts) => {
 .tb-page-controls button.tb-suggest-btn {
   display: inline-block;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--tb-size-controls, 0.85rem);
   font-weight: 600;
   line-height: 1.4;
-  color: var(--gray);
+  color: var(--tb-muted, var(--gray));
   text-decoration: none;
   background: none;
   border: 0;

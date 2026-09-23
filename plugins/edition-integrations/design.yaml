@@ -1,0 +1,80 @@
+# The textbook's design values: every book on the builder, and every edition
+# that pins this plugin, looks like this file says.
+#
+# It is read when a book builds, not when the plugin is compiled, so changing a
+# value here needs no `npm run build`. A value that isn't a plain colour, size
+# or number fails the build with the key's name, rather than breaking the page.
+#
+# Seeded on 23 Sep 2026 from book one's publish.css, which is what readers see
+# today (BOOK-ONE-TO-QUARTZ §4a). Two values wait for the client (D12): the
+# accent stays #7C6CF0 (the "AA-strict" alternative is #6A57E0 for link text),
+# and dark mode stays off.
+
+palette:
+  light:
+    accent: "#7C6CF0" # links, active nav, the graph's current page
+    accentHover: "#6A57E0"
+    accentWash: "#EEEBFD" # active-nav background, internal-link tint
+    heading: "#2B2B2B"
+    ink: "#2B2B2B" # body text
+    muted: "#6E6E73" # captions, secondary text, the controls row
+    faint: "#9B9BA1" # placeholders, disabled, the graph's other pages
+    border: "#E6E6E6"
+    background: "#FFFFFF"
+    backgroundSoft: "#F7F7F5" # code, chips
+    mark: "#FDF2B3" # ==highlighted text==
+  # Used only when darkMode is true. Not reviewed: kept from the edition
+  # template's darkMode block so that turning it on starts somewhere sane.
+  dark:
+    accent: "#A79AF7"
+    accentHover: "#8F7FF2"
+    accentWash: "rgba(124, 108, 240, 0.15)"
+    heading: "#EBEBEC"
+    ink: "#D4D4D4"
+    muted: "#A0A0A6"
+    faint: "#646464"
+    border: "#393639"
+    background: "#161618"
+    backgroundSoft: "#222225"
+    mark: "#b3aa0288"
+
+# false: the page stays light even where the reader's system is dark (D12).
+darkMode: false
+
+# Hypothes.is highlights: the accent at low alpha, so black text on it stays
+# readable. Swap for "#FDF2B3" if the client prefers yellow.
+annotation:
+  highlight: "rgba(124, 108, 240, 0.22)"
+  focused: "rgba(124, 108, 240, 0.40)"
+
+# Google Fonts family names.
+fonts:
+  text: Inter
+  mono: JetBrains Mono
+
+type:
+  body: { size: 1.125rem, lineHeight: 1.65 } # 18px
+  lead: { size: 1.25rem, lineHeight: 1.6 } # the paragraph right after a chapter's title
+  h1: { size: 2.25rem, weight: 700, lineHeight: 1.15 }
+  h2: { size: 1.75rem, weight: 700, lineHeight: 1.2 }
+  h3: { size: 1.375rem, weight: 600, lineHeight: 1.3 }
+  # h4 is the "keycap" heading: a real heading, set in tracked capitals.
+  h4: { size: 1.125rem, weight: 600, lineHeight: 1.4, letterSpacing: 0.04em }
+  linkWeight: 600
+  # Below layout.mobileWidth. The lead paragraph drops to body size there too.
+  mobile: { h1: 1.875rem, h2: 1.5rem, h3: 1.25rem }
+
+layout:
+  measure: 720px # the reading column
+  rhythm: 1.5rem # paragraph spacing; headings get 2x (h2) and 1.5x (h3, h4) above
+  mobileWidth: 768px
+
+# The row under the title: Edit, History, Suggest, the annotation badge.
+controls:
+  size: 0.85rem
+
+# Printing hides everything but the chapter, and prints no annotation highlights.
+print:
+  size: 11pt
+  lineHeight: 1.5
+  margin: 2cm

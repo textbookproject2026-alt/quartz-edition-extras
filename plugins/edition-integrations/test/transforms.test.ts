@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { fixBlockRefLinks, hasOwnTitle, titleFromFirstHeading } from "../src/transforms";
+import {
+  fixBlockRefLinks,
+  hasOwnTitle,
+  markLeadParagraph,
+  titleFromFirstHeading,
+} from "../src/transforms";
 import type { HastNode, PageData } from "../src/transforms";
 
 const text = (value: string): HastNode => ({ type: "text", value });
@@ -104,5 +109,53 @@ describe("the title from the first heading", () => {
     expect(hasOwnTitle("---\ntags: [a]\n---\n")).toBe(false);
     expect(hasOwnTitle("# no frontmatter\n")).toBe(false);
     expect(hasOwnTitle("---\ntitle: Real\n---\n")).toBe(true);
+  });
+});
+
+describe("the lead paragraph", () => {
+  const classOf = (node: HastNode) => node.properties?.className;
+
+  it("marks the paragraph right after the first H1, across whitespace", () => {
+    const lead = el("p", {}, text("Welcome."));
+    const tree = root(
+      el("h1", { id: "t" }, text("Title")),
+      text("\n"),
+      lead,
+      el("p", {}, text("x")),
+    );
+    expect(markLeadParagraph(tree)).toBe(true);
+    expect(classOf(lead)).toEqual(["tb-lead"]);
+  });
+
+  it("keeps a paragraph's own classes", () => {
+    const lead = el("p", { className: ["intro"] }, text("Welcome."));
+    markLeadParagraph(root(el("h1", {}, text("Title")), lead));
+    expect(classOf(lead)).toEqual(["intro", "tb-lead"]);
+  });
+
+  it("marks nothing when the H1 is followed by something else, or there is no H1", () => {
+    const afterCallout = el("p", {}, text("x"));
+    expect(
+      markLeadParagraph(
+        root(
+          el("h1", {}, text("Chapter 3")),
+          el("blockquote", { className: ["callout"] }),
+          afterCallout,
+        ),
+      ),
+    ).toBe(false);
+    expect(classOf(afterCallout)).toBeUndefined();
+    const first = el("p", {}, text("x"));
+    expect(markLeadParagraph(root(el("h2", {}, text("A")), first))).toBe(false);
+    expect(classOf(first)).toBeUndefined();
+  });
+
+  it("survives the title transform removing the H1", () => {
+    const lead = el("p", {}, text("Welcome."));
+    const tree = root(el("h1", { id: "t" }, text("Title")), lead);
+    markLeadParagraph(tree);
+    titleFromFirstHeading(tree, {}, "# Title\n\nWelcome.\n");
+    expect(tree.children).toEqual([lead]);
+    expect(classOf(lead)).toEqual(["tb-lead"]);
   });
 });
