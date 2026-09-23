@@ -41,8 +41,8 @@ Injects three things into every page's `<head>`, site-wide:
    Hypothes.is sidebar, and the **annotation badge** (the page's public count,
    which opens the sidebar). Their events keep book one's names:
    `annotation_tag_copied {tag}`, `annotation_sidebar_opened`,
-   `annotation_badge_clicked`. The badge sits beside the Edit link, or under the
-   title when there is none.
+   `annotation_badge_clicked`. The badge goes at the end of edit-on-github's
+   controls row, or under the title when there is none.
 
 It also applies two HTML transforms to every page (`src/transforms.ts`,
 BOOK-ONE-TO-QUARTZ §8 step 3):
@@ -91,13 +91,39 @@ been removed. Please don't reintroduce it.
 
 ### `plugins/edit-on-github` — component
 
-Renders the **Edit on GitHub** link under each page title, mapped from Quartz's own
-slug→source-file data (`fileData.filePath`), so no path reverse-mapping is needed.
+The **controls row** under each page title (BOOK-ONE-TO-QUARTZ §1b, §8 step 5):
+**Edit on GitHub ↗**, **View revision history ↗**, and, when `suggestEndpoint`
+is set, **Suggest an edit**. edition-integrations puts its annotation badge at
+the end of the row.
+
+- **The links** come from Quartz's own source path, so no reverse-mapping from
+  URLs: `contentDir` joined to `fileData.relativePath` (which is relative to the
+  `-d` directory), encoded per segment. The Edit link keeps class
+  `edit-on-github` and its href shape; book two's post-build form and
+  edition-integrations find it by them. Tag and folder listings get no row.
+- **Suggest an edit** is book one's modal, ported from `publish.js:805-1450`
+  (`src/components/scripts/controls.inline.ts`): the four honeypot guards, the
+  focus trap, the character counter without a live region, and the
+  `userMessage` contract (shown as text, capped at 200 characters; `error` is
+  never shown). The button is rendered hidden and shown only once the script
+  has armed it, so a reader with scripts blocked never meets a dead control.
+- **Events**, with book one's names: `edit_on_github_clicked`,
+  `suggest_edit_opened`, `suggest_edit_submitted {outcome}`. They go through
+  edition-integrations' `window.tbTrack()`, and are dropped silently where it
+  isn't installed.
+
+`scripts/check-controls.mjs <out-dir> <page.html> <expected-edit-href>` checks
+a build: the links, the row's order, keyboard-only use of the modal, the
+honeypot, and the three events.
+
+**Options**
 
 | Option | Default | Notes |
 |---|---|---|
 | `repo` | `""` | The edition's own `owner/repository`. The template ships the placeholder `OWNER/REPO`; an edition that never replaced it gets a 404 on every page and no other visible symptom. |
 | `branch` | `"main"` | |
+| `contentDir` | `"content"` | The repo directory `quartz build -d` reads. `content` is Quartz's default, which editions and book two use, so their links are unchanged. The shared builder builds a book from its repo root and sets `""`. |
+| `suggestEndpoint` | `""` | The suggest-edit function's URL. `""` hides Suggest: the function answers 403 to an origin the registry doesn't list, and an edition's origin isn't listed. |
 
 Default position `beforeBody`, priority `25` — it sits with the page meta, under
 the title.

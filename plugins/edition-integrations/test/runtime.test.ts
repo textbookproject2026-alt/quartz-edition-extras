@@ -151,6 +151,22 @@ describe("the annotation badge", () => {
     expect(badge.previousElementSibling?.className).toBe("edit-on-github");
   });
 
+  it("goes at the end of the controls row when the page has one", async () => {
+    const w = page(
+      "https://book.example.org/chapters/chapter-03",
+      '<h1 class="article-title">T</h1><div class="tb-page-controls">' +
+        '<a class="edit-on-github" href="#">Edit</a><a class="tb-history-link" href="#">History</a>' +
+        '<button class="tb-suggest-btn">Suggest</button></div>',
+    );
+    withCount(w, 1);
+    w.eval(trackRuntime);
+    w.eval(annotationBadge);
+    await (w.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
+    const row = w.document.querySelector(".tb-page-controls")!;
+    expect(row.lastElementChild?.className).toBe("tb-anno-badge");
+    expect(w.document.querySelectorAll("button.tb-anno-badge")).toHaveLength(1);
+  });
+
   it("canonicalises /index to /", async () => {
     const w = page("https://book.example.org/index.html");
     const asked = withCount(w, 0);
