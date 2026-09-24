@@ -16,7 +16,8 @@ Forked from `quartz-community/graph` at `46f0ba1c3c0cc484697572e7bcf315fa384d80d
 - Nodes coloured by topic: frontmatter `topic:`, else the first tag (not `concept`).
   Eight categorical slots (`--tb-topic-1` … `-8`, `--tb-topic-other`), handed to the
   most-used topics at build time (`src/topics.ts`); the rest are "Other".
-- Always-on labels at a constant screen size, decluttered: overlapping labels hide,
+- Always-on labels at a constant screen size, decluttered: each label takes the first of
+  four spots (above, below, right, left) clear of other labels and dots, else hides,
   most-linked first, a highlighted topic's pages before the rest; the current page
   and the hovered node and its neighbours always keep theirs. Titles over 28 characters are shortened until
   hovered.

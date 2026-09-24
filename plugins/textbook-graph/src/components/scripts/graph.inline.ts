@@ -7,8 +7,10 @@
  *     at build time and the component writes it to data-topics). Colour used
  *     to mean current/visited/tag; now the current page is a dark ring and the
  *     visited colour is gone, so colour means one thing only.
- *   - Labels are always on, at a constant screen size. A greedy pass hides
- *     the ones that would overlap, most-linked pages first (a highlighted
+ *   - Labels are always on, at a constant screen size. A greedy pass puts
+ *     each label above, below, right or left of its node, wherever it clears
+ *     the other labels and dots, and hides it only when none does; the
+ *     most-linked pages are placed first (a highlighted
  *     topic's pages before the rest); the current page and the hovered node
  *     and its neighbours always keep theirs. Long titles are shortened, and
  *     shown in full on hover.
@@ -383,9 +385,40 @@ import {
         labelsDirty = true;
       }
 
-      // Which labels show. Screen-space boxes, placed in priority order; a
-      // label that would overlap one already placed is hidden, unless it must
-      // show. Runs when the view changes, not every frame.
+      // Where a label may sit, tried in this order: above its node, below,
+      // right, left. [anchor x, anchor y, offset x, offset y] in units of
+      // (node radius + gap); the anchor is PIXI's.
+      var SPOTS = [
+        [0.5, 1, 0, -1],
+        [0.5, 0, 0, 1],
+        [0, 0.5, 1, 0],
+        [1, 0.5, -1, 0],
+      ];
+
+      function spotBox(nd, sx, sy, r, spot) {
+        var s = SPOTS[spot];
+        var w = nd.labelW + 4;
+        var h = nd.labelH;
+        var ax = sx + s[2] * (r + 4);
+        var ay = sy + s[3] * (r + 3);
+        return { x: ax - s[0] * w, y: ay - s[1] * h, w: w, h: h };
+      }
+
+      function overlaps(box, list) {
+        for (var j = 0; j < list.length; j++) {
+          var p = list[j];
+          if (box.x < p.x + p.w && p.x < box.x + box.w && box.y < p.y + p.h && p.y < box.y + box.h)
+            return true;
+        }
+        return false;
+      }
+
+      // Which labels show, and where. Screen-space boxes, placed in priority
+      // order: each label takes the first of its four spots that clears every
+      // label already placed and every other node's dot (its last spot is
+      // tried first, so labels don't hop about while the layout settles). A
+      // label with no clear spot hides, unless it must show. Runs when the
+      // view changes, not every frame.
       function placeLabels() {
         var k = currentTransform.k;
         var tx = currentTransform.x;
@@ -393,6 +426,15 @@ import {
         var order = nodeRenderData.slice().sort(function (a, b) {
           return b.priority() - a.priority();
         });
+        var dots = [];
+        for (var i = 0; i < nodeRenderData.length; i++) {
+          var m = nodeRenderData[i].simulationData;
+          if (m.x == null) continue;
+          var mr = nodeRadius(m) * k;
+          var mx = (m.x + width / 2) * k + tx;
+          var my = (m.y + height / 2) * k + ty;
+          dots.push({ id: m.id, box: { x: mx - mr, y: my - mr, w: 2 * mr, h: 2 * mr } });
+        }
         var placed = [];
         for (var i = 0; i < order.length; i++) {
           var nd = order[i];
@@ -403,25 +445,39 @@ import {
           var hiddenByFocus = focusTopic !== null && !must && (n.isTag || !inFocus(n));
           var sx = (n.x + width / 2) * k + tx;
           var sy = (n.y + height / 2) * k + ty;
-          var box = {
-            x: sx - nd.labelW / 2 - 2,
-            y: sy - nodeRadius(n) * k - 3 - nd.labelH,
-            w: nd.labelW + 4,
-            h: nd.labelH,
-          };
-          var offscreen = box.x + box.w < 0 || box.x > width || box.y + box.h < 0 || box.y > height;
-          var show = !offscreen && !hiddenByFocus;
-          if (show && !must) {
-            for (var j = 0; j < placed.length; j++) {
-              var p = placed[j];
-              if (box.x < p.x + p.w && p.x < box.x + box.w && box.y < p.y + p.h && p.y < box.y + box.h) {
-                show = false;
+          var r = nodeRadius(n) * k;
+          var others = dots.filter(function (d) {
+            return d.id !== n.id;
+          }).map(function (d) {
+            return d.box;
+          });
+          var tries = [nd.labelSpot];
+          for (var t = 0; t < SPOTS.length; t++) if (t !== nd.labelSpot) tries.push(t);
+          var chosen = -1;
+          var box = null;
+          if (!hiddenByFocus) {
+            for (var t = 0; t < tries.length; t++) {
+              var b = spotBox(nd, sx, sy, r, tries[t]);
+              var offscreen = b.x < 0 || b.x + b.w > width || b.y < 0 || b.y + b.h > height;
+              if (!offscreen && !overlaps(b, placed) && !overlaps(b, others)) {
+                chosen = tries[t];
+                box = b;
                 break;
               }
             }
+            if (chosen < 0 && must) {
+              chosen = nd.labelSpot;
+              box = spotBox(nd, sx, sy, r, chosen);
+            }
           }
-          if (show) placed.push(box);
-          nd.labelTarget = show ? 1 : 0;
+          if (chosen >= 0) {
+            placed.push(box);
+            if (chosen !== nd.labelSpot) {
+              nd.labelSpot = chosen;
+              nd.label.anchor.set(SPOTS[chosen][0], SPOTS[chosen][1]);
+            }
+          }
+          nd.labelTarget = chosen >= 0 ? 1 : 0;
         }
         labelsDirty = false;
       }
@@ -470,6 +526,7 @@ import {
           labelW: label.width,
           labelH: label.height,
           labelTarget: 0,
+          labelSpot: 0,
           alpha: 1,
           active: false,
           priority: null,
@@ -673,7 +730,12 @@ import {
             n.gfx.position.set(x + width / 2, y + height / 2);
             // Constant screen size: the stage is scaled by k, the label by 1/k.
             n.label.scale.set(1 / k);
-            n.label.position.set(x + width / 2, y + height / 2 - nodeRadius(n.simulationData) - 3 / k);
+            var spot = SPOTS[n.labelSpot];
+            var rr = nodeRadius(n.simulationData);
+            n.label.position.set(
+              x + width / 2 + spot[2] * (rr + 4 / k),
+              y + height / 2 + spot[3] * (rr + 3 / k),
+            );
             n.label.alpha += (n.labelTarget - n.label.alpha) * 0.35;
           }
         }

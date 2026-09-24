@@ -31,7 +31,9 @@ The textbook platform's graph view: [`quartz-community/graph`](https://github.co
    The current page is a dark ring.
 
 2. **Labels are always on.** They stay the same size on screen whatever the
-   zoom. Where two would overlap, the less-linked one hides (a highlighted
+   zoom. Each label sits above, below, right or left of its node, wherever it
+   clears the other labels and dots; only when none of the four is clear does
+   it hide, the less-linked one first (a highlighted
    topic's pages win over the rest); the current page, the hovered node and its
    neighbours always show. Titles over 28 characters are cut until hovered.
 
