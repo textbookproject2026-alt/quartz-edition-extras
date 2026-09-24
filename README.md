@@ -11,6 +11,7 @@ production infrastructure, not a scratch repo.
 
 - **Canonical textbook:** `textbookproject2026-alt/textbook`
 - **Edition template (consumer of this repo):** `textbookproject2026-alt/textbook-edition-template`
+- **Platform builder (consumer of this repo):** `textbookproject2026-alt/quartz-book`, pinned in its `quartz.lock.json` and moved by its `bump-extras` bot.
 - **Operating guide:** `docs/updating-department-editions.md` in the textbook repo —
   how a change here reaches a live edition, and why it doesn't on its own.
 - **Service inventory:** `docs/INFRASTRUCTURE.md` in `textbookproject2026-alt/textbook-registry`
