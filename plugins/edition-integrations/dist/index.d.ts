@@ -19,13 +19,6 @@ interface Options {
      * a toggle in the controls row that each reader's browser remembers.
      */
     paragraphNumbers: boolean;
-    /**
-     * The page-views endpoint (suggest-edit-function's /api/page-views), for the
-     * "n views" count in the controls row. "" shows no count.
-     */
-    viewsEndpoint: string;
-    /** The book's registry slug, which the views endpoint is asked about. */
-    bookSlug: string;
     /** Hypothes.is group ID — inert: it would only take effect if the commented services block below were enabled, and that is unused by decision (Publisher tier not bought, R1 closed). */
     hypothesisGroupId: string;
 }

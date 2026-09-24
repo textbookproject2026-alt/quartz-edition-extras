@@ -110,8 +110,6 @@ highlight, and print. `--pdf` saves the print.
 | `tagHelper` | `true` | The tag helper panel. |
 | `annotationBadge` | `true` | The annotation count badge. |
 | `paragraphNumbers` | `true` | ¶ numbers in the margin (every page but the home page), click to copy a paragraph's link, and a reader's toggle in the controls row. Frontmatter `paragraphNumbers: false` opts a page out. |
-| `viewsEndpoint` | `""` | The page-views endpoint; `""` shows no view count. quartz-book sets it from the registry. |
-| `bookSlug` | `""` | The book's registry slug, for the views endpoint. |
 | `hypothesisGroupId` | `""` | **Inert. Leave empty, permanently.** |
 
 `hypothesisGroupId` is documented dead code. It would only take effect if the

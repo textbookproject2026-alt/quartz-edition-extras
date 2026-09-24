@@ -9,7 +9,6 @@
  *   - tagHelper:       the "Tag your annotation" panel beside the sidebar
  *   - annotationBadge: the per-page annotation count, which opens the sidebar
  *   - paragraphNumbers: the ¶ numbers' style, click-to-link, and the toggle
- *   - pageViews:       the page's view count from the page-views endpoint
  *
  * Event names are Plausible's history for book one and must not change:
  * annotation_tag_copied {tag}, annotation_sidebar_opened, annotation_badge_clicked.
@@ -550,93 +549,5 @@ export const paragraphNumbers = `
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arm)
     else arm()
   } catch (e) { /* numbers stay as the page drew them; nothing else affected */ }
-})()
-`;
-
-/**
- * The page's view count, "1,204 views", in the controls row. From the
- * platform's page-views endpoint (suggest-edit-function /api/page-views),
- * which reads Plausible with a key the browser never sees and answers for the
- * whole book at once, edge-cached for an hour. So a reader costs at most one
- * request per book per hour of their session (sessionStorage), and a count
- * that can't be had is simply not shown.
- *
- * The page is looked up by its canonical path, as the annotation badge and
- * Plausible's own pageview name it.
- */
-export const pageViews = (endpoint: string, slug: string): string => `
-;(function () {
-  try {
-    var URL_ = ${JSON.stringify(endpoint)} + "?book=" + encodeURIComponent(${JSON.stringify(slug)})
-    var CACHE_KEY = "tb-views:v1:" + ${JSON.stringify(slug)}
-    var CACHE_TTL = 60 * 60 * 1000
-    var FETCH_TIMEOUT = 6000
-
-    var path = location.pathname.replace(/\\.html$/, "")
-    if (path === "/index" || /\\/index$/.test(path)) path = path.slice(0, -"index".length)
-    try { path = decodeURI(path) } catch (e) {}
-
-    var cacheGet = function () {
-      try {
-        var entry = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null")
-        var age = entry ? Date.now() - entry.t : -1
-        return age >= 0 && age < CACHE_TTL && entry.pages ? entry.pages : null
-      } catch (e) { return null }
-    }
-    var cachePut = function (pages) {
-      try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), pages: pages })) } catch (e) {}
-    }
-
-    var place = function (n) {
-      var anchor = document.querySelector(".tb-page-controls") || document.querySelector("h1.article-title")
-      if (!anchor || !anchor.parentNode || document.querySelector(".tb-views")) return
-      if (!document.getElementById("tb-views-style")) {
-        var style = document.createElement("style")
-        style.id = "tb-views-style"
-        style.textContent = ".tb-views { font-family: var(--tb-font-text, sans-serif); font-size: var(--tb-size-controls, 0.85rem);" +
-          " color: var(--tb-muted, #6E6E73); font-variant-numeric: tabular-nums; white-space: nowrap; }" +
-          " .tb-page-controls .tb-views { order: -1; } @media print { .tb-views { display: none !important; } }"
-        document.head.appendChild(style)
-      }
-      var span = document.createElement("span")
-      span.className = "tb-views"
-      span.textContent = n.toLocaleString("en-GB") + (n === 1 ? " view" : " views")
-      span.title = "Page views since the book's analytics began"
-      if (anchor.classList.contains("tb-page-controls")) anchor.appendChild(span)
-      else {
-        var row = document.createElement("p")
-        row.className = "tb-views-row"
-        row.appendChild(span)
-        anchor.insertAdjacentElement("afterend", row)
-      }
-    }
-
-    var show = function (pages) {
-      var n = Number(pages[path])
-      if (isFinite(n) && n > 0) place(n)
-    }
-
-    var run = function () {
-      var cached = cacheGet()
-      if (cached) return Promise.resolve(show(cached))
-      var c = typeof AbortController === "function" ? new AbortController() : null
-      var timer = setTimeout(function () { if (c) c.abort() }, FETCH_TIMEOUT)
-      return fetch(URL_, c ? { signal: c.signal } : {})
-        .then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json() })
-        .then(function (body) {
-          if (!body || typeof body.pages !== "object" || !body.pages) throw new Error("no pages")
-          cachePut(body.pages)
-          show(body.pages)
-        })
-        .catch(function () {}) // no count; nothing else affected
-        .finally(function () { clearTimeout(timer) })
-    }
-    window.__tbViews = { path: path, ready: null }
-    if (document.readyState === "loading") {
-      window.__tbViews.ready = new Promise(function (resolve) {
-        document.addEventListener("DOMContentLoaded", function () { run().then(resolve) })
-      })
-    } else window.__tbViews.ready = run()
-  } catch (e) { /* count absent */ }
 })()
 `;

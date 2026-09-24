@@ -12,7 +12,7 @@
  *   4. window.tbTrack() for custom events, the annotation tag helper and the
  *      annotation badge, ported from book one's publish.js (src/runtime.ts)
  *
- *   5. Paragraph numbers' style and toggle, and the page-views count
+ *   5. Paragraph numbers' style and toggle
  *      (src/runtime.ts)
  *
  * and applies four HTML transforms to every page (src/transforms.ts):
@@ -52,7 +52,6 @@ import {
   analyticsLoader,
   annotationBadge,
   noTracking,
-  pageViews,
   paragraphNumbers,
   tagHelper,
   trackRuntime,
@@ -77,13 +76,6 @@ interface Options {
    * a toggle in the controls row that each reader's browser remembers.
    */
   paragraphNumbers: boolean;
-  /**
-   * The page-views endpoint (suggest-edit-function's /api/page-views), for the
-   * "n views" count in the controls row. "" shows no count.
-   */
-  viewsEndpoint: string;
-  /** The book's registry slug, which the views endpoint is asked about. */
-  bookSlug: string;
   /** Hypothes.is group ID — inert: it would only take effect if the commented services block below were enabled, and that is unused by decision (Publisher tier not bought, R1 closed). */
   hypothesisGroupId: string;
 }
@@ -94,8 +86,6 @@ const defaultOptions: Options = {
   tagHelper: true,
   annotationBadge: true,
   paragraphNumbers: true,
-  viewsEndpoint: "",
-  bookSlug: "",
   hypothesisGroupId: "",
 };
 
@@ -248,8 +238,6 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       if (opts.tagHelper) head.push(script(tagHelper));
       if (opts.annotationBadge) head.push(script(annotationBadge));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
-      if (opts.viewsEndpoint && opts.bookSlug)
-        head.push(script(pageViews(opts.viewsEndpoint, opts.bookSlug)));
       // Last, so window.hypothesisConfig above is already set when embed.js boots.
       head.push(h("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }) as VNode);
       return { additionalHead: head };

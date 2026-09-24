@@ -8181,82 +8181,6 @@ var paragraphNumbers = `
   } catch (e) { /* numbers stay as the page drew them; nothing else affected */ }
 })()
 `;
-var pageViews = (endpoint, slug) => `
-;(function () {
-  try {
-    var URL_ = ${JSON.stringify(endpoint)} + "?book=" + encodeURIComponent(${JSON.stringify(slug)})
-    var CACHE_KEY = "tb-views:v1:" + ${JSON.stringify(slug)}
-    var CACHE_TTL = 60 * 60 * 1000
-    var FETCH_TIMEOUT = 6000
-
-    var path = location.pathname.replace(/\\.html$/, "")
-    if (path === "/index" || /\\/index$/.test(path)) path = path.slice(0, -"index".length)
-    try { path = decodeURI(path) } catch (e) {}
-
-    var cacheGet = function () {
-      try {
-        var entry = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null")
-        var age = entry ? Date.now() - entry.t : -1
-        return age >= 0 && age < CACHE_TTL && entry.pages ? entry.pages : null
-      } catch (e) { return null }
-    }
-    var cachePut = function (pages) {
-      try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), pages: pages })) } catch (e) {}
-    }
-
-    var place = function (n) {
-      var anchor = document.querySelector(".tb-page-controls") || document.querySelector("h1.article-title")
-      if (!anchor || !anchor.parentNode || document.querySelector(".tb-views")) return
-      if (!document.getElementById("tb-views-style")) {
-        var style = document.createElement("style")
-        style.id = "tb-views-style"
-        style.textContent = ".tb-views { font-family: var(--tb-font-text, sans-serif); font-size: var(--tb-size-controls, 0.85rem);" +
-          " color: var(--tb-muted, #6E6E73); font-variant-numeric: tabular-nums; white-space: nowrap; }" +
-          " .tb-page-controls .tb-views { order: -1; } @media print { .tb-views { display: none !important; } }"
-        document.head.appendChild(style)
-      }
-      var span = document.createElement("span")
-      span.className = "tb-views"
-      span.textContent = n.toLocaleString("en-GB") + (n === 1 ? " view" : " views")
-      span.title = "Page views since the book's analytics began"
-      if (anchor.classList.contains("tb-page-controls")) anchor.appendChild(span)
-      else {
-        var row = document.createElement("p")
-        row.className = "tb-views-row"
-        row.appendChild(span)
-        anchor.insertAdjacentElement("afterend", row)
-      }
-    }
-
-    var show = function (pages) {
-      var n = Number(pages[path])
-      if (isFinite(n) && n > 0) place(n)
-    }
-
-    var run = function () {
-      var cached = cacheGet()
-      if (cached) return Promise.resolve(show(cached))
-      var c = typeof AbortController === "function" ? new AbortController() : null
-      var timer = setTimeout(function () { if (c) c.abort() }, FETCH_TIMEOUT)
-      return fetch(URL_, c ? { signal: c.signal } : {})
-        .then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json() })
-        .then(function (body) {
-          if (!body || typeof body.pages !== "object" || !body.pages) throw new Error("no pages")
-          cachePut(body.pages)
-          show(body.pages)
-        })
-        .catch(function () {}) // no count; nothing else affected
-        .finally(function () { clearTimeout(timer) })
-    }
-    window.__tbViews = { path: path, ready: null }
-    if (document.readyState === "loading") {
-      window.__tbViews.ready = new Promise(function (resolve) {
-        document.addEventListener("DOMContentLoaded", function () { run().then(resolve) })
-      })
-    } else window.__tbViews.ready = run()
-  } catch (e) { /* count absent */ }
-})()
-`;
 
 // src/index.ts
 var defaultOptions = {
@@ -8265,8 +8189,6 @@ var defaultOptions = {
   tagHelper: true,
   annotationBadge: true,
   paragraphNumbers: true,
-  viewsEndpoint: "",
-  bookSlug: "",
   hypothesisGroupId: ""
 };
 var HYPOTHESIS_GROUP_PLACEHOLDER = "GROUP_ID";
@@ -8360,8 +8282,6 @@ var EditionIntegrations = (userOpts) => {
       if (opts.tagHelper) head.push(script(tagHelper));
       if (opts.annotationBadge) head.push(script(annotationBadge));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
-      if (opts.viewsEndpoint && opts.bookSlug)
-        head.push(script(pageViews(opts.viewsEndpoint, opts.bookSlug)));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
       return { additionalHead: head };
     }
