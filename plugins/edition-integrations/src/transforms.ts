@@ -149,3 +149,43 @@ export const markLeadParagraph = (tree: HastNode): boolean => {
   props.className = classes;
   return true;
 };
+
+// --- 4. paragraph numbers ---------------------------------------------------------
+
+/**
+ * Numbers a page's body paragraphs, ¶1, ¶2 …, for citing and linking. Only
+ * top-level <p>: not paragraphs inside lists, block quotes, callouts, tables or
+ * footnotes, which aren't the book's running text. Each gets `data-pnum="n"`,
+ * and `id="pn"` unless it already has an id (a citation target keeps its own,
+ * and is linked by that).
+ *
+ * The number itself is drawn by CSS from the attribute (runtime.ts,
+ * paragraphNumbers), never written into the text: Hypothes.is anchors on the
+ * page's text, so text added here would move every annotation on the page.
+ *
+ * Returns how many paragraphs were numbered.
+ */
+export const numberParagraphs = (tree: HastNode): number => {
+  let n = 0;
+  for (const node of tree.children ?? []) {
+    if (!isElement(node) || node.tagName !== "p") continue;
+    if (!textOf(node).trim()) continue; // an image on its own line, say
+    n++;
+    const props = (node.properties ??= {});
+    props.dataPnum = String(n);
+    if (typeof props.id !== "string" || !props.id) props.id = `p${n}`;
+  }
+  return n;
+};
+
+/**
+ * Whether a page gets paragraph numbers: every page but the book's home page,
+ * unless its frontmatter says `paragraphNumbers: false` (or `true`, to number
+ * the home page too).
+ */
+export const wantsParagraphNumbers = (slug: unknown, frontmatter: Record<string, unknown> = {}) => {
+  const set = frontmatter.paragraphNumbers;
+  if (set === false || set === "false") return false;
+  if (set === true || set === "true") return true;
+  return slug !== "index";
+};

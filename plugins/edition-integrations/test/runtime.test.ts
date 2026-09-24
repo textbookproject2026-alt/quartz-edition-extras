@@ -4,6 +4,8 @@ import {
   analyticsLoader,
   annotationBadge,
   noTracking,
+  pageViews,
+  paragraphNumbers,
   tagHelper,
   trackRuntime,
 } from "../src/runtime";
@@ -209,5 +211,111 @@ describe("the annotation badge", () => {
     w.eval(annotationBadge);
     await (w.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
     expect(w.document.querySelector("button.tb-anno-badge")).toBeNull();
+  });
+});
+
+describe("paragraph numbers", () => {
+  const body =
+    '<h1 class="article-title">T</h1><div class="tb-page-controls"><a class="edit-on-github" href="#">Edit</a></div>' +
+    '<article><p data-pnum="1" id="p1">One.</p><p data-pnum="2" id="p2">Two.</p></article>';
+
+  it("adds the toggle to the controls row, pressed, and it turns the numbers off and back", () => {
+    const w = page("https://book.example.org/chapters/chapter-03", body);
+    w.eval(noTracking);
+    w.eval(paragraphNumbers);
+    const b = w.document.querySelector("button.tb-pnum-toggle") as unknown as HTMLButtonElement;
+    expect(b.parentElement!.className).toBe("tb-page-controls");
+    expect(b.getAttribute("aria-pressed")).toBe("true");
+    b.click();
+    expect(w.document.documentElement.classList.contains("tb-pnum-off")).toBe(true);
+    expect(b.getAttribute("aria-pressed")).toBe("false");
+    expect(w.localStorage.getItem("tb-pnum")).toBe("off");
+    b.click();
+    expect(w.document.documentElement.classList.contains("tb-pnum-off")).toBe(false);
+    expect(w.localStorage.getItem("tb-pnum")).toBeNull();
+  });
+
+  it("a reader's 'off' is applied before the body is drawn", () => {
+    const w = page("https://book.example.org/chapters/chapter-03", body);
+    w.localStorage.setItem("tb-pnum", "off");
+    w.eval(noTracking);
+    w.eval(paragraphNumbers);
+    expect(w.document.documentElement.classList.contains("tb-pnum-off")).toBe(true);
+  });
+
+  it("a page with no numbered paragraphs gets no toggle", () => {
+    const w = page("https://book.example.org/", '<h1 class="article-title">T</h1><p>Home.</p>');
+    w.eval(noTracking);
+    w.eval(paragraphNumbers);
+    expect(w.document.querySelector("button.tb-pnum-toggle")).toBeNull();
+  });
+
+  it("draws the numbers with CSS, never as text", () => {
+    const w = page("https://book.example.org/chapters/chapter-03", body);
+    w.eval(noTracking);
+    w.eval(paragraphNumbers);
+    expect(w.document.querySelector("article")!.textContent).toBe("One.Two.");
+    expect(w.document.getElementById("tb-pnum-style")!.textContent).toContain(
+      "content: attr(data-pnum)",
+    );
+  });
+});
+
+describe("page views", () => {
+  const ENDPOINT = "https://suggest-edit-function.vercel.app/api/page-views";
+  const body = '<h1 class="article-title">T</h1><div class="tb-page-controls"></div>';
+  const withFetch = (w: Page, reply: unknown, ok = true) => {
+    const calls: string[] = [];
+    (w as unknown as { fetch: unknown }).fetch = (url: string) => {
+      calls.push(url);
+      return Promise.resolve({ ok, status: ok ? 200 : 500, json: () => Promise.resolve(reply) });
+    };
+    return calls;
+  };
+
+  it("asks for the whole book once, and shows this page's count", async () => {
+    const w = page("https://book.example.org/chapters/chapter-03", body);
+    const calls = withFetch(w, { pages: { "/chapters/chapter-03": 1204, "/": 9 } });
+    w.eval(pageViews(ENDPOINT, "social-research-methods"));
+    await (w.__tbViews as { ready: Promise<unknown> }).ready;
+    expect(calls).toEqual([`${ENDPOINT}?book=social-research-methods`]);
+    expect(w.document.querySelector(".tb-page-controls .tb-views")!.textContent).toBe(
+      "1,204 views",
+    );
+  });
+
+  it("reads /x.html and /index as the page Plausible counted", async () => {
+    const w = page("https://book.example.org/index", body);
+    withFetch(w, { pages: { "/": 1 } });
+    w.eval(pageViews(ENDPOINT, "b"));
+    await (w.__tbViews as { ready: Promise<unknown> }).ready;
+    expect(w.document.querySelector(".tb-views")!.textContent).toBe("1 view");
+  });
+
+  it("shows nothing when the count can't be had, or is zero", async () => {
+    for (const [reply, ok] of [
+      [null, false],
+      [{ nope: 1 }, true],
+      [{ pages: {} }, true],
+    ] as const) {
+      const w = page("https://book.example.org/chapters/x", body);
+      withFetch(w, reply, ok);
+      w.eval(pageViews(ENDPOINT, "b"));
+      await (w.__tbViews as { ready: Promise<unknown> }).ready;
+      expect(w.document.querySelector(".tb-views")).toBeNull();
+    }
+  });
+
+  it("caches the book's counts for the session", async () => {
+    const w = page("https://book.example.org/chapters/chapter-03", body);
+    w.sessionStorage.setItem(
+      "tb-views:v1:b",
+      JSON.stringify({ t: Date.now(), pages: { "/chapters/chapter-03": 5 } }),
+    );
+    const calls = withFetch(w, {});
+    w.eval(pageViews(ENDPOINT, "b"));
+    await (w.__tbViews as { ready: Promise<unknown> }).ready;
+    expect(calls).toEqual([]);
+    expect(w.document.querySelector(".tb-views")!.textContent).toBe("5 views");
   });
 });

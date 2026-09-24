@@ -3,7 +3,9 @@ import {
   fixBlockRefLinks,
   hasOwnTitle,
   markLeadParagraph,
+  numberParagraphs,
   titleFromFirstHeading,
+  wantsParagraphNumbers,
 } from "../src/transforms";
 import type { HastNode, PageData } from "../src/transforms";
 
@@ -157,5 +159,59 @@ describe("the lead paragraph", () => {
     titleFromFirstHeading(tree, {}, "# Title\n\nWelcome.\n");
     expect(tree.children).toEqual([lead]);
     expect(classOf(lead)).toEqual(["tb-lead"]);
+  });
+});
+
+describe("paragraph numbers", () => {
+  const page = () =>
+    root(
+      el("p", { className: ["tb-lead"] }, text("Lead.")),
+      text("\n"),
+      el("p", {}, el("img", { src: "figure.png" })),
+      el("ul", {}, el("li", {}, el("p", {}, text("In a list.")))),
+      el("blockquote", {}, el("p", {}, text("Quoted."))),
+      el("p", { id: "ref-bhaskar-1979" }, text("Bhaskar, R. (1979).")),
+      el("p", {}, text("Last.")),
+    );
+  const numbered = (tree: HastNode) =>
+    (tree.children ?? [])
+      .filter((n) => n.tagName === "p")
+      .map((n) => [n.properties?.dataPnum, n.properties?.id]);
+
+  it("numbers top-level paragraphs with text, and gives each an id to link to", () => {
+    const tree = page();
+    expect(numberParagraphs(tree)).toBe(3);
+    expect(numbered(tree)).toEqual([
+      ["1", "p1"],
+      [undefined, undefined], // an image on its own
+      ["2", "ref-bhaskar-1979"], // a citation target keeps its id
+      ["3", "p3"],
+    ]);
+    expect(tree.children![0]!.properties!.className).toEqual(["tb-lead"]);
+  });
+
+  it("writes nothing into the text, so Hypothes.is anchors don't move", () => {
+    const tree = page();
+    const before = JSON.stringify(tree, (k, v) => (k === "properties" ? undefined : v));
+    numberParagraphs(tree);
+    expect(JSON.stringify(tree, (k, v) => (k === "properties" ? undefined : v))).toBe(before);
+  });
+
+  it("leaves nested paragraphs alone", () => {
+    const tree = page();
+    numberParagraphs(tree);
+    const nested = [
+      tree.children![3]!.children![0]!.children![0]!,
+      tree.children![4]!.children![0]!,
+    ];
+    for (const p of nested) expect(p.properties?.dataPnum).toBeUndefined();
+  });
+
+  it("every page but the home page, and the frontmatter decides either way", () => {
+    expect(wantsParagraphNumbers("chapters/chapter-03", {})).toBe(true);
+    expect(wantsParagraphNumbers("index", {})).toBe(false);
+    expect(wantsParagraphNumbers("index", { paragraphNumbers: true })).toBe(true);
+    expect(wantsParagraphNumbers("chapters/chapter-03", { paragraphNumbers: false })).toBe(false);
+    expect(wantsParagraphNumbers("chapters/chapter-03", { paragraphNumbers: "false" })).toBe(false);
   });
 });

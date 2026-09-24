@@ -101,6 +101,9 @@
       "siteDomain": "",
       "tagHelper": true,
       "annotationBadge": true,
+      "paragraphNumbers": true,
+      "viewsEndpoint": "",
+      "bookSlug": "",
       "hypothesisGroupId": ""
     }
   },

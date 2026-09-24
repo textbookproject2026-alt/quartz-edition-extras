@@ -12,10 +12,14 @@
  *   4. window.tbTrack() for custom events, the annotation tag helper and the
  *      annotation badge, ported from book one's publish.js (src/runtime.ts)
  *
- * and applies three HTML transforms to every page (src/transforms.ts):
+ *   5. Paragraph numbers' style and toggle, and the page-views count
+ *      (src/runtime.ts)
+ *
+ * and applies four HTML transforms to every page (src/transforms.ts):
  *   - same-page citations `#^id` point at the reference they name
  *   - the paragraph right after the first H1 is marked as the lead
  *   - with no frontmatter title, the first H1 becomes the page's title
+ *   - body paragraphs are numbered (data-pnum), every page but the home page
  *
  * Editions run with enableSPA: false, so every navigation is a full page load and
  * every head script runs again from scratch. Both integrations are therefore plain
@@ -36,9 +40,23 @@ import { h } from "preact";
 import type { VNode } from "preact";
 import type { QuartzTransformerPlugin } from "@quartz-community/types";
 import { designCss, fontHref, loadDesign } from "./design";
-import { fixBlockRefLinks, markLeadParagraph, titleFromFirstHeading } from "./transforms";
+import {
+  fixBlockRefLinks,
+  markLeadParagraph,
+  numberParagraphs,
+  titleFromFirstHeading,
+  wantsParagraphNumbers,
+} from "./transforms";
 import type { HastNode, PageData } from "./transforms";
-import { analyticsLoader, annotationBadge, noTracking, tagHelper, trackRuntime } from "./runtime";
+import {
+  analyticsLoader,
+  annotationBadge,
+  noTracking,
+  pageViews,
+  paragraphNumbers,
+  tagHelper,
+  trackRuntime,
+} from "./runtime";
 
 interface Options {
   /** Per-edition Plausible script src (https://plausible.io/js/pa-….js). "" disables analytics. */
@@ -54,6 +72,18 @@ interface Options {
   tagHelper: boolean;
   /** The per-page annotation count, which opens the sidebar. */
   annotationBadge: boolean;
+  /**
+   * Paragraph numbers (¶) in the margin of every page but the home page, with
+   * a toggle in the controls row that each reader's browser remembers.
+   */
+  paragraphNumbers: boolean;
+  /**
+   * The page-views endpoint (suggest-edit-function's /api/page-views), for the
+   * "n views" count in the controls row. "" shows no count.
+   */
+  viewsEndpoint: string;
+  /** The book's registry slug, which the views endpoint is asked about. */
+  bookSlug: string;
   /** Hypothes.is group ID — inert: it would only take effect if the commented services block below were enabled, and that is unused by decision (Publisher tier not bought, R1 closed). */
   hypothesisGroupId: string;
 }
@@ -63,6 +93,9 @@ const defaultOptions: Options = {
   siteDomain: "",
   tagHelper: true,
   annotationBadge: true,
+  paragraphNumbers: true,
+  viewsEndpoint: "",
+  bookSlug: "",
   hypothesisGroupId: "",
 };
 
@@ -181,9 +214,13 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
     htmlPlugins() {
       return [
         () => (tree: unknown, file: { value?: unknown; data: unknown }) => {
+          const data = file.data as PageData;
           fixBlockRefLinks(tree as HastNode);
           markLeadParagraph(tree as HastNode);
-          titleFromFirstHeading(tree as HastNode, file.data as PageData, String(file.value ?? ""));
+          titleFromFirstHeading(tree as HastNode, data, String(file.value ?? ""));
+          // After the title: the H1 that became the title is gone by now.
+          if (opts.paragraphNumbers && wantsParagraphNumbers(data.slug, data.frontmatter))
+            numberParagraphs(tree as HastNode);
         },
       ];
     },
@@ -210,6 +247,9 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       head.push(script(opts.plausibleScriptSrc ? trackRuntime : noTracking));
       if (opts.tagHelper) head.push(script(tagHelper));
       if (opts.annotationBadge) head.push(script(annotationBadge));
+      if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
+      if (opts.viewsEndpoint && opts.bookSlug)
+        head.push(script(pageViews(opts.viewsEndpoint, opts.bookSlug)));
       // Last, so window.hypothesisConfig above is already set when embed.js boots.
       head.push(h("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }) as VNode);
       return { additionalHead: head };

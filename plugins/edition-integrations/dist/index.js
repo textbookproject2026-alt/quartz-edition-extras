@@ -7682,6 +7682,24 @@ var markLeadParagraph = (tree) => {
   props.className = classes;
   return true;
 };
+var numberParagraphs = (tree) => {
+  let n2 = 0;
+  for (const node of tree.children ?? []) {
+    if (!isElement(node) || node.tagName !== "p") continue;
+    if (!textOf(node).trim()) continue;
+    n2++;
+    const props = node.properties ??= {};
+    props.dataPnum = String(n2);
+    if (typeof props.id !== "string" || !props.id) props.id = `p${n2}`;
+  }
+  return n2;
+};
+var wantsParagraphNumbers = (slug, frontmatter = {}) => {
+  const set = frontmatter.paragraphNumbers;
+  if (set === false || set === "false") return false;
+  if (set === true || set === "true") return true;
+  return slug !== "index";
+};
 
 // src/runtime.ts
 var analyticsLoader = (src, siteDomain) => `
@@ -8059,6 +8077,186 @@ var annotationBadge = `
   } catch (e) { /* badge absent */ }
 })()
 `;
+var paragraphNumbers = `
+;(function () {
+  try {
+    var KEY = "tb-pnum"
+    var OFF = "tb-pnum-off"
+    var root = document.documentElement
+    var stored = function () { try { return localStorage.getItem(KEY) } catch (e) { return null } }
+    var store = function (on) { try { on ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, "off") } catch (e) {} }
+    if (stored() === "off") root.classList.add(OFF)
+
+    var style = document.createElement("style")
+    style.id = "tb-pnum-style"
+    style.textContent = [
+      "[data-pnum] { position: relative; }",
+      "[data-pnum]::before { content: attr(data-pnum); position: absolute; left: -3.25rem; width: 2.5rem;",
+      // line-height 1 and a top in the number's own ems put it on the first
+      // line's baseline at the body and lead sizes alike.
+      "  top: 1.15em; text-align: right; font-family: var(--tb-font-text, sans-serif); font-size: 0.72rem;",
+      "  font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;",
+      "  color: var(--tb-faint, #9B9BA1); cursor: pointer; user-select: none; -webkit-user-select: none; }",
+      "[data-pnum]:hover::before, [data-pnum]:target::before { color: var(--tb-accent, #7C6CF0); }",
+      "[data-pnum]:target { background: var(--tb-accent-wash, #EEEBFD); box-shadow: 0 0 0 0.35rem var(--tb-accent-wash, #EEEBFD); border-radius: 2px; }",
+      "." + OFF + " [data-pnum]::before { content: none; }",
+      "." + OFF + " [data-pnum]:target { background: none; box-shadow: none; }",
+      // Other pages' paragraphs shown in a popover keep their own numbers to themselves.
+      ".popover [data-pnum]::before { content: none; }",
+      "@media (max-width: 800px) { [data-pnum]::before { left: -1.9rem; width: 1.6rem; font-size: 0.65rem; } }",
+      "button.tb-pnum-toggle { font-family: var(--tb-font-text, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
+      "  line-height: 1.4; padding: 0.15rem 0.7rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 999px;",
+      "  background: var(--tb-bg-soft, #F7F7F5); color: var(--tb-muted, #6E6E73); cursor: pointer; }",
+      "button.tb-pnum-toggle:hover { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0); }",
+      "button.tb-pnum-toggle[aria-pressed=\\"true\\"] { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0);",
+      "  background: var(--tb-accent-wash, #EEEBFD); }",
+      ".tb-pnum-flash { position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%); z-index: 9999;",
+      "  padding: 0.4rem 0.9rem; border-radius: 999px; background: var(--tb-ink, #2B2B2B); color: var(--tb-bg, #FFFFFF);",
+      "  font-family: var(--tb-font-text, sans-serif); font-size: 0.85rem; }",
+      "@media print { button.tb-pnum-toggle, .tb-pnum-flash { display: none !important; }",
+      "  [data-pnum]:target { background: none; box-shadow: none; } }",
+    ].join("\\n")
+    document.head.appendChild(style)
+
+    var flashTimer = null
+    var flash = function (text) {
+      var el = document.querySelector(".tb-pnum-flash")
+      if (!el) {
+        el = document.createElement("div")
+        el.className = "tb-pnum-flash"
+        el.setAttribute("role", "status")
+        document.body.appendChild(el)
+      }
+      el.textContent = text
+      clearTimeout(flashTimer)
+      flashTimer = setTimeout(function () { el.remove() }, 2200)
+    }
+
+    var arm = function () {
+      var paras = document.querySelectorAll("[data-pnum]")
+      if (!paras.length) return
+
+      // A click left of a numbered paragraph is a click on its number.
+      document.addEventListener("click", function (ev) {
+        try {
+          if (root.classList.contains(OFF)) return
+          var p = ev.target && ev.target.closest ? ev.target.closest("[data-pnum]") : null
+          if (!p || p.closest(".popover")) return
+          if (ev.clientX >= p.getBoundingClientRect().left) return
+          var url = location.origin + location.pathname + "#" + encodeURIComponent(p.id)
+          history.replaceState(null, "", "#" + encodeURIComponent(p.id))
+          var done = function () { flash("Link to \\u00b6" + p.getAttribute("data-pnum") + " copied") }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(done, function () { flash("\\u00b6" + p.getAttribute("data-pnum") + " \\u2014 link in the address bar") })
+          } else flash("\\u00b6" + p.getAttribute("data-pnum") + " \\u2014 link in the address bar")
+          window.tbTrack("paragraph_link_copied")
+        } catch (e) {}
+      })
+
+      var anchor = document.querySelector(".tb-page-controls") || document.querySelector("h1.article-title")
+      if (!anchor || !anchor.parentNode) return
+      var b = document.createElement("button")
+      b.type = "button"
+      b.className = "tb-pnum-toggle"
+      b.textContent = "\\u00b6 Numbers"
+      b.title = "Show or hide paragraph numbers"
+      var sync = function () { b.setAttribute("aria-pressed", String(!root.classList.contains(OFF))) }
+      sync()
+      b.addEventListener("click", function () {
+        var on = root.classList.toggle(OFF) === false
+        store(on)
+        sync()
+        window.tbTrack("paragraph_numbers_toggled", { to: on ? "on" : "off" })
+      })
+      if (anchor.classList.contains("tb-page-controls")) anchor.appendChild(b)
+      else {
+        var row = document.createElement("p")
+        row.className = "tb-pnum-row"
+        row.appendChild(b)
+        anchor.insertAdjacentElement("afterend", row)
+      }
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arm)
+    else arm()
+  } catch (e) { /* numbers stay as the page drew them; nothing else affected */ }
+})()
+`;
+var pageViews = (endpoint, slug) => `
+;(function () {
+  try {
+    var URL_ = ${JSON.stringify(endpoint)} + "?book=" + encodeURIComponent(${JSON.stringify(slug)})
+    var CACHE_KEY = "tb-views:v1:" + ${JSON.stringify(slug)}
+    var CACHE_TTL = 60 * 60 * 1000
+    var FETCH_TIMEOUT = 6000
+
+    var path = location.pathname.replace(/\\.html$/, "")
+    if (path === "/index" || /\\/index$/.test(path)) path = path.slice(0, -"index".length)
+    try { path = decodeURI(path) } catch (e) {}
+
+    var cacheGet = function () {
+      try {
+        var entry = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null")
+        var age = entry ? Date.now() - entry.t : -1
+        return age >= 0 && age < CACHE_TTL && entry.pages ? entry.pages : null
+      } catch (e) { return null }
+    }
+    var cachePut = function (pages) {
+      try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), pages: pages })) } catch (e) {}
+    }
+
+    var place = function (n) {
+      var anchor = document.querySelector(".tb-page-controls") || document.querySelector("h1.article-title")
+      if (!anchor || !anchor.parentNode || document.querySelector(".tb-views")) return
+      if (!document.getElementById("tb-views-style")) {
+        var style = document.createElement("style")
+        style.id = "tb-views-style"
+        style.textContent = ".tb-views { font-family: var(--tb-font-text, sans-serif); font-size: var(--tb-size-controls, 0.85rem);" +
+          " color: var(--tb-muted, #6E6E73); font-variant-numeric: tabular-nums; white-space: nowrap; }" +
+          " .tb-page-controls .tb-views { order: -1; } @media print { .tb-views { display: none !important; } }"
+        document.head.appendChild(style)
+      }
+      var span = document.createElement("span")
+      span.className = "tb-views"
+      span.textContent = n.toLocaleString("en-GB") + (n === 1 ? " view" : " views")
+      span.title = "Page views since the book's analytics began"
+      if (anchor.classList.contains("tb-page-controls")) anchor.appendChild(span)
+      else {
+        var row = document.createElement("p")
+        row.className = "tb-views-row"
+        row.appendChild(span)
+        anchor.insertAdjacentElement("afterend", row)
+      }
+    }
+
+    var show = function (pages) {
+      var n = Number(pages[path])
+      if (isFinite(n) && n > 0) place(n)
+    }
+
+    var run = function () {
+      var cached = cacheGet()
+      if (cached) return Promise.resolve(show(cached))
+      var c = typeof AbortController === "function" ? new AbortController() : null
+      var timer = setTimeout(function () { if (c) c.abort() }, FETCH_TIMEOUT)
+      return fetch(URL_, c ? { signal: c.signal } : {})
+        .then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json() })
+        .then(function (body) {
+          if (!body || typeof body.pages !== "object" || !body.pages) throw new Error("no pages")
+          cachePut(body.pages)
+          show(body.pages)
+        })
+        .catch(function () {}) // no count; nothing else affected
+        .finally(function () { clearTimeout(timer) })
+    }
+    window.__tbViews = { path: path, ready: null }
+    if (document.readyState === "loading") {
+      window.__tbViews.ready = new Promise(function (resolve) {
+        document.addEventListener("DOMContentLoaded", function () { run().then(resolve) })
+      })
+    } else window.__tbViews.ready = run()
+  } catch (e) { /* count absent */ }
+})()
+`;
 
 // src/index.ts
 var defaultOptions = {
@@ -8066,6 +8264,9 @@ var defaultOptions = {
   siteDomain: "",
   tagHelper: true,
   annotationBadge: true,
+  paragraphNumbers: true,
+  viewsEndpoint: "",
+  bookSlug: "",
   hypothesisGroupId: ""
 };
 var HYPOTHESIS_GROUP_PLACEHOLDER = "GROUP_ID";
@@ -8129,9 +8330,12 @@ var EditionIntegrations = (userOpts) => {
     htmlPlugins() {
       return [
         () => (tree, file) => {
+          const data = file.data;
           fixBlockRefLinks(tree);
           markLeadParagraph(tree);
-          titleFromFirstHeading(tree, file.data, String(file.value ?? ""));
+          titleFromFirstHeading(tree, data, String(file.value ?? ""));
+          if (opts.paragraphNumbers && wantsParagraphNumbers(data.slug, data.frontmatter))
+            numberParagraphs(tree);
         }
       ];
     },
@@ -8155,6 +8359,9 @@ var EditionIntegrations = (userOpts) => {
       head.push(script(opts.plausibleScriptSrc ? trackRuntime : noTracking));
       if (opts.tagHelper) head.push(script(tagHelper));
       if (opts.annotationBadge) head.push(script(annotationBadge));
+      if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
+      if (opts.viewsEndpoint && opts.bookSlug)
+        head.push(script(pageViews(opts.viewsEndpoint, opts.bookSlug)));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
       return { additionalHead: head };
     }
