@@ -23,6 +23,14 @@ export interface Options {
    * edition's origin isn't listed.
    */
   suggestEndpoint: string;
+  /**
+   * The in-site editor: with a suggestEndpoint set, "Edit on GitHub ↗" becomes
+   * "Edit this page", which opens a GitHub-style editor on the page itself, and
+   * numbered paragraphs get a pencil. Proposals go to the same function's
+   * /api/propose-edit, a sibling of suggestEndpoint. false keeps the plain
+   * GitHub link. Without scripts the link still goes to GitHub either way.
+   */
+  editor: boolean;
 }
 
 const defaultOptions: Options = {
@@ -30,6 +38,16 @@ const defaultOptions: Options = {
   branch: "main",
   contentDir: "content",
   suggestEndpoint: "",
+  editor: true,
+};
+
+/** /api/propose-edit beside the configured /api/suggest-edit. "" if it can't be derived. */
+export const proposeEndpoint = (suggestEndpoint: string): string => {
+  try {
+    return new URL("propose-edit", suggestEndpoint).toString();
+  } catch {
+    return "";
+  }
 };
 
 /**
@@ -53,7 +71,9 @@ export const encodePath = (path: string): string =>
  * badge, which edition-integrations adds to the row when it is installed.
  *
  * Edit keeps class "edit-on-github" and its href shape: book two's post-build
- * form and edition-integrations both find the link by it.
+ * form and edition-integrations both find the link by it. With the editor on,
+ * it reads "Edit this page" and carries the data the page script needs; its
+ * href stays the GitHub edit URL, the no-script fallback.
  */
 const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) => {
   const opts = { ...defaultOptions, ...userOpts };
@@ -65,15 +85,20 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
     if (!opts.repo || !fileData.filePath || !relativePath) return null;
     const path = repoPath(opts.contentDir, relativePath);
     const gh = encodePath(path);
-    const link = (cls: string, href: string, text: string) =>
-      h("a", { class: cls, href, target: "_blank", rel: "noopener noreferrer" }, text);
+    const link = (cls: string, href: string, text: string, data: Record<string, string> = {}) =>
+      h("a", { class: cls, href, target: "_blank", rel: "noopener noreferrer", ...data }, text);
+    const editEndpoint =
+      opts.editor && opts.suggestEndpoint ? proposeEndpoint(opts.suggestEndpoint) : "";
     return h(
       "div",
       { class: "tb-page-controls" },
       link(
         "edit-on-github",
         `https://github.com/${opts.repo}/edit/${opts.branch}/${gh}`,
-        "Edit on GitHub ↗",
+        editEndpoint ? "Edit this page" : "Edit on GitHub ↗",
+        editEndpoint
+          ? { "data-edit-endpoint": editEndpoint, "data-path": path, "data-repo": opts.repo }
+          : {},
       ),
       link(
         "tb-history-link",

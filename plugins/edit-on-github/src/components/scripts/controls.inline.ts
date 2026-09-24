@@ -6,6 +6,13 @@
  *
  * Event names are Plausible's history for book one and must not change:
  * edit_on_github_clicked, suggest_edit_opened, suggest_edit_submitted {outcome}.
+ * Added with the in-site editor (editor.ts): page_editor_opened {mode},
+ * page_edit_submitted {outcome, mode}, github_signin {outcome}.
+ *
+ * The in-site editor: when the Edit link carries data-edit-endpoint, a plain
+ * click opens editor.ts instead of GitHub (a modified click still goes to
+ * GitHub, and without scripts the link is what it always was), and every
+ * numbered paragraph gets a pencil that opens the editor on that paragraph.
  * They go through window.tbTrack, which edition-integrations defines; without
  * it (book two, or an edition with that plugin off) they are dropped silently.
  *
@@ -22,6 +29,7 @@
 // The "nav" listener lives as long as the page, not a route, and every other
 // listener sits on an element a route swap replaces, so none needs addCleanup.
 /* eslint-disable no-restricted-syntax */
+import { closeIfOpen as closeEditorIfOpen, openEditor, PENCIL } from "./editor";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
 
@@ -532,7 +540,7 @@ const openSuggestModal: OpenModal | null = (() => {
               "That did not go through",
               (err && err.userMessage) ||
                 "Something went wrong sending your suggestion — nothing was lost. " +
-                  'Try again in a moment, or use "Edit on GitHub" above.',
+                  'Try again in a moment, or use the Edit link above.',
               null,
               true,
             );
@@ -569,17 +577,104 @@ const openSuggestModal: OpenModal | null = (() => {
   }
 })();
 
+const PEDIT_STYLE_ID = "tb-pedit-style";
+
+// The pencil sits in the paragraph's right margin and shows on hover. It is
+// deliberately out of the tab order and hidden from assistive tech: a button
+// after every paragraph would make the page tedious by keyboard and screen
+// reader, and "Edit this page" covers the same ground for them. It holds no
+// text (the icon's <svg> has no <title>), so Hypothes.is anchors don't move.
+const pencilStyle = () => {
+  if (document.getElementById(PEDIT_STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = PEDIT_STYLE_ID;
+  style.textContent = `
+[data-pnum] { position: relative; }
+[data-pnum] > button.tb-pedit { position: absolute; top: 0.2em; right: -2.5rem; display: inline-flex; align-items: center;
+  justify-content: center; width: 1.75rem; height: 1.75rem; padding: 0; margin: 0; border: 1px solid transparent;
+  border-radius: 6px; background: none; color: var(--tb-faint, #9B9BA1); opacity: 0; cursor: pointer;
+  transition: opacity 0.12s; }
+[data-pnum]:hover > button.tb-pedit { opacity: 1; color: var(--tb-muted, #6E6E73); }
+[data-pnum] > button.tb-pedit:hover { color: var(--tb-accent, #7C6CF0); border-color: var(--tb-border, #E6E6E6);
+  background: var(--tb-bg-soft, #F7F7F5); }
+@media (hover: none) { [data-pnum] > button.tb-pedit { opacity: 0.5; } }
+@media (max-width: 800px) { [data-pnum] > button.tb-pedit { top: -1.55rem; right: 0; width: 1.4rem; height: 1.4rem; } }
+.popover button.tb-pedit { display: none; }
+@media print { button.tb-pedit { display: none !important; } }
+`;
+  document.head.appendChild(style);
+};
+
+const pencil = () => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "tb-pedit";
+  b.tabIndex = -1;
+  b.setAttribute("aria-hidden", "true");
+  b.title = "Edit this paragraph";
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 16 16");
+  svg.setAttribute("width", "15");
+  svg.setAttribute("height", "15");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", PENCIL);
+  path.setAttribute("fill", "currentColor");
+  svg.append(path);
+  b.append(svg);
+  return b;
+};
+
+/** The editor on the Edit link and, where there are numbered paragraphs, on each. */
+const armEditor = (edit: HTMLAnchorElement, endpoint: string) => {
+  const base = {
+    endpoint,
+    path: edit.dataset.path ?? "",
+    repo: edit.dataset.repo ?? "",
+    githubHref: edit.href,
+    track,
+  };
+  edit.addEventListener("click", (e) => {
+    // Cmd/Ctrl/Shift/middle click: the reader asked for GitHub in a new tab.
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+      track("edit_on_github_clicked");
+      return;
+    }
+    e.preventDefault();
+    openEditor({ ...base, mode: "page", trigger: edit });
+  });
+  const paras = Array.from(document.querySelectorAll<HTMLElement>("[data-pnum]")).filter(
+    (p) => !p.closest(".popover") && !p.querySelector(":scope > button.tb-pedit"),
+  );
+  if (!paras.length) return;
+  pencilStyle();
+  for (const p of paras) {
+    const b = pencil();
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openEditor({ ...base, mode: "paragraph", para: p, trigger: b });
+    });
+    p.append(b);
+  }
+};
+
 // Wires every row on the page once. "nav" fires after each full load, and
 // after each route swap on a site with SPA on.
 const wire = () => {
   try {
     openSuggestModal?.closeIfOpen();
+    closeEditorIfOpen();
     for (const row of Array.from(document.querySelectorAll<HTMLElement>(".tb-page-controls"))) {
       if (row.dataset.tbWired) continue;
       row.dataset.tbWired = "1";
-      row
-        .querySelector("a.edit-on-github")
-        ?.addEventListener("click", () => track("edit_on_github_clicked"));
+      const edit = row.querySelector<HTMLAnchorElement>("a.edit-on-github");
+      const editEndpoint = edit?.dataset.editEndpoint;
+      if (edit && editEndpoint) {
+        try {
+          armEditor(edit, editEndpoint);
+        } catch {
+          /* the link still goes to GitHub */
+        }
+      } else edit?.addEventListener("click", () => track("edit_on_github_clicked"));
       const btn = row.querySelector<HTMLButtonElement>("button.tb-suggest-btn");
       const endpoint = btn?.dataset.endpoint;
       if (!btn || !endpoint || !openSuggestModal) continue;

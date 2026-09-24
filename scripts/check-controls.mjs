@@ -60,6 +60,7 @@ const load = (answer) => {
   w.eval("window.plausible = function () { window.calls.push([].slice.call(arguments)) }");
   w.fetch = async (url, init) => {
     if (String(url).includes("hypothes.is")) return { ok: true, json: async () => ({ total: 0 }) };
+    if (!init?.body) return answer(); // the editor's GET of the page source
     w.posts.push([url, JSON.parse(init.body)]);
     return answer();
   };
@@ -146,7 +147,8 @@ const press = (w, key, shiftKey = false) => {
   };
   const edit = w.document.querySelector("a.edit-on-github");
   edit.addEventListener("click", (e) => e.preventDefault());
-  edit.click();
+  // A modified click is still the GitHub link (a plain one opens the in-site editor).
+  edit.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true }));
   await send();
   answer = { ok: false, status: 429, json: async () => ({ error: "x", userMessage: "Slow down." }) };
   await send();
@@ -168,6 +170,22 @@ const press = (w, key, shiftKey = false) => {
       ["suggest_edit_submitted", { outcome: "error" }],
       ["suggest_edit_opened", null],
     ]), events);
+  await w.happyDOM.close();
+}
+
+// 4. The in-site editor is armed: the Edit link opens it, numbered paragraphs get a pencil.
+{
+  const w = load(() => ({ ok: true, status: 200, json: async () => ({}) }));
+  const edit = w.document.querySelector("a.edit-on-github");
+  check("Edit reads \"Edit this page\" and points the editor at /api/propose-edit",
+    edit?.textContent === "Edit this page" && /\/api\/propose-edit$/.test(edit?.dataset.editEndpoint ?? ""),
+    [edit?.textContent, edit?.dataset.editEndpoint]);
+  const numbered = w.document.querySelectorAll("[data-pnum]").length;
+  const pencils = w.document.querySelectorAll("[data-pnum] > button.tb-pedit").length;
+  check("one pencil per numbered paragraph", numbered > 0 && pencils === numbered, { numbered, pencils });
+  edit.click();
+  check("a plain click opens the editor", !!w.document.getElementById("tb-editor"));
+  press(w, "Escape");
   await w.happyDOM.close();
 }
 

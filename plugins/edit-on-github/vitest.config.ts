@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { build } from "esbuild";
 import { readFile } from "node:fs/promises";
+import { dirname } from "node:path";
 
 export default defineConfig({
   // .inline.ts files are browser scripts that tsup.config.ts bundles to a
@@ -15,7 +16,8 @@ export default defineConfig({
           .replace(/^export default /gm, "")
           .replace(/^export /gm, "");
         const out = await build({
-          stdin: { contents: text, loader: "ts" },
+          // resolveDir: the page script imports ./editor and ./source.
+          stdin: { contents: text, loader: "ts", resolveDir: dirname(id) },
           write: false,
           bundle: true,
           minify: true,

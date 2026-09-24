@@ -3,14 +3,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { renderToString } from "preact-render-to-string";
 import type { QuartzComponentProps } from "@quartz-community/types";
-import EditOnGitHub, { encodePath, repoPath } from "../src/components/EditOnGitHub";
+import EditOnGitHub, { encodePath, proposeEndpoint, repoPath } from "../src/components/EditOnGitHub";
 
 // The page script as a browser gets it (vitest.config.ts bundles it the way
 // tsup.config.ts does).
 const script = EditOnGitHub({}).afterDOMLoaded as string;
 
 const render = (
-  opts: Record<string, string>,
+  opts: Record<string, string | boolean>,
   relativePath = "chapters/chapter-03.md",
   filePath: string | null = "book/" + relativePath,
 ) => {
@@ -235,7 +235,8 @@ describe("the three events", () => {
     );
     const edit = $<HTMLAnchorElement>(w, "a.edit-on-github");
     edit.addEventListener("click", (e) => e.preventDefault());
-    edit.click();
+    // A modified click is still the GitHub link; a plain one opens the in-site editor.
+    edit.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true }) as never);
     fill(w);
     await tick();
     key(w, "Escape");
@@ -256,5 +257,75 @@ describe("the three events", () => {
     w.eval("delete window.tbTrack");
     expect(() => $<HTMLButtonElement>(w, "button.tb-suggest-btn").click()).not.toThrow();
     expect($(w, "#tb-suggest-overlay")).not.toBeNull();
+  });
+});
+
+describe("the in-site editor", () => {
+  const SOURCE = "# T\n\nFirst paragraph.\n\nSecond paragraph, recieve.\n";
+  const SHA = "a".repeat(40);
+  const rowAndParas = (opts: Record<string, string | boolean>) =>
+    render(opts) + '<p data-pnum="1" id="p1">First paragraph.</p><p data-pnum="2" id="p2">Second paragraph, recieve.</p>';
+
+  it("derives /api/propose-edit from the suggest endpoint", () => {
+    expect(proposeEndpoint(ENDPOINT)).toBe("https://fn.example/api/propose-edit");
+    expect(proposeEndpoint("not a url")).toBe("");
+  });
+
+  it("turns Edit into 'Edit this page', keeping the GitHub href as the no-script fallback", () => {
+    const html = render(withSuggest);
+    expect(html).toContain(">Edit this page</a>");
+    expect(html).toContain('data-edit-endpoint="https://fn.example/api/propose-edit"');
+    expect(html).toContain('href="https://github.com/o/r/edit/main/chapters/chapter-03.md"');
+  });
+
+  it("stays the plain GitHub link with no endpoint (editions), or with editor: false", () => {
+    for (const html of [render({ repo: "o/r" }), render({ ...withSuggest, editor: false })]) {
+      expect(html).toContain(">Edit on GitHub ↗</a>");
+      expect(html).not.toContain("data-edit-endpoint");
+    }
+  });
+
+  it("puts a text-free pencil on every numbered paragraph", () => {
+    const w = page(rowAndParas(withSuggest));
+    expect(w.document.querySelectorAll("[data-pnum] > button.tb-pedit").length).toBe(2);
+    expect($(w, "#p2").textContent).toBe("Second paragraph, recieve.");
+    expect($(w, "#p2 > button.tb-pedit").getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("a paragraph edit becomes a paragraph proposal", async () => {
+    const sent: unknown[] = [];
+    const w = page(rowAndParas(withSuggest), async (_url, init) => {
+      const body = (init as { body?: string } | undefined)?.body;
+      if (!body) {
+        return { ok: true, status: 200, json: async () => ({ content: SOURCE, sha: SHA, branch: "drafts", signIn: false }) };
+      }
+      sent.push(JSON.parse(body));
+      return { ok: true, status: 201, json: async () => ({ prUrl: "https://github.com/o/r/pull/1" }) };
+    });
+    $<HTMLButtonElement>(w, "#p2 > button.tb-pedit").click();
+    await tick();
+    const ta = $<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text");
+    expect(ta.value).toBe("Second paragraph, recieve.");
+    ta.value = "Second paragraph, receive.";
+    ta.dispatchEvent(new w.Event("input") as never);
+    [...w.document.querySelectorAll<HTMLButtonElement>("#tb-editor .tb-ed-primary")]
+      .find((b) => b.textContent === "Propose changes…")!
+      .click();
+    $<HTMLInputElement>(w, "#tb-ed-name").value = "A Reader";
+    $<HTMLInputElement>(w, "#tb-ed-email").value = "reader@example.org";
+    $<HTMLFormElement>(w, "#tb-editor form").requestSubmit();
+    await tick();
+    expect(sent[0]).toMatchObject({
+      mode: "paragraph",
+      path: "chapters/chapter-03.md",
+      baseSha: SHA,
+      startLine: 4,
+      original: "Second paragraph, recieve.",
+      replacement: "Second paragraph, receive.",
+      paragraph: 2,
+      title: "Edit ¶2 of chapter-03.md",
+      name: "A Reader",
+    });
+    expect(w.calls.map((c) => c[0])).toEqual(["page_editor_opened", "page_edit_submitted"]);
   });
 });

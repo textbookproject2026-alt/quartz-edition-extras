@@ -131,9 +131,24 @@ been removed. Please don't reintroduce it.
 ### `plugins/edit-on-github` — component
 
 The **controls row** under each page title (BOOK-ONE-TO-QUARTZ §1b, §8 step 5):
-**Edit on GitHub ↗**, **View revision history ↗**, and, when `suggestEndpoint`
-is set, **Suggest an edit**. edition-integrations puts its annotation badge at
-the end of the row.
+**Edit this page** (or **Edit on GitHub ↗**, see below), **View revision
+history ↗**, and, when `suggestEndpoint` is set, **Suggest an edit**.
+edition-integrations puts its annotation badge at the end of the row.
+
+- **The in-site editor** (`src/components/scripts/editor.ts`, `source.ts`). With
+  `suggestEndpoint` set and `editor` on (the default), the Edit link reads **Edit
+  this page** and opens a GitHub-style editor over the page: a breadcrumb to the
+  file on the drafts branch, **Edit / Preview / Changes** tabs, and a **Propose
+  changes** dialog (title, description, and either *Sign in with GitHub* or name +
+  email). Every numbered paragraph also gets a pencil in its right margin that
+  opens the same editor on just that paragraph, found in the source by its words
+  (`findParagraph`; if it can't be found, the whole page opens with a note).
+  Proposals go to the function's `/api/propose-edit` (derived from
+  `suggestEndpoint`), which opens a PR into drafts, or files an issue when drafts
+  moved on. A modified click on the link, and any click with scripts off, still
+  goes to GitHub. The pencils hold no text (Hypothes.is anchors are safe) and are
+  out of the tab order; keyboard and screen-reader users have Edit this page.
+  Editions have no endpoint, so they keep the plain GitHub link.
 
 - **The links** come from Quartz's own source path, so no reverse-mapping from
   URLs: `contentDir` joined to `fileData.relativePath` (which is relative to the
@@ -149,13 +164,15 @@ the end of the row.
 - **The row's size and colour** come from edition-integrations' `--tb-*`
   tokens (`design.yaml`), with its own values as fallbacks.
 - **Events**, with book one's names: `edit_on_github_clicked`,
-  `suggest_edit_opened`, `suggest_edit_submitted {outcome}`. They go through
+  `suggest_edit_opened`, `suggest_edit_submitted {outcome}`; and the editor's
+  `page_editor_opened {mode}`, `page_edit_submitted {outcome, mode}`
+  (`proposed` / `issue` / `error`), `github_signin {outcome}`. They go through
   edition-integrations' `window.tbTrack()`, and are dropped silently where it
   isn't installed.
 
 `scripts/check-controls.mjs <out-dir> <page.html> <expected-edit-href>` checks
 a build: the links, the row's order, keyboard-only use of the modal, the
-honeypot, and the three events.
+honeypot, the three events, and that the editor is armed (link, pencils).
 
 **Options**
 
@@ -165,6 +182,7 @@ honeypot, and the three events.
 | `branch` | `"main"` | |
 | `contentDir` | `"content"` | The repo directory `quartz build -d` reads. `content` is Quartz's default, which editions and book two use, so their links are unchanged. The shared builder builds a book from its repo root and sets `""`. |
 | `suggestEndpoint` | `""` | The suggest-edit function's URL. `""` hides Suggest: the function answers 403 to an origin the registry doesn't list, and an edition's origin isn't listed. |
+| `editor` | `true` | The in-site editor, when `suggestEndpoint` is set. `false` keeps **Edit on GitHub ↗**. |
 
 Default position `beforeBody`, priority `25` — it sits with the page meta, under
 the title.
