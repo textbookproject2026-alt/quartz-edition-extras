@@ -1,7 +1,7 @@
 # quartz-edition-extras
 
-The two Quartz v5 plugins that department editions of the textbook install at build
-time. Nothing else lives here.
+The Quartz v5 plugins that the platform's books (quartz-book) and department editions
+install at build time. Nothing else lives here.
 
 **Every department edition builds against this repository.** The edition template's
 `quartz.config.yaml` names it by URL, and each edition's `quartz.lock.json` pins a
@@ -18,7 +18,7 @@ production infrastructure, not a scratch repo.
 
 ---
 
-## The two plugins
+## The plugins
 
 ### `plugins/edition-integrations` — transformer
 
@@ -168,6 +168,14 @@ honeypot, and the three events.
 
 Default position `beforeBody`, priority `25` — it sits with the page meta, under
 the title.
+
+### `plugins/textbook-graph` — component
+
+The graph view: a fork of `quartz-community/graph` (MIT) that colours nodes by topic
+(frontmatter `topic:`, else the first tag), keeps labels on and decluttered, and adds a
+topic legend that highlights a topic's pages. quartz-book uses it in place of the
+community plugin; the edition template picks it up at §8 step 22. Details in its
+README.
 
 ---
 
