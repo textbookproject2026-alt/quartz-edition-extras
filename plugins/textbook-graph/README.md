@@ -31,11 +31,12 @@ The textbook platform's graph view: [`quartz-community/graph`](https://github.co
    The current page is a dark ring.
 
 2. **Labels are always on.** They stay the same size on screen whatever the
-   zoom. Each label sits above, below, right or left of its node, wherever it
-   clears the other labels and dots; only when none of the four is clear does
-   it hide, the less-linked one first (a highlighted
+   zoom. Each label takes the first of eight spots round its node (above,
+   below, right, left, then the diagonals) that clears the other labels and
+   dots; failing that it tries again cut to 12 characters, and only then
+   hides, the less-linked one first (a highlighted
    topic's pages win over the rest); the current page, the hovered node and its
-   neighbours always show. Titles over 28 characters are cut until hovered.
+   neighbours always show. Titles over 22 characters are cut until hovered.
 
 3. **A topic legend** under the local graph, and along the bottom edge of the
    global graph, lists the topics in view. Choosing one highlights its pages

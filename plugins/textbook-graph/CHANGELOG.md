@@ -17,9 +17,10 @@ Forked from `quartz-community/graph` at `46f0ba1c3c0cc484697572e7bcf315fa384d80d
   Eight categorical slots (`--tb-topic-1` … `-8`, `--tb-topic-other`), handed to the
   most-used topics at build time (`src/topics.ts`); the rest are "Other".
 - Always-on labels at a constant screen size, decluttered: each label takes the first of
-  four spots (above, below, right, left) clear of other labels and dots, else hides,
+  eight spots round its node clear of other labels and dots, else the same cut to 12
+  characters, else hides,
   most-linked first, a highlighted topic's pages before the rest; the current page
-  and the hovered node and its neighbours always keep theirs. Titles over 28 characters are shortened until
+  and the hovered node and its neighbours always keep theirs. Titles over 22 characters are shortened until
   hovered.
 - A topic legend under the local graph and along the bottom of the global graph.
   Choosing a topic highlights its pages.

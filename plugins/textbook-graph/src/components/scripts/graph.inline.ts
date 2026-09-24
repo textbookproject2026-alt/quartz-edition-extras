@@ -8,8 +8,9 @@
  *     to mean current/visited/tag; now the current page is a dark ring and the
  *     visited colour is gone, so colour means one thing only.
  *   - Labels are always on, at a constant screen size. A greedy pass puts
- *     each label above, below, right or left of its node, wherever it clears
- *     the other labels and dots, and hides it only when none does; the
+ *     each label in one of eight spots round its node, wherever it clears
+ *     the other labels and dots, then tries a shorter cut, and hides it only
+ *     when neither fits; the
  *     most-linked pages are placed first (a highlighted
  *     topic's pages before the rest); the current page and the hovered node
  *     and its neighbours always keep theirs. Long titles are shortened, and
@@ -72,13 +73,15 @@ import {
     });
 
   // Titles past this many characters are cut to it (with "…") until hovered.
-  var LABEL_MAX = 28;
+  // A label with no room at that length tries ABBR_MAX before it hides.
+  var LABEL_MAX = 22;
+  var ABBR_MAX = 12;
   // How many topic colours graph.scss defines (--tb-topic-1 … -8). Mirrors
   // TOPIC_SLOTS in src/topics.ts.
   var TOPIC_SLOTS = 8;
 
-  function shorten(text) {
-    return text.length > LABEL_MAX ? text.slice(0, LABEL_MAX - 1).trimEnd() + "…" : text;
+  function shorten(text, max) {
+    return text.length > max ? text.slice(0, max - 1).trimEnd() + "…" : text;
   }
 
   function initGraph() {
@@ -373,10 +376,12 @@ import {
       }
 
       function setLabelText(nodeData, full) {
-        var want = full ? nodeData.simulationData.text : nodeData.shortText;
-        if (nodeData.label.text === want) return;
-        nodeData.label.text = want;
-        nodeData.labelW = nodeData.label.width / nodeData.label.scale.x;
+        var want = full
+          ? nodeData.simulationData.text
+          : nodeData.useAbbr
+            ? nodeData.abbrText
+            : nodeData.shortText;
+        if (nodeData.label.text !== want) nodeData.label.text = want;
       }
 
       function renderPixiFromD3() {
@@ -386,18 +391,22 @@ import {
       }
 
       // Where a label may sit, tried in this order: above its node, below,
-      // right, left. [anchor x, anchor y, offset x, offset y] in units of
-      // (node radius + gap); the anchor is PIXI's.
+      // right, left, then the four diagonals. [anchor x, anchor y, offset x,
+      // offset y] in units of (node radius + gap); the anchor is PIXI's.
       var SPOTS = [
         [0.5, 1, 0, -1],
         [0.5, 0, 0, 1],
         [0, 0.5, 1, 0],
         [1, 0.5, -1, 0],
+        [0, 1, 0.7, -0.7],
+        [1, 1, -0.7, -0.7],
+        [0, 0, 0.7, 0.7],
+        [1, 0, -0.7, 0.7],
       ];
 
-      function spotBox(nd, sx, sy, r, spot) {
+      function spotBox(nd, sx, sy, r, spot, abbr) {
         var s = SPOTS[spot];
-        var w = nd.labelW + 4;
+        var w = (abbr ? nd.abbrW : nd.labelW) + 4;
         var h = nd.labelH;
         var ax = sx + s[2] * (r + 4);
         var ay = sy + s[3] * (r + 3);
@@ -413,12 +422,13 @@ import {
         return false;
       }
 
-      // Which labels show, and where. Screen-space boxes, placed in priority
-      // order: each label takes the first of its four spots that clears every
-      // label already placed and every other node's dot (its last spot is
-      // tried first, so labels don't hop about while the layout settles). A
-      // label with no clear spot hides, unless it must show. Runs when the
-      // view changes, not every frame.
+      // Which labels show, where, and how long. Screen-space boxes, placed in
+      // priority order: each label takes the first of its spots that clears
+      // every label already placed and every other node's dot (its last spot
+      // is tried first, so labels don't hop about while the layout settles);
+      // failing that, the same at ABBR_MAX characters. A label with no clear
+      // spot hides, unless it must show. Runs when the view changes, not every
+      // frame.
       function placeLabels() {
         var k = currentTransform.k;
         var tx = currentTransform.x;
@@ -455,20 +465,31 @@ import {
           for (var t = 0; t < SPOTS.length; t++) if (t !== nd.labelSpot) tries.push(t);
           var chosen = -1;
           var box = null;
+          var abbr = false;
           if (!hiddenByFocus) {
-            for (var t = 0; t < tries.length; t++) {
-              var b = spotBox(nd, sx, sy, r, tries[t]);
-              var offscreen = b.x < 0 || b.x + b.w > width || b.y < 0 || b.y + b.h > height;
-              if (!offscreen && !overlaps(b, placed) && !overlaps(b, others)) {
-                chosen = tries[t];
-                box = b;
-                break;
+            // The hovered label shows in full, so only its full width counts.
+            var lengths = nd.label.text === n.text && nd.active ? [false] : [false, true];
+            for (var a = 0; a < lengths.length && chosen < 0; a++) {
+              if (lengths[a] && nd.abbrText === nd.shortText) break;
+              for (var t = 0; t < tries.length; t++) {
+                var b = spotBox(nd, sx, sy, r, tries[t], lengths[a]);
+                var offscreen = b.x < 0 || b.x + b.w > width || b.y < 0 || b.y + b.h > height;
+                if (!offscreen && !overlaps(b, placed) && !overlaps(b, others)) {
+                  chosen = tries[t];
+                  box = b;
+                  abbr = lengths[a];
+                  break;
+                }
               }
             }
             if (chosen < 0 && must) {
               chosen = nd.labelSpot;
-              box = spotBox(nd, sx, sy, r, chosen);
+              box = spotBox(nd, sx, sy, r, chosen, false);
             }
+          }
+          if (abbr !== nd.useAbbr) {
+            nd.useAbbr = abbr;
+            setLabelText(nd, nd.label.text === n.text && nd.active);
           }
           if (chosen >= 0) {
             placed.push(box);
@@ -489,7 +510,7 @@ import {
         var isCurrent = nodeId === slug;
 
         var label = new PIXI.Text({
-          text: shorten(node.text),
+          text: shorten(node.text, ABBR_MAX),
           style: {
             fontSize: fontSize * 20,
             fontWeight: isCurrent ? "600" : "400",
@@ -500,6 +521,9 @@ import {
           },
           resolution: (window.devicePixelRatio || 1) * 2,
         });
+        // Measured once at each length: the abbreviation, then the usual.
+        var abbrW = label.width;
+        label.text = shorten(node.text, LABEL_MAX);
         label.anchor.set(0.5, 1);
         label.alpha = 0;
         labelsContainer.addChild(label);
@@ -522,8 +546,11 @@ import {
           simulationData: node,
           gfx: gfx,
           label: label,
-          shortText: shorten(node.text),
+          shortText: shorten(node.text, LABEL_MAX),
+          abbrText: shorten(node.text, ABBR_MAX),
+          useAbbr: false,
           labelW: label.width,
+          abbrW: abbrW,
           labelH: label.height,
           labelTarget: 0,
           labelSpot: 0,
