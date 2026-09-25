@@ -6,6 +6,7 @@ import {
   noTracking,
   paragraphNumbers,
   tagHelper,
+  targetFlash,
   trackRuntime,
 } from "../src/runtime";
 
@@ -257,5 +258,60 @@ describe("paragraph numbers", () => {
     expect(w.document.getElementById("tb-pnum-style")!.textContent).toContain(
       "content: attr(data-pnum)",
     );
+  });
+});
+
+describe("target flash", () => {
+  const body =
+    '<article><p id="p1"><a class="internal" href="#ref-a">A, 1979</a></p>' +
+    '<p data-pnum="2" id="ref-a">A. (1979). A book.</p><h2 id="two">Two</h2></article>' +
+    '<div class="popover"><p id="ref-b">Elsewhere.</p></div>';
+  const flashing = (w: Page) =>
+    [...w.document.querySelectorAll(".tb-flash")].map((e) => (e as unknown as HTMLElement).id);
+
+  it("flashes the reference a same-page link jumps to, then clears", async () => {
+    const w = page("https://book.example.org/chapters/chapter-03", body);
+    w.eval(targetFlash);
+    expect(flashing(w)).toEqual([]);
+    w.location.hash = "#ref-a";
+    await tick(200);
+    expect(flashing(w)).toEqual(["ref-a"]);
+    await tick(3100);
+    expect(flashing(w)).toEqual([]);
+  });
+
+  it("flashes again when the same link is clicked a second time", async () => {
+    const w = page("https://book.example.org/chapters/chapter-03#ref-a", body);
+    w.eval(targetFlash);
+    await tick(200);
+    w.document.querySelector(".tb-flash")?.classList.remove("tb-flash");
+    (w.document.querySelector('a[href="#ref-a"]') as unknown as HTMLElement).click();
+    await tick(200);
+    expect(flashing(w)).toEqual(["ref-a"]);
+  });
+
+  it("flashes the target of a page opened at a fragment, once it holds still", async () => {
+    const w = page("https://book.example.org/chapters/chapter-03#ref-a", body);
+    w.eval(targetFlash);
+    await tick(200);
+    expect(flashing(w)).toEqual(["ref-a"]);
+  });
+
+  it("leaves popovers and missing ids alone", async () => {
+    const w = page("https://book.example.org/chapters/chapter-03", body);
+    w.eval(targetFlash);
+    w.location.hash = "#ref-b";
+    await tick(200);
+    w.location.hash = "#nowhere";
+    await tick(200);
+    expect(flashing(w)).toEqual([]);
+  });
+
+  it("uses the design's mark colour and stops the target below the top edge", () => {
+    const w = page("https://book.example.org/chapters/chapter-03", body);
+    w.eval(targetFlash);
+    const css = w.document.getElementById("tb-flash-style")!.textContent!;
+    expect(css).toContain("var(--tb-mark, #FDF2B3)");
+    expect(css).toContain("scroll-margin-top: 3.75rem");
   });
 });

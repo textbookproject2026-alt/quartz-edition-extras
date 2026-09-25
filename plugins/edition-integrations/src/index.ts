@@ -54,6 +54,7 @@ import {
   noTracking,
   paragraphNumbers,
   tagHelper,
+  targetFlash,
   trackRuntime,
 } from "./runtime";
 
@@ -238,6 +239,8 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       if (opts.tagHelper) head.push(script(tagHelper));
       if (opts.annotationBadge) head.push(script(annotationBadge));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
+      // Always: it completes fixBlockRefLinks, which is not optional either.
+      head.push(script(targetFlash));
       // Last, so window.hypothesisConfig above is already set when embed.js boots.
       head.push(h("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }) as VNode);
       return { additionalHead: head };

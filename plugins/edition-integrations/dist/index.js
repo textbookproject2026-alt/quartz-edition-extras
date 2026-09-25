@@ -8181,6 +8181,84 @@ var paragraphNumbers = `
   } catch (e) { /* numbers stay as the page drew them; nothing else affected */ }
 })()
 `;
+var targetFlash = `
+;(function () {
+  try {
+    var CLASS = "tb-flash"
+    var MS = 3000
+    var style = document.createElement("style")
+    style.id = "tb-flash-style"
+    style.textContent = [
+      "article [id] { scroll-margin-top: 3.75rem; }",
+      "@keyframes tb-flash { 0%, 75% { background-color: var(--tb-mark, #FDF2B3);",
+      "  box-shadow: 0 0 0 0.35rem var(--tb-mark, #FDF2B3); }",
+      "  100% { background-color: transparent; box-shadow: 0 0 0 0.35rem transparent; } }",
+      "." + CLASS + " { animation: tb-flash " + MS + "ms ease-out; border-radius: 2px; }",
+      "@media (prefers-reduced-motion: reduce) { ." + CLASS + " { animation: none;",
+      "  background-color: var(--tb-mark, #FDF2B3); box-shadow: 0 0 0 0.35rem var(--tb-mark, #FDF2B3); } }",
+      "@media print { ." + CLASS + " { animation: none; background: none; box-shadow: none; } }",
+    ].join("\\n")
+    document.head.appendChild(style)
+
+    var timer = null
+    var current = null
+    var waiting = 0
+    var target = function (hash) {
+      if (!hash || hash.length < 2) return null
+      var id
+      try { id = decodeURIComponent(hash.slice(1)) } catch (e) { id = hash.slice(1) }
+      var el = document.getElementById(id)
+      return el && el.closest && el.closest("article") && !el.closest(".popover") ? el : null
+    }
+    var flash = function (el) {
+      if (current) current.classList.remove(CLASS)
+      clearTimeout(timer)
+      void el.offsetWidth // restart the animation on a second click
+      el.classList.add(CLASS)
+      current = el
+      timer = setTimeout(function () { el.classList.remove(CLASS); if (current === el) current = null }, MS)
+    }
+    // Flash once the target has held still for a few frames, or after 2s.
+    var whenStill = function (el, then) {
+      var mine = ++waiting
+      var last = null, still = 0, start = Date.now()
+      var frame = window.requestAnimationFrame || function (f) { return setTimeout(f, 16) }
+      var step = function () {
+        if (mine !== waiting) return
+        var top = el.getBoundingClientRect().top
+        still = top === last ? still + 1 : 0
+        last = top
+        if (still >= 5 || Date.now() - start > 2000) then(el)
+        else frame(step)
+      }
+      frame(step)
+    }
+    var follow = function () {
+      var el = target(location.hash)
+      if (el) whenStill(el, flash)
+    }
+
+    window.addEventListener("hashchange", follow)
+    // The same link clicked again: the hash doesn't change, so no hashchange.
+    document.addEventListener("click", function (ev) {
+      try {
+        var a = ev.target && ev.target.closest ? ev.target.closest("a[href^='#']") : null
+        if (!a || a.closest(".popover") || ev.defaultPrevented) return
+        if (a.getAttribute("href") === location.hash) follow()
+      } catch (e) {}
+    })
+    var arrive = function () {
+      var el = target(location.hash)
+      if (!el) return
+      var top = el.getBoundingClientRect().top
+      if (top < 0 || top > window.innerHeight / 3) el.scrollIntoView({ block: "start", behavior: "instant" })
+      whenStill(el, flash)
+    }
+    if (document.readyState === "complete") arrive()
+    else window.addEventListener("load", arrive)
+  } catch (e) { /* links still jump; nothing else affected */ }
+})()
+`;
 
 // src/index.ts
 var defaultOptions = {
@@ -8282,6 +8360,7 @@ var EditionIntegrations = (userOpts) => {
       if (opts.tagHelper) head.push(script(tagHelper));
       if (opts.annotationBadge) head.push(script(annotationBadge));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
+      head.push(script(targetFlash));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
       return { additionalHead: head };
     }

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Following a link to a place on a page flashes that place in the `mark` colour for three
+  seconds, as Publish does, and stops it 3.75rem below the top edge. This covers a citation
+  jumping to its reference, the same link clicked again, and a page opened at a
+  `#fragment`. Always on, like the block-reference fix it completes
+  (BOOK-ONE-TO-QUARTZ proof run, F5).
 - Paragraph numbers: body paragraphs are numbered (`data-pnum`, `id="p<n>"`) on every
   page but the home page, drawn in the margin by CSS so Hypothes.is anchors don't move.
   Clicking a number copies its link. A "¶ Numbers" toggle in the controls row, remembered
