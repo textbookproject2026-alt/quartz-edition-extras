@@ -551,3 +551,100 @@ export const paragraphNumbers = `
   } catch (e) { /* numbers stay as the page drew them; nothing else affected */ }
 })()
 `;
+
+/**
+ * Following a link to a place on a page flashes that place, as Publish does.
+ *
+ * A citation (`[Bhaskar, 1979](#^ref-bhaskar-1979)`, fixed to `#ref-…` by
+ * fixBlockRefLinks) jumps to its reference. On Publish the reference then
+ * shows the highlighter colour for about three seconds (Obsidian's
+ * `is-flashing`). Quartz only jumps, and the reference lands on the window's
+ * top edge. This flashes the target in the `mark` colour for the same time, and
+ * stops it a little below the top, where Publish stops it.
+ *
+ * The flash starts once the target has stopped moving: Quartz scrolls
+ * smoothly, and a long jump would otherwise use up the flash before the reader
+ * got there. It follows a same-page link, a second click on the same link
+ * (which changes no hash), and a page opened at a #fragment (a cross-page
+ * citation or a paragraph's link). In that last case the browser's smooth
+ * scroll is cut short when the page grows as it loads, so once the page has
+ * loaded the target is put in view, if it isn't already.
+ */
+export const targetFlash = `
+;(function () {
+  try {
+    var CLASS = "tb-flash"
+    var MS = 3000
+    var style = document.createElement("style")
+    style.id = "tb-flash-style"
+    style.textContent = [
+      "article [id] { scroll-margin-top: 3.75rem; }",
+      "@keyframes tb-flash { 0%, 75% { background-color: var(--tb-mark, #FDF2B3);",
+      "  box-shadow: 0 0 0 0.35rem var(--tb-mark, #FDF2B3); }",
+      "  100% { background-color: transparent; box-shadow: 0 0 0 0.35rem transparent; } }",
+      "." + CLASS + " { animation: tb-flash " + MS + "ms ease-out; border-radius: 2px; }",
+      "@media (prefers-reduced-motion: reduce) { ." + CLASS + " { animation: none;",
+      "  background-color: var(--tb-mark, #FDF2B3); box-shadow: 0 0 0 0.35rem var(--tb-mark, #FDF2B3); } }",
+      "@media print { ." + CLASS + " { animation: none; background: none; box-shadow: none; } }",
+    ].join("\\n")
+    document.head.appendChild(style)
+
+    var timer = null
+    var current = null
+    var waiting = 0
+    var target = function (hash) {
+      if (!hash || hash.length < 2) return null
+      var id
+      try { id = decodeURIComponent(hash.slice(1)) } catch (e) { id = hash.slice(1) }
+      var el = document.getElementById(id)
+      return el && el.closest && el.closest("article") && !el.closest(".popover") ? el : null
+    }
+    var flash = function (el) {
+      if (current) current.classList.remove(CLASS)
+      clearTimeout(timer)
+      void el.offsetWidth // restart the animation on a second click
+      el.classList.add(CLASS)
+      current = el
+      timer = setTimeout(function () { el.classList.remove(CLASS); if (current === el) current = null }, MS)
+    }
+    // Flash once the target has held still for a few frames, or after 2s.
+    var whenStill = function (el, then) {
+      var mine = ++waiting
+      var last = null, still = 0, start = Date.now()
+      var frame = window.requestAnimationFrame || function (f) { return setTimeout(f, 16) }
+      var step = function () {
+        if (mine !== waiting) return
+        var top = el.getBoundingClientRect().top
+        still = top === last ? still + 1 : 0
+        last = top
+        if (still >= 5 || Date.now() - start > 2000) then(el)
+        else frame(step)
+      }
+      frame(step)
+    }
+    var follow = function () {
+      var el = target(location.hash)
+      if (el) whenStill(el, flash)
+    }
+
+    window.addEventListener("hashchange", follow)
+    // The same link clicked again: the hash doesn't change, so no hashchange.
+    document.addEventListener("click", function (ev) {
+      try {
+        var a = ev.target && ev.target.closest ? ev.target.closest("a[href^='#']") : null
+        if (!a || a.closest(".popover") || ev.defaultPrevented) return
+        if (a.getAttribute("href") === location.hash) follow()
+      } catch (e) {}
+    })
+    var arrive = function () {
+      var el = target(location.hash)
+      if (!el) return
+      var top = el.getBoundingClientRect().top
+      if (top < 0 || top > window.innerHeight / 3) el.scrollIntoView({ block: "start", behavior: "instant" })
+      whenStill(el, flash)
+    }
+    if (document.readyState === "complete") arrive()
+    else window.addEventListener("load", arrive)
+  } catch (e) { /* links still jump; nothing else affected */ }
+})()
+`;
