@@ -58,6 +58,7 @@ const SCHEMA = {
   },
   layout: { measure: "length", rhythm: "length", mobileWidth: "length" },
   controls: { size: "length" },
+  homeLink: { size: "length" },
   print: { size: "length", lineHeight: "number", margin: "length" },
 } as const;
 
@@ -230,6 +231,7 @@ export const designCss = (d: Design): string => {
   --tb-size-h3: ${t.h3.size};
   --tb-size-h4: ${t.h4.size};
   --tb-size-controls: ${d.controls.size};
+  --tb-size-home-link: ${d.homeLink.size};
   --tb-measure: ${layout.measure};
   --tb-rhythm: ${layout.rhythm};
 }

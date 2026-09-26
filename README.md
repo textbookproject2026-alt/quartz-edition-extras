@@ -72,7 +72,7 @@ with the change.
 
 `plugins/edition-integrations/design.yaml` holds the palette (light, and dark
 for when dark mode is on), the fonts, the type scale, the reading measure and
-rhythm, the annotation highlight, the controls row's size, and the print
+rhythm, the annotation highlight, the controls row's and the home link's size, and the print
 settings (BOOK-ONE-TO-QUARTZ §4a). It was seeded from book one's `publish.css`.
 Two values wait for the client (D12): the accent stays `#7C6CF0`, and dark
 mode stays off.
@@ -195,6 +195,14 @@ The graph view: a fork of `quartz-community/graph` (MIT) that colours nodes by t
 topic legend that highlights a topic's pages. quartz-book uses it in place of the
 community plugin; the edition template picks it up at §8 step 22. Details in its
 README.
+
+### `plugins/home-link` — component
+
+_confused for now_, in italics, linking to the portal: the first item in the left
+sidebar, above the book's title, on every page type. On a phone it takes its own
+line above the sidebar row. A plain link, no script. Its size is design.yaml's
+`homeLink.size` and its colours the palette's (`faint`, `accent` on hover and focus).
+Option `url` (default `https://confused4now.org/`). Details in its README.
 
 ---
 

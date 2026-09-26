@@ -73,6 +73,12 @@ layout:
 controls:
   size: 0.85rem
 
+# "confused for now", the link to the portal above the book's title (the
+# home-link plugin). Its colour is the palette's `faint` (Quartz's --gray), and
+# `accent` on hover and focus.
+homeLink:
+  size: 0.85rem
+
 # Printing hides everything but the chapter, and prints no annotation highlights.
 print:
   size: 11pt
