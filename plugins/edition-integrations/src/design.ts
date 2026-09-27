@@ -235,6 +235,8 @@ export const designCss = (d: Design): string => {
   --tb-home-link-icon-height: ${d.homeLink.iconHeight};
   --tb-measure: ${layout.measure};
   --tb-rhythm: ${layout.rhythm};
+  /* The width of the annotation client's collapsed tab and buttons, reserved on phones. */
+  --tb-annotation-gutter: 2.5rem;
 }
 :root[saved-theme="dark"] {${colours(dark)}
 }
@@ -370,9 +372,20 @@ pre, article code { background-color: var(--tb-bg-soft); }
     white-space: nowrap;
   }
 
-  /* Once a reader has asked for the annotation client on a phone, its toolbar
-     sits on the right edge: keep the text clear of it. */
-  html.tb-hypothesis-on #quartz-body .center { padding-right: 2.75rem; }
+  /* The annotation client's tab and its eye and note buttons sit on the right
+     edge: the header and the text keep clear of them, open or closed. */
+  html.tb-hypothesis-on #quartz-body .left.sidebar,
+  html.tb-hypothesis-on #quartz-body .center {
+    padding-right: var(--tb-annotation-gutter);
+  }
+
+  /* Compact: the header bar, and the space from it to the page's heading. */
+  #quartz-body .left.sidebar {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  #quartz-body .page-header h1.article-title { margin-top: 0.75rem; }
+  #quartz-body .page-header .breadcrumb-container { margin-top: 0.25rem; }
 }
 
 /* Print: the chapter alone, at full width, with no annotation layer. */

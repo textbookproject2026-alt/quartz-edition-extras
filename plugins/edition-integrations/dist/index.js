@@ -7493,6 +7493,8 @@ var designCss = (d2) => {
   --tb-home-link-icon-height: ${d2.homeLink.iconHeight};
   --tb-measure: ${layout.measure};
   --tb-rhythm: ${layout.rhythm};
+  /* The width of the annotation client's collapsed tab and buttons, reserved on phones. */
+  --tb-annotation-gutter: 2.5rem;
 }
 :root[saved-theme="dark"] {${colours(dark)}
 }
@@ -7628,9 +7630,20 @@ pre, article code { background-color: var(--tb-bg-soft); }
     white-space: nowrap;
   }
 
-  /* Once a reader has asked for the annotation client on a phone, its toolbar
-     sits on the right edge: keep the text clear of it. */
-  html.tb-hypothesis-on #quartz-body .center { padding-right: 2.75rem; }
+  /* The annotation client's tab and its eye and note buttons sit on the right
+     edge: the header and the text keep clear of them, open or closed. */
+  html.tb-hypothesis-on #quartz-body .left.sidebar,
+  html.tb-hypothesis-on #quartz-body .center {
+    padding-right: var(--tb-annotation-gutter);
+  }
+
+  /* Compact: the header bar, and the space from it to the page's heading. */
+  #quartz-body .left.sidebar {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  #quartz-body .page-header h1.article-title { margin-top: 0.75rem; }
+  #quartz-body .page-header .breadcrumb-container { margin-top: 0.25rem; }
 }
 
 /* Print: the chapter alone, at full width, with no annotation layer. */
@@ -8092,23 +8105,11 @@ var annotationBadge = `
       document.head.appendChild(style)
     }
 
-    // Only ever opens: clicks the client's toggle when it is collapsed. On a
-    // phone the client isn't loaded until now: load it (it opens itself once
-    // booted) and say so on the badge meanwhile. Otherwise the client may be
-    // absent (blocked, still booting); say so on the badge.
+    // Only ever opens: clicks the client's toggle when it is collapsed. The
+    // client may be absent (blocked, still booting); say so on the badge.
     var openSidebar = function (badge, label) {
       try {
         var host = document.querySelector("hypothesis-sidebar")
-        if (!host && typeof window.__tbLoadHypothesis === "function" && window.__tbLoadHypothesis()) {
-          badge.textContent = "Opening annotations\u2026"
-          var tries = 0
-          var wait = setInterval(function () {
-            tries++
-            if (document.querySelector("hypothesis-sidebar")) { clearInterval(wait); badge.textContent = label }
-            else if (tries > 40) { clearInterval(wait); badge.textContent = BLOCKED_TEXT }
-          }, 250)
-          return
-        }
         if (!host) { badge.textContent = BLOCKED_TEXT; return }
         if (badge.textContent === BLOCKED_TEXT) badge.textContent = label
         var btn = host.shadowRoot && host.shadowRoot.querySelector("button[aria-expanded]")
@@ -8380,9 +8381,8 @@ var hypothesisConfig = (groupId) => {
 window.hypothesisConfig = function () {
   return {
     // First-party flow: sidebar collapsed, highlights always visible \u2014 same as the
-    // canonical site's publish.js. On a phone the client loads only when the
-    // reader taps "Annotate this page" (hypothesisLoader), and then it opens.
-    openSidebar: !!window.__tbHypothesisOpenOnLoad,
+    // canonical site's publish.js.
+    openSidebar: false,
     showHighlights: 'always',
     // R1 hook \u2014 per-edition group locking. UNUSED BY DECISION: the Publisher
     // tier will not be bought, so this is a record of the shape the swap would
@@ -8405,28 +8405,21 @@ window.plausible = window.plausible || function () { (window.plausible.q = windo
 window.plausible.init = window.plausible.init || function (o) { window.plausible.o = o || {} }
 window.plausible.init()
 `;
-var hypothesisLoader = (narrowWidth) => `
+var hypothesisLoader = `
 ;(function () {
-  var load = function (open) {
-    // Run-once guard: exactly one embed.js per page load. A second client's
-    // connection is refused by the host frame ("Ignoring second request from
-    // Hypothesis sidebar to connect to host frame"), leaving a present-but-dead
-    // sidebar \u2014 so guard even though nothing should evaluate this twice.
-    if (window.__editionIntegrations) return false
-    window.__editionIntegrations = true
-    if (open) window.__tbHypothesisOpenOnLoad = true
-    document.documentElement.classList.add("tb-hypothesis-on")
-    var s = document.createElement("script")
-    s.async = true
-    s.src = "https://hypothes.is/embed.js"
-    s.setAttribute("data-edition-hypothesis", "")
-    document.head.appendChild(s)
-    return true
-  }
-  window.__tbLoadHypothesis = function () { return load(true) }
-  var narrow = false
-  try { narrow = window.matchMedia("(max-width: ${narrowWidth})").matches } catch (e) {}
-  if (!narrow) load(false)
+  // Run-once guard: exactly one embed.js per page load. A second client's
+  // connection is refused by the host frame ("Ignoring second request from
+  // Hypothesis sidebar to connect to host frame"), leaving a present-but-dead
+  // sidebar \u2014 so guard even though nothing should evaluate this twice.
+  if (window.__editionIntegrations) return
+  window.__editionIntegrations = true
+  document.documentElement.classList.add("tb-hypothesis-on")
+
+  var s = document.createElement("script")
+  s.async = true
+  s.src = "https://hypothes.is/embed.js"
+  s.setAttribute("data-edition-hypothesis", "")
+  document.head.appendChild(s)
 })()
 `;
 var EditionIntegrations = (userOpts) => {
@@ -8470,11 +8463,7 @@ var EditionIntegrations = (userOpts) => {
       if (opts.annotationBadge) head.push(script(annotationBadge));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
       head.push(script(targetFlash));
-      head.push(
-        _("script", {
-          dangerouslySetInnerHTML: { __html: hypothesisLoader(design.layout.narrowWidth) }
-        })
-      );
+      head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
       return { additionalHead: head };
     }
   };

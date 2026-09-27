@@ -73,8 +73,7 @@ describe("EditionIntegrations head injection", () => {
 
   it("preserves the first-party Hypothes.is flow", () => {
     const config = inlineScripts(headOf()).find((html) => html.includes("hypothesisConfig"));
-    // Collapsed, unless a phone reader asked for the client (then it opens).
-    expect(config).toContain("openSidebar: !!window.__tbHypothesisOpenOnLoad");
+    expect(config).toContain("openSidebar: false");
     expect(config).toContain("showHighlights: 'always'");
     // Publisher-tier seam stays commented out.
     expect(config).toContain("// services: [{");
@@ -141,55 +140,26 @@ describe("Plausible", () => {
   });
 });
 
-describe("Hypothes.is on phones: loaded only when the reader asks", () => {
+describe("Hypothes.is loads on page load at every width", () => {
   type Win = Window & { eval: (code: string) => unknown; [k: string]: unknown };
   const wins: Win[] = [];
   afterEach(async () => {
     while (wins.length) await wins.pop()!.happyDOM.close();
   });
-  /** Runs the head's config and loader in a page whose width matches `narrow`. */
-  const boot = (narrow: boolean): Win => {
+
+  it("loads the client once, collapsed, and marks the page so phones keep room for it", () => {
     const w = new Window({
       url: "https://book.example.org/x",
       settings: { disableJavaScriptFileLoading: true, disableIframePageLoading: true },
     }) as unknown as Win;
     wins.push(w);
     w.document.write("<html><head></head><body></body></html>");
-    const queries: string[] = [];
-    w.matchMedia = ((q: string) => {
-      queries.push(q);
-      return { matches: narrow, media: q };
-    }) as unknown as typeof w.matchMedia;
-    w.__queries = queries;
     const scripts = inlineScripts(headOf());
     w.eval(scripts.find((html) => html.includes("window.hypothesisConfig"))!);
     w.eval(loader(headOf()));
-    return w;
-  };
-  const clients = (w: Win) => w.document.querySelectorAll("script[data-edition-hypothesis]").length;
-  const config = (w: Win) => (w.hypothesisConfig as () => { openSidebar: boolean })();
-
-  it("asks at Quartz's phone breakpoint, from design.yaml", () => {
-    expect(boot(true).__queries).toEqual(["(max-width: 800px)"]);
-  });
-
-  it("on a wide screen loads the client at once, collapsed, as before", () => {
-    const w = boot(false);
-    expect(clients(w)).toBe(1);
-    expect(config(w).openSidebar).toBe(false);
+    w.eval(loader(headOf())); // a second evaluation must not add a second client
+    expect(w.document.querySelectorAll("script[data-edition-hypothesis]")).toHaveLength(1);
+    expect((w.hypothesisConfig as () => { openSidebar: boolean })().openSidebar).toBe(false);
     expect(w.document.documentElement.classList.contains("tb-hypothesis-on")).toBe(true);
-  });
-
-  it("on a phone loads nothing until asked, then loads once and opens", () => {
-    const w = boot(true);
-    expect(clients(w)).toBe(0);
-    expect(w.document.documentElement.classList.contains("tb-hypothesis-on")).toBe(false);
-    const load = w.__tbLoadHypothesis as () => boolean;
-    expect(load()).toBe(true);
-    expect(clients(w)).toBe(1);
-    expect(config(w).openSidebar).toBe(true);
-    expect(w.document.documentElement.classList.contains("tb-hypothesis-on")).toBe(true);
-    expect(load()).toBe(false); // never a second client
-    expect(clients(w)).toBe(1);
   });
 });

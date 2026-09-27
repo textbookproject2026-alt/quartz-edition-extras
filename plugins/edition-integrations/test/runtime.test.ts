@@ -181,28 +181,6 @@ describe("the annotation badge", () => {
     );
   });
 
-  it("on a phone, the first tap loads the client, then the sidebar opens", async () => {
-    const w = page("https://book.example.org/x");
-    withCount(w, 0);
-    let loads = 0;
-    w.__tbLoadHypothesis = () => {
-      loads++;
-      return loads === 1;
-    };
-    w.eval(trackRuntime);
-    w.eval(annotationBadge);
-    await (w.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
-    const badge = w.document.querySelector("button.tb-anno-badge") as unknown as HTMLElement;
-    expect(badge.textContent).toBe("Annotate this page");
-
-    badge.click();
-    expect(loads).toBe(1);
-    expect(badge.textContent).toBe("Opening annotations\u2026");
-    sidebar(w, true); // embed.js has booted, open (openSidebar on request)
-    await tick(300);
-    expect(badge.textContent).toBe("Annotate this page");
-  });
-
   it("clicking counts the click and opens the sidebar, never closes it", async () => {
     const w = page("https://book.example.org/x");
     withCount(w, 1);
