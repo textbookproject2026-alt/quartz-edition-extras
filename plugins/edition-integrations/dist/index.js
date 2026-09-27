@@ -7645,7 +7645,11 @@ pre, article code { background-color: var(--tb-bg-soft); }
   html.mobile-no-scroll hypothesis-sidebar,
   html.mobile-no-scroll hypothesis-notebook,
   html.mobile-no-scroll hypothesis-profile,
-  html.mobile-no-scroll hypothesis-adder {
+  html.mobile-no-scroll hypothesis-adder,
+  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-sidebar,
+  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-notebook,
+  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-profile,
+  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-adder {
     visibility: hidden !important;
   }
 
@@ -8215,6 +8219,30 @@ var hypothesisMenuRepaint = `
   } catch (e) { /* nothing depends on it */ }
 })()
 `;
+var phoneMenuStartsClosed = (narrowWidth) => `
+;(function () {
+  try {
+    var mq = window.matchMedia("(max-width: ${narrowWidth})")
+    var touched = false
+    document.addEventListener("click", function (e) {
+      if (e.target && e.target.closest && e.target.closest(".explorer-toggle")) touched = true
+    }, true)
+    var close = function () {
+      if (touched || !mq.matches) return
+      var all = document.querySelectorAll(".explorer")
+      for (var i = 0; i < all.length; i++) {
+        var ex = all[i]
+        if (!ex.querySelector(".mobile-explorer") || ex.classList.contains("collapsed")) continue
+        ex.classList.add("collapsed")
+        ex.setAttribute("aria-expanded", "false")
+        document.documentElement.classList.remove("mobile-no-scroll")
+      }
+    }
+    document.addEventListener("nav", function () { setTimeout(close, 0); setTimeout(close, 300) })
+    window.addEventListener("load", function () { setTimeout(close, 0) })
+  } catch (e) { /* the menu keeps Quartz's own behaviour */ }
+})()
+`;
 var paragraphNumbers = `
 ;(function () {
   try {
@@ -8501,6 +8529,7 @@ var EditionIntegrations = (userOpts) => {
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
       head.push(script(targetFlash));
       head.push(script(hypothesisMenuRepaint));
+      head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
       return { additionalHead: head };
     }

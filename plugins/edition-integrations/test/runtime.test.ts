@@ -4,6 +4,7 @@ import {
   analyticsLoader,
   annotationBadge,
   hypothesisMenuRepaint,
+  phoneMenuStartsClosed,
   noTracking,
   paragraphNumbers,
   tagHelper,
@@ -335,5 +336,50 @@ describe("the phone menu and the annotation client", () => {
     root.classList.remove("mobile-no-scroll"); // the menu closes: repaint, then clear
     await tick(60);
     expect(transforms).toEqual(["translateZ(0)", ""]);
+  });
+});
+
+describe("the phone menu starts closed", () => {
+  const explorerPage = () =>
+    page(
+      "https://book.example.org/x",
+      '<div class="explorer"><button class="explorer-toggle mobile-explorer">Menu</button>' +
+        '<div class="explorer-content"></div></div>',
+    );
+  const withWidth = (w: Page, narrow: boolean) => {
+    w.matchMedia = ((q: string) => ({
+      matches: narrow,
+      media: q,
+    })) as unknown as typeof w.matchMedia;
+  };
+
+  it("closes a menu Quartz left open on a phone", async () => {
+    const w = explorerPage();
+    withWidth(w, true);
+    w.eval(phoneMenuStartsClosed("800px"));
+    w.document.dispatchEvent(new w.Event("nav"));
+    await tick(20);
+    const ex = w.document.querySelector(".explorer")!;
+    expect(ex.classList.contains("collapsed")).toBe(true);
+    expect(ex.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("never overrides the reader's own tap", async () => {
+    const w = explorerPage();
+    withWidth(w, true);
+    w.eval(phoneMenuStartsClosed("800px"));
+    (w.document.querySelector(".explorer-toggle") as unknown as HTMLElement).click();
+    w.document.dispatchEvent(new w.Event("nav"));
+    await tick(20);
+    expect(w.document.querySelector(".explorer")!.classList.contains("collapsed")).toBe(false);
+  });
+
+  it("leaves wider screens alone", async () => {
+    const w = explorerPage();
+    withWidth(w, false);
+    w.eval(phoneMenuStartsClosed("800px"));
+    w.document.dispatchEvent(new w.Event("nav"));
+    await tick(20);
+    expect(w.document.querySelector(".explorer")!.classList.contains("collapsed")).toBe(false);
   });
 });

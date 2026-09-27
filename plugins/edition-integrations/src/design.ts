@@ -387,7 +387,11 @@ pre, article code { background-color: var(--tb-bg-soft); }
   html.mobile-no-scroll hypothesis-sidebar,
   html.mobile-no-scroll hypothesis-notebook,
   html.mobile-no-scroll hypothesis-profile,
-  html.mobile-no-scroll hypothesis-adder {
+  html.mobile-no-scroll hypothesis-adder,
+  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-sidebar,
+  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-notebook,
+  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-profile,
+  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-adder {
     visibility: hidden !important;
   }
 

@@ -468,6 +468,38 @@ export const hypothesisMenuRepaint = `
 `;
 
 /**
+ * The phone menu starts closed. Quartz renders the explorer open and closes it
+ * in script on phones, after checking its toggle is visible; in WebKit that
+ * check can run too early, leaving the menu open over the page on load and
+ * every later tap out of step. On a phone, until the reader first touches the
+ * menu, close it the way Quartz would have.
+ */
+export const phoneMenuStartsClosed = (narrowWidth: string) => `
+;(function () {
+  try {
+    var mq = window.matchMedia("(max-width: ${narrowWidth})")
+    var touched = false
+    document.addEventListener("click", function (e) {
+      if (e.target && e.target.closest && e.target.closest(".explorer-toggle")) touched = true
+    }, true)
+    var close = function () {
+      if (touched || !mq.matches) return
+      var all = document.querySelectorAll(".explorer")
+      for (var i = 0; i < all.length; i++) {
+        var ex = all[i]
+        if (!ex.querySelector(".mobile-explorer") || ex.classList.contains("collapsed")) continue
+        ex.classList.add("collapsed")
+        ex.setAttribute("aria-expanded", "false")
+        document.documentElement.classList.remove("mobile-no-scroll")
+      }
+    }
+    document.addEventListener("nav", function () { setTimeout(close, 0); setTimeout(close, 300) })
+    window.addEventListener("load", function () { setTimeout(close, 0) })
+  } catch (e) { /* the menu keeps Quartz's own behaviour */ }
+})()
+`;
+
+/**
  * Paragraph numbers: the style that draws them, and the toggle.
  *
  * The transform (transforms.ts, numberParagraphs) marks each body paragraph

@@ -53,6 +53,7 @@ import {
   annotationBadge,
   hypothesisMenuRepaint,
   noTracking,
+  phoneMenuStartsClosed,
   paragraphNumbers,
   tagHelper,
   targetFlash,
@@ -248,6 +249,7 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       // Always: it completes fixBlockRefLinks, which is not optional either.
       head.push(script(targetFlash));
       head.push(script(hypothesisMenuRepaint));
+      head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       // Last, so window.hypothesisConfig above is already set when embed.js boots.
       head.push(h("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }) as VNode);
       return { additionalHead: head };
