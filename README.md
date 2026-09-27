@@ -12,8 +12,9 @@ production infrastructure, not a scratch repo.
 - **Canonical textbook:** `textbookproject2026-alt/textbook`
 - **Edition template (consumer of this repo):** `textbookproject2026-alt/textbook-edition-template`
 - **Platform builder (consumer of this repo):** `textbookproject2026-alt/quartz-book`, pinned in its `quartz.lock.json` and moved by its `bump-extras` bot.
-- **Operating guide:** `docs/updating-department-editions.md` in the textbook repo —
-  how a change here reaches a live edition, and why it doesn't on its own.
+- **Operating guide:** `docs/updating-department-editions.md` in the edition template
+  (moved from the textbook repo at BOOK-ONE-TO-QUARTZ §8 step 18) — how a change here
+  reaches a live edition, and why it doesn't on its own.
 - **Service inventory:** `docs/INFRASTRUCTURE.md` in `textbookproject2026-alt/textbook-registry`
   (this repo is shared service S6 there; moved from the textbook repo on 22 Sep 2026).
 
@@ -218,7 +219,18 @@ From the template's `quartz.config.yaml`:
 ```
 
 `npx quartz plugin install` resolves that to an exact commit and writes it into the
-edition's `quartz.lock.json`. **The pin never moves on its own.** An edition
+edition's `quartz.lock.json`. **The pin never moves on its own.**
+
+> **Only with the platform patch is the pin what gets installed** (27 Sep 2026).
+> Upstream Quartz restored a `subdir` plugin by cloning this repo's default branch
+> and ignored the lock's commit, while printing it. So until then, every consumer
+> built with this repo's `main` as of its last fresh install, whatever it pinned.
+> `quartz/cli/plugin-git-handlers.js` in quartz-book (#18) and in the edition
+> template (#10, §8 step 22) now fetches the pinned commit and records it in
+> `.quartz/plugins/<name>/.quartz-locked-commit`. An edition gets the patch with
+> `sync-upstream.sh`.
+
+An edition
 collects a change here only when its coordinator runs:
 
 ```
@@ -252,22 +264,27 @@ read at build time.
 ### Releasing a change
 
 1. `npm run check && npm run build` in the plugin directory.
-2. Commit **both** `src/` and `dist/`.
-3. Push to `main`.
+2. Commit **both** `src/` and `dist/`. The `ci` check fails if `dist/` isn't
+   what `src/` builds to.
+3. Open a pull request and merge it once `ci` is green. `main` is protected
+   (since 27 Sep 2026): a pull request and the `ci` check, no review, admins
+   included. quartz-book's `bump-extras` bot then opens its pin pull request,
+   with a design preview of every book.
 4. **Bump the pin in the template**, in
-   `textbook-edition-template/quartz.lock.json` — otherwise every edition forked
-   from that point still starts on the old commit.
+   `textbook-edition-template/quartz.lock.json`, for all three plugins it uses
+   (`edition-integrations`, `edit-on-github`, `textbook-graph`) at one commit —
+   otherwise every edition forked from that point still starts on the old commit.
 5. Announce it to coordinators, naming the plugin, so they can run
    `npx quartz plugin update <name>`. See
-   `docs/updating-department-editions.md` in the textbook repo.
+   `docs/updating-department-editions.md` in the edition template.
 
 Step 4 is the one that gets missed, and it is invisible when it is.
 
-> **Known discrepancy, 4 September 2026.** The template pins both plugins at
-> `eece8e6`, seven commits behind this repo's `main`. Everything since — including
-> the Hypothes.is navigation fix series and the Publisher-tier correction — is
-> unreleased to every edition. Tracked as item 3.5 in
-> `docs/DOCS-REMEDIATION.md` in the textbook repo.
+> **Resolved.** The note that stood here (4 Sep 2026) said the template pinned both
+> plugins at `eece8e6`. They moved to `8f4e323` the same month, and to `265bb8d`,
+> with `textbook-graph`, at BOOK-ONE-TO-QUARTZ §8 step 22 (edition template #10).
+> As the note above says, the old pins were never what got installed anyway. The
+> record is item 3.5 in `textbook-registry/docs/history/DOCS-REMEDIATION.md`.
 
 ---
 
