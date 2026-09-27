@@ -7577,6 +7577,14 @@ pre, article code { background-color: var(--tb-bg-soft); }
     white-space: nowrap;
     text-wrap: nowrap;
   }
+  /* Search and reader mode take only their icons' width; the title gets the rest. */
+  #quartz-body .left.sidebar > .flex-component {
+    flex: 0 0 auto;
+  }
+  #quartz-body .left.sidebar .search {
+    flex: 0 0 auto;
+    width: auto;
+  }
   #quartz-body .left.sidebar .search .search-button {
     width: auto;
     padding: 0.4rem;
