@@ -435,6 +435,39 @@ export const annotationBadge = `
 `;
 
 /**
+ * Quartz's phone menu locks the page (html.mobile-no-scroll) while it is open,
+ * and design.ts hides the annotation client's buttons meanwhile. When the class
+ * goes, force the client's fixed layer to repaint: some mobile browsers leave
+ * fixed elements unpainted after the page's overflow changes, which made the
+ * buttons vanish after the menu closed.
+ */
+export const hypothesisMenuRepaint = `
+;(function () {
+  try {
+    var HOSTS = "hypothesis-sidebar, hypothesis-notebook, hypothesis-profile, hypothesis-adder"
+    var root = document.documentElement
+    var locked = root.classList.contains("mobile-no-scroll")
+    var repaint = function () {
+      var hosts = document.querySelectorAll(HOSTS)
+      for (var i = 0; i < hosts.length; i++) {
+        var h = hosts[i]
+        h.style.transform = "translateZ(0)"
+        void h.offsetWidth // force layout with the new layer
+      }
+      requestAnimationFrame(function () {
+        for (var i = 0; i < hosts.length; i++) hosts[i].style.transform = ""
+      })
+    }
+    new MutationObserver(function () {
+      var now = root.classList.contains("mobile-no-scroll")
+      if (locked && !now) repaint()
+      locked = now
+    }).observe(root, { attributes: true, attributeFilter: ["class"] })
+  } catch (e) { /* nothing depends on it */ }
+})()
+`;
+
+/**
  * Paragraph numbers: the style that draws them, and the toggle.
  *
  * The transform (transforms.ts, numberParagraphs) marks each body paragraph
