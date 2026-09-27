@@ -319,6 +319,11 @@ pre, article code { background-color: var(--tb-bg-soft); }
     white-space: nowrap;
     text-wrap: nowrap;
   }
+  /* Quartz's mobile spacer (flex: 2) would take most of the row; the title's own
+     growth already pushes search to the right. */
+  #quartz-body .left.sidebar .spacer {
+    display: none;
+  }
   /* Search and reader mode take only their icons' width; the title gets the rest. */
   #quartz-body .left.sidebar > .flex-component {
     flex: 0 0 auto;
