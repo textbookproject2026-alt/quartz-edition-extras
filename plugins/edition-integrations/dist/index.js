@@ -7642,6 +7642,17 @@ pre, article code { background-color: var(--tb-bg-soft); }
     padding-right: var(--tb-annotation-gutter);
   }
 
+  /* Quartz's open menu panel is positioned inside the header, which starts at
+     the page's side margin, so a 100vw panel ran that far past the screen's
+     right edge. Pin it to the screen instead. */
+  #quartz-body .explorer .explorer-content {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    max-width: 100vw;
+  }
+
   /* Compact: the header bar, and the space from it to the page's heading. */
   #quartz-body .left.sidebar {
     padding-top: 0.5rem;
