@@ -298,10 +298,15 @@ pre, article code { background-color: var(--tb-bg-soft); }
     flex-wrap: nowrap;
     align-items: center;
     gap: 0.5rem;
+    min-width: 0;
+    max-width: 100%;
   }
   #quartz-body .left.sidebar .page-title {
     flex: 1 1 auto;
     min-width: 0;
+    /* The unwrapped title must not widen the header, or the whole phone
+       layout grows with it: its own length doesn't count toward the width. */
+    contain: inline-size;
     margin: 0;
     font-size: 1.05rem;
     line-height: 1.3;
