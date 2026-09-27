@@ -1,0 +1,56 @@
+name: ci
+
+# The check that `main`'s branch protection requires. Every plugin's tests pass,
+# and its committed dist/ is what its source builds to: quartz-book installs
+# dist/ straight from this repo at a pinned commit, so a stale dist/ ships the
+# old code whatever src/ says.
+#
+# Not run: typecheck, lint and format (`npm run check`). On 27 Sep 2026
+# edit-on-github's test file failed typecheck and textbook-graph failed format,
+# both already on main. Add them here once those pass.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: [edit-on-github, edition-integrations, home-link, textbook-graph]
+    name: check (${{ matrix.plugin }})
+    defaults:
+      run:
+        working-directory: plugins/${{ matrix.plugin }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: dist/ is current
+        run: |
+          if ! git diff --quiet --exit-code -- dist; then
+            git status --short -- dist
+            echo "::error::plugins/${{ matrix.plugin }}/dist/ isn't what src/ builds to. Run npm run build in the plugin and commit dist/."
+            exit 1
+          fi
+
+  # One stable name for branch protection, whatever the matrix holds.
+  ci:
+    if: always()
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.check.result }}" = success
