@@ -393,6 +393,9 @@ pre, article code { background-color: var(--tb-bg-soft); }
     left: 0;
     width: 100vw;
     max-width: 100vw;
+    /* The page's side margin on the left, and the annotation gutter on the right. */
+    padding-left: 1rem;
+    padding-right: var(--tb-annotation-gutter);
   }
 
   /* Compact: the header bar, and the space from it to the page's heading. */
