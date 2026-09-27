@@ -7574,10 +7574,14 @@ pre, article code { background-color: var(--tb-bg-soft); }
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  /* Links get text-wrap: pretty, which turns wrapping back on inside the title. */
+  /* Links get text-wrap: pretty, which turns wrapping back on inside the title.
+     A block that clips itself, so the link's own box never runs past the screen. */
   #quartz-body .left.sidebar .page-title a {
+    display: block;
     white-space: nowrap;
     text-wrap: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   /* Quartz's mobile spacer (flex: 2) would take most of the row; the title's own
      growth already pushes search to the right. */
