@@ -72,7 +72,8 @@ describe("design.yaml as shipped", () => {
       "--tb-size-h3": "1.375rem",
       "--tb-size-h4": "1.125rem",
       "--tb-size-controls": "0.85rem",
-      "--tb-size-home-link": "0.85rem",
+      "--tb-home-link-height": "32px",
+      "--tb-home-link-icon-height": "28px",
       "--tb-measure": "720px",
       "--tb-rhythm": "1.5rem",
     })) {

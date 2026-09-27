@@ -1,6 +1,6 @@
 {
   "name": "home-link",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The textbook platform's home link: \"confused for now\", above the book's title, linking to the portal.",
   "type": "module",
   "license": "MIT",
@@ -36,7 +36,8 @@
   "types": "./dist/index.d.ts",
   "sideEffects": false,
   "scripts": {
-    "build": "tsup",
+    "logos": "node scripts/logos.mjs",
+    "build": "npm run logos && tsup",
     "dev": "tsup --watch",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier . --check",
@@ -73,14 +74,14 @@
     "name": "home-link",
     "displayName": "Home Link",
     "category": "component",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "quartzVersion": ">=5.0.0",
     "dependencies": [],
     "defaultOrder": 50,
     "defaultEnabled": true,
     "defaultOptions": {
       "url": "https://confused4now.org/",
-      "label": "confused for now"
+      "label": "Confused for Now (home)"
     },
     "components": {
       "HomeLink": {

@@ -7351,7 +7351,7 @@ var SCHEMA = {
   },
   layout: { measure: "length", rhythm: "length", mobileWidth: "length" },
   controls: { size: "length" },
-  homeLink: { size: "length" },
+  homeLink: { height: "length", iconHeight: "length" },
   print: { size: "length", lineHeight: "number", margin: "length" }
 };
 var VALID = {
@@ -7489,7 +7489,8 @@ var designCss = (d2) => {
   --tb-size-h3: ${t2.h3.size};
   --tb-size-h4: ${t2.h4.size};
   --tb-size-controls: ${d2.controls.size};
-  --tb-size-home-link: ${d2.homeLink.size};
+  --tb-home-link-height: ${d2.homeLink.height};
+  --tb-home-link-icon-height: ${d2.homeLink.iconHeight};
   --tb-measure: ${layout.measure};
   --tb-rhythm: ${layout.rhythm};
 }

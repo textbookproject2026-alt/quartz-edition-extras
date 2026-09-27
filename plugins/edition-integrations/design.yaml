@@ -73,11 +73,13 @@ layout:
 controls:
   size: 0.85rem
 
-# "confused for now", the link to the portal above the book's title (the
-# home-link plugin). Its colour is the palette's `faint` (Quartz's --gray), and
-# `accent` on hover and focus.
+# The Confused for Now logo, linking to the portal above the book's title (the
+# home-link plugin): the full logo at Quartz's desktop breakpoint (1200px) and
+# up, the icon below it. Its colour is the palette's `heading` (Quartz's --dark,
+# the text colour), and `accent` on hover and focus.
 homeLink:
-  size: 0.85rem
+  height: 32px
+  iconHeight: 28px
 
 # Printing hides everything but the chapter, and prints no annotation highlights.
 print:

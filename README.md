@@ -199,11 +199,14 @@ README.
 
 ### `plugins/home-link` — component
 
-_confused for now_, in italics, linking to the portal: the first item in the left
-sidebar, above the book's title, on every page type. On a phone it takes its own
-line above the sidebar row. A plain link, no script. Its size is design.yaml's
-`homeLink.size` and its colours the palette's (`faint`, `accent` on hover and focus).
-Option `url` (default `https://confused4now.org/`). Details in its README.
+The Confused for Now logo, linking to the portal: the first item in the left
+sidebar, above the book's title, on every page type. The full logo at Quartz's
+desktop breakpoint (1200px) and up, the icon below it, both inline SVGs in
+`currentColor`. On a phone it takes its own line above the sidebar row. A plain
+link, no script. Its heights are design.yaml's `homeLink.height` and
+`homeLink.iconHeight`, and its colours the palette's (the text colour, `accent` on
+hover and focus). Option `url` (default `https://confused4now.org/`). Details in its
+README.
 
 ---
 
