@@ -7567,6 +7567,11 @@ pre, article code { background-color: var(--tb-bg-soft); }
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /* Links get text-wrap: pretty, which turns wrapping back on inside the title. */
+  #quartz-body .left.sidebar .page-title a {
+    white-space: nowrap;
+    text-wrap: nowrap;
+  }
   #quartz-body .left.sidebar .search .search-button {
     width: auto;
     padding: 0.4rem;
@@ -7582,7 +7587,7 @@ pre, article code { background-color: var(--tb-bg-soft); }
   /* The controls row: one tidy group of equal chips that wraps evenly and
      stays inside the column. */
   body .tb-page-controls {
-    gap: 0.5rem;
+    gap: 0.4rem;
     align-items: center;
     max-width: 100%;
   }
@@ -7593,9 +7598,9 @@ pre, article code { background-color: var(--tb-bg-soft); }
   body .tb-page-controls > button.tb-pnum-toggle {
     display: inline-flex;
     align-items: center;
-    min-height: 2.25rem;
+    min-height: 2rem;
     margin: 0;
-    padding: 0.25rem 0.8rem;
+    padding: 0.2rem 0.7rem;
     border: 1px solid var(--tb-border);
     border-radius: 999px;
     background: var(--tb-bg-soft);
