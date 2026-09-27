@@ -3,7 +3,6 @@ import { Window } from "happy-dom";
 import {
   analyticsLoader,
   annotationBadge,
-  hypothesisMenuRepaint,
   phoneMenuStartsClosed,
   noTracking,
   paragraphNumbers,
@@ -315,27 +314,6 @@ describe("target flash", () => {
     const css = w.document.getElementById("tb-flash-style")!.textContent!;
     expect(css).toContain("var(--tb-mark, #FDF2B3)");
     expect(css).toContain("scroll-margin-top: 3.75rem");
-  });
-});
-
-describe("the phone menu and the annotation client", () => {
-  it("repaints the client's layer when the menu closes, and only then", async () => {
-    const w = page("https://book.example.org/x");
-    const host = w.document.createElement("hypothesis-sidebar");
-    w.document.body.appendChild(host);
-    const transforms: string[] = [];
-    new w.MutationObserver(() => transforms.push(host.style.transform)).observe(host, {
-      attributes: true,
-      attributeFilter: ["style"],
-    });
-    w.eval(hypothesisMenuRepaint);
-    const root = w.document.documentElement;
-    root.classList.add("mobile-no-scroll"); // the menu opens: nothing to do
-    await tick(60);
-    expect(transforms).toEqual([]);
-    root.classList.remove("mobile-no-scroll"); // the menu closes: repaint, then clear
-    await tick(60);
-    expect(transforms).toEqual(["translateZ(0)", ""]);
   });
 });
 

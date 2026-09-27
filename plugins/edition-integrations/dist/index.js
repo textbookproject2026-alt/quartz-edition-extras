@@ -7638,21 +7638,6 @@ pre, article code { background-color: var(--tb-bg-soft); }
     padding-right: var(--tb-annotation-gutter);
   }
 
-  /* While Quartz's menu is open (it sets html.mobile-no-scroll), the client's
-     buttons would sit over the menu: hide them, keeping them in the page so the
-     client's state is untouched. They come back when the menu closes
-     (hypothesisMenuRepaint also repaints them then). */
-  html.mobile-no-scroll hypothesis-sidebar,
-  html.mobile-no-scroll hypothesis-notebook,
-  html.mobile-no-scroll hypothesis-profile,
-  html.mobile-no-scroll hypothesis-adder,
-  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-sidebar,
-  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-notebook,
-  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-profile,
-  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-adder {
-    visibility: hidden !important;
-  }
-
   /* Compact: the header bar, and the space from it to the page's heading. */
   #quartz-body .left.sidebar {
     padding-top: 0.5rem;
@@ -8194,31 +8179,6 @@ var annotationBadge = `
   } catch (e) { /* badge absent */ }
 })()
 `;
-var hypothesisMenuRepaint = `
-;(function () {
-  try {
-    var HOSTS = "hypothesis-sidebar, hypothesis-notebook, hypothesis-profile, hypothesis-adder"
-    var root = document.documentElement
-    var locked = root.classList.contains("mobile-no-scroll")
-    var repaint = function () {
-      var hosts = document.querySelectorAll(HOSTS)
-      for (var i = 0; i < hosts.length; i++) {
-        var h = hosts[i]
-        h.style.transform = "translateZ(0)"
-        void h.offsetWidth // force layout with the new layer
-      }
-      requestAnimationFrame(function () {
-        for (var i = 0; i < hosts.length; i++) hosts[i].style.transform = ""
-      })
-    }
-    new MutationObserver(function () {
-      var now = root.classList.contains("mobile-no-scroll")
-      if (locked && !now) repaint()
-      locked = now
-    }).observe(root, { attributes: true, attributeFilter: ["class"] })
-  } catch (e) { /* nothing depends on it */ }
-})()
-`;
 var phoneMenuStartsClosed = (narrowWidth) => `
 ;(function () {
   try {
@@ -8528,7 +8488,6 @@ var EditionIntegrations = (userOpts) => {
       if (opts.annotationBadge) head.push(script(annotationBadge));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
       head.push(script(targetFlash));
-      head.push(script(hypothesisMenuRepaint));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
       return { additionalHead: head };

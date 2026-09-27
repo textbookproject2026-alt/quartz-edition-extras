@@ -75,4 +75,12 @@ describe("HomeLink", () => {
     expect(css).toMatch(/\.home-link a:focus-visible \{[^}]*outline: 2px solid var\(--secondary\)/);
     expect(css).not.toContain("position: fixed");
   });
+
+  it("stays above Quartz's open phone menu, in the header row", () => {
+    const css = String((HomeLink() as unknown as { css?: string }).css ?? "");
+    const phone = css.slice(css.indexOf("@media all and (max-width: 800px)"));
+    // The open menu panel is z-index 100; its menu button 101. The logo matches.
+    expect(phone).toMatch(/\.sidebar\.left > \.home-link \{[^}]*order: -2;[^}]*z-index: 101;/);
+    expect(phone).toMatch(/\.sidebar\.left > \.home-link \{[^}]*position: relative;/);
+  });
 });

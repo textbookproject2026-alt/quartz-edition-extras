@@ -380,21 +380,6 @@ pre, article code { background-color: var(--tb-bg-soft); }
     padding-right: var(--tb-annotation-gutter);
   }
 
-  /* While Quartz's menu is open (it sets html.mobile-no-scroll), the client's
-     buttons would sit over the menu: hide them, keeping them in the page so the
-     client's state is untouched. They come back when the menu closes
-     (hypothesisMenuRepaint also repaints them then). */
-  html.mobile-no-scroll hypothesis-sidebar,
-  html.mobile-no-scroll hypothesis-notebook,
-  html.mobile-no-scroll hypothesis-profile,
-  html.mobile-no-scroll hypothesis-adder,
-  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-sidebar,
-  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-notebook,
-  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-profile,
-  html:has(#quartz-body .explorer:not(.collapsed)) hypothesis-adder {
-    visibility: hidden !important;
-  }
-
   /* Compact: the header bar, and the space from it to the page's heading. */
   #quartz-body .left.sidebar {
     padding-top: 0.5rem;

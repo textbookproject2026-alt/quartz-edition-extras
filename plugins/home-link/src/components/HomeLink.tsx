@@ -77,6 +77,11 @@ export const css = `
   .sidebar.left > .home-link {
     order: -2;
     flex: 0 0 auto;
+    /* Quartz's open menu is a full-screen panel at z-index 100 that covers the
+       bar; its menu button stays on top at 101. The logo shares that layer, so
+       it stays in the bar while the menu is open (the panel's top is padding). */
+    position: relative;
+    z-index: 101;
   }
 }
 `;
