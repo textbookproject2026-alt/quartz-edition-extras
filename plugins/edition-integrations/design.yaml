@@ -68,6 +68,11 @@ layout:
   measure: 720px # the reading column
   rhythm: 1.5rem # paragraph spacing; headings get 2x (h2) and 1.5x (h3, h4) above
   mobileWidth: 768px
+  # Quartz's phone layout (its $mobile breakpoint): at this width and below the
+  # left sidebar becomes the header row. The compact header, the front page's
+  # single title, the tidy controls row and the tap-to-load annotation client
+  # all apply here, and nothing changes above it.
+  narrowWidth: 800px
 
 # The row under the title: Edit, History, Suggest, the annotation badge.
 controls:

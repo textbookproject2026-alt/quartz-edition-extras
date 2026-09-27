@@ -56,7 +56,7 @@ const SCHEMA = {
     linkWeight: "number",
     mobile: { h1: "length", h2: "length", h3: "length" },
   },
-  layout: { measure: "length", rhythm: "length", mobileWidth: "length" },
+  layout: { measure: "length", rhythm: "length", mobileWidth: "length", narrowWidth: "length" },
   controls: { size: "length" },
   homeLink: { height: "length", iconHeight: "length" },
   print: { size: "length", lineHeight: "number", margin: "length" },
@@ -288,6 +288,91 @@ pre, article code { background-color: var(--tb-bg-soft); }
     --tb-size-h3: ${t.mobile.h3};
   }
   article p.tb-lead { font-size: var(--tb-size-body); }
+}
+
+/* Phones: Quartz's phone layout, where the left sidebar is the header row. */
+@media (max-width: ${layout.narrowWidth}) {
+  /* One compact row: menu, the book's title on one line, search as an icon.
+     The full title is the page's own heading. */
+  #quartz-body .left.sidebar {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    max-width: 100%;
+  }
+  #quartz-body .left.sidebar .page-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    /* The unwrapped title must not widen the header, or the whole phone
+       layout grows with it: its own length doesn't count toward the width. */
+    contain: inline-size;
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Links get text-wrap: pretty, which turns wrapping back on inside the title. */
+  #quartz-body .left.sidebar .page-title a {
+    white-space: nowrap;
+    text-wrap: nowrap;
+  }
+  /* Quartz's mobile spacer (flex: 2) would take most of the row; the title's own
+     growth already pushes search to the right. */
+  #quartz-body .left.sidebar .spacer {
+    display: none;
+  }
+  /* Search and reader mode take only their icons' width; the title gets the rest. */
+  #quartz-body .left.sidebar > .flex-component {
+    flex: 0 0 auto;
+  }
+  #quartz-body .left.sidebar .search {
+    flex: 0 0 auto;
+    width: auto;
+  }
+  #quartz-body .left.sidebar .search .search-button {
+    width: auto;
+    padding: 0.4rem;
+    border-color: transparent;
+    background: none;
+  }
+  /* The button keeps its aria-label; only the visible word goes. */
+  #quartz-body .left.sidebar .search .search-button p { display: none; }
+  /* The front page's heading is the book's title: the header doesn't repeat it,
+     but keeps its place so the row doesn't jump. */
+  body[data-slug="index"] #quartz-body .left.sidebar .page-title { visibility: hidden; }
+
+  /* The controls row: one tidy group of equal chips that wraps evenly and
+     stays inside the column. */
+  body .tb-page-controls {
+    gap: 0.4rem;
+    align-items: center;
+    max-width: 100%;
+  }
+  body .tb-page-controls > a.edit-on-github,
+  body .tb-page-controls > a.tb-history-link,
+  body .tb-page-controls > button.tb-suggest-btn,
+  body .tb-page-controls > button.tb-anno-badge,
+  body .tb-page-controls > button.tb-pnum-toggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    margin: 0;
+    padding: 0.2rem 0.7rem;
+    border: 1px solid var(--tb-border);
+    border-radius: 999px;
+    background: var(--tb-bg-soft);
+    font-size: var(--tb-size-controls);
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  /* Once a reader has asked for the annotation client on a phone, its toolbar
+     sits on the right edge: keep the text clear of it. */
+  html.tb-hypothesis-on #quartz-body .center { padding-right: 2.75rem; }
 }
 
 /* Print: the chapter alone, at full width, with no annotation layer. */
