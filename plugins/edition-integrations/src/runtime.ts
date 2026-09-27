@@ -360,11 +360,23 @@ export const annotationBadge = `
       document.head.appendChild(style)
     }
 
-    // Only ever opens: clicks the client's toggle when it is collapsed. The
-    // client may be absent (blocked, still booting); say so on the badge.
+    // Only ever opens: clicks the client's toggle when it is collapsed. On a
+    // phone the client isn't loaded until now: load it (it opens itself once
+    // booted) and say so on the badge meanwhile. Otherwise the client may be
+    // absent (blocked, still booting); say so on the badge.
     var openSidebar = function (badge, label) {
       try {
         var host = document.querySelector("hypothesis-sidebar")
+        if (!host && typeof window.__tbLoadHypothesis === "function" && window.__tbLoadHypothesis()) {
+          badge.textContent = "Opening annotations\u2026"
+          var tries = 0
+          var wait = setInterval(function () {
+            tries++
+            if (document.querySelector("hypothesis-sidebar")) { clearInterval(wait); badge.textContent = label }
+            else if (tries > 40) { clearInterval(wait); badge.textContent = BLOCKED_TEXT }
+          }, 250)
+          return
+        }
         if (!host) { badge.textContent = BLOCKED_TEXT; return }
         if (badge.textContent === BLOCKED_TEXT) badge.textContent = label
         var btn = host.shadowRoot && host.shadowRoot.querySelector("button[aria-expanded]")

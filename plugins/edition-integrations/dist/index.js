@@ -7349,7 +7349,7 @@ var SCHEMA = {
     linkWeight: "number",
     mobile: { h1: "length", h2: "length", h3: "length" }
   },
-  layout: { measure: "length", rhythm: "length", mobileWidth: "length" },
+  layout: { measure: "length", rhythm: "length", mobileWidth: "length", narrowWidth: "length" },
   controls: { size: "length" },
   homeLink: { height: "length", iconHeight: "length" },
   print: { size: "length", lineHeight: "number", margin: "length" }
@@ -7546,6 +7546,68 @@ pre, article code { background-color: var(--tb-bg-soft); }
     --tb-size-h3: ${t2.mobile.h3};
   }
   article p.tb-lead { font-size: var(--tb-size-body); }
+}
+
+/* Phones: Quartz's phone layout, where the left sidebar is the header row. */
+@media (max-width: ${layout.narrowWidth}) {
+  /* One compact row: menu, the book's title on one line, search as an icon.
+     The full title is the page's own heading. */
+  #quartz-body .left.sidebar {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  #quartz-body .left.sidebar .page-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-size: 1.05rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #quartz-body .left.sidebar .search .search-button {
+    width: auto;
+    padding: 0.4rem;
+    border-color: transparent;
+    background: none;
+  }
+  /* The button keeps its aria-label; only the visible word goes. */
+  #quartz-body .left.sidebar .search .search-button p { display: none; }
+  /* The front page's heading is the book's title: the header doesn't repeat it,
+     but keeps its place so the row doesn't jump. */
+  body[data-slug="index"] #quartz-body .left.sidebar .page-title { visibility: hidden; }
+
+  /* The controls row: one tidy group of equal chips that wraps evenly and
+     stays inside the column. */
+  body .tb-page-controls {
+    gap: 0.5rem;
+    align-items: center;
+    max-width: 100%;
+  }
+  body .tb-page-controls > a.edit-on-github,
+  body .tb-page-controls > a.tb-history-link,
+  body .tb-page-controls > button.tb-suggest-btn,
+  body .tb-page-controls > button.tb-anno-badge,
+  body .tb-page-controls > button.tb-pnum-toggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    margin: 0;
+    padding: 0.25rem 0.8rem;
+    border: 1px solid var(--tb-border);
+    border-radius: 999px;
+    background: var(--tb-bg-soft);
+    font-size: var(--tb-size-controls);
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  /* Once a reader has asked for the annotation client on a phone, its toolbar
+     sits on the right edge: keep the text clear of it. */
+  html.tb-hypothesis-on #quartz-body .center { padding-right: 2.75rem; }
 }
 
 /* Print: the chapter alone, at full width, with no annotation layer. */
@@ -8007,11 +8069,23 @@ var annotationBadge = `
       document.head.appendChild(style)
     }
 
-    // Only ever opens: clicks the client's toggle when it is collapsed. The
-    // client may be absent (blocked, still booting); say so on the badge.
+    // Only ever opens: clicks the client's toggle when it is collapsed. On a
+    // phone the client isn't loaded until now: load it (it opens itself once
+    // booted) and say so on the badge meanwhile. Otherwise the client may be
+    // absent (blocked, still booting); say so on the badge.
     var openSidebar = function (badge, label) {
       try {
         var host = document.querySelector("hypothesis-sidebar")
+        if (!host && typeof window.__tbLoadHypothesis === "function" && window.__tbLoadHypothesis()) {
+          badge.textContent = "Opening annotations\u2026"
+          var tries = 0
+          var wait = setInterval(function () {
+            tries++
+            if (document.querySelector("hypothesis-sidebar")) { clearInterval(wait); badge.textContent = label }
+            else if (tries > 40) { clearInterval(wait); badge.textContent = BLOCKED_TEXT }
+          }, 250)
+          return
+        }
         if (!host) { badge.textContent = BLOCKED_TEXT; return }
         if (badge.textContent === BLOCKED_TEXT) badge.textContent = label
         var btn = host.shadowRoot && host.shadowRoot.querySelector("button[aria-expanded]")
@@ -8283,8 +8357,9 @@ var hypothesisConfig = (groupId) => {
 window.hypothesisConfig = function () {
   return {
     // First-party flow: sidebar collapsed, highlights always visible \u2014 same as the
-    // canonical site's publish.js.
-    openSidebar: false,
+    // canonical site's publish.js. On a phone the client loads only when the
+    // reader taps "Annotate this page" (hypothesisLoader), and then it opens.
+    openSidebar: !!window.__tbHypothesisOpenOnLoad,
     showHighlights: 'always',
     // R1 hook \u2014 per-edition group locking. UNUSED BY DECISION: the Publisher
     // tier will not be bought, so this is a record of the shape the swap would
@@ -8307,20 +8382,28 @@ window.plausible = window.plausible || function () { (window.plausible.q = windo
 window.plausible.init = window.plausible.init || function (o) { window.plausible.o = o || {} }
 window.plausible.init()
 `;
-var hypothesisLoader = `
+var hypothesisLoader = (narrowWidth) => `
 ;(function () {
-  // Run-once guard: exactly one embed.js per page load. A second client's
-  // connection is refused by the host frame ("Ignoring second request from
-  // Hypothesis sidebar to connect to host frame"), leaving a present-but-dead
-  // sidebar \u2014 so guard even though nothing should evaluate this twice.
-  if (window.__editionIntegrations) return
-  window.__editionIntegrations = true
-
-  var s = document.createElement("script")
-  s.async = true
-  s.src = "https://hypothes.is/embed.js"
-  s.setAttribute("data-edition-hypothesis", "")
-  document.head.appendChild(s)
+  var load = function (open) {
+    // Run-once guard: exactly one embed.js per page load. A second client's
+    // connection is refused by the host frame ("Ignoring second request from
+    // Hypothesis sidebar to connect to host frame"), leaving a present-but-dead
+    // sidebar \u2014 so guard even though nothing should evaluate this twice.
+    if (window.__editionIntegrations) return false
+    window.__editionIntegrations = true
+    if (open) window.__tbHypothesisOpenOnLoad = true
+    document.documentElement.classList.add("tb-hypothesis-on")
+    var s = document.createElement("script")
+    s.async = true
+    s.src = "https://hypothes.is/embed.js"
+    s.setAttribute("data-edition-hypothesis", "")
+    document.head.appendChild(s)
+    return true
+  }
+  window.__tbLoadHypothesis = function () { return load(true) }
+  var narrow = false
+  try { narrow = window.matchMedia("(max-width: ${narrowWidth})").matches } catch (e) {}
+  if (!narrow) load(false)
 })()
 `;
 var EditionIntegrations = (userOpts) => {
@@ -8364,7 +8447,11 @@ var EditionIntegrations = (userOpts) => {
       if (opts.annotationBadge) head.push(script(annotationBadge));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
       head.push(script(targetFlash));
-      head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
+      head.push(
+        _("script", {
+          dangerouslySetInnerHTML: { __html: hypothesisLoader(design.layout.narrowWidth) }
+        })
+      );
       return { additionalHead: head };
     }
   };
