@@ -376,6 +376,7 @@ pre, article code { background-color: var(--tb-bg-soft); }
      edge: the header and the text keep clear of them, open or closed. */
   html.tb-hypothesis-on #quartz-body .left.sidebar,
   html.tb-hypothesis-on #quartz-body .center {
+    box-sizing: border-box;
     padding-right: var(--tb-annotation-gutter);
   }
 
