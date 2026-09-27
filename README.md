@@ -9,7 +9,7 @@ specific commit of it. If this repo is deleted, renamed or made private, the nex
 build of every edition fails — and nothing in the failure points here. Treat it as
 production infrastructure, not a scratch repo.
 
-- **Canonical textbook:** `textbookproject2026-alt/textbook`, **retired from the platform on 27 Sep 2026** (textbook-registry #54). The plugins still serve the edition template and every book on the builder.
+- **Canonical textbook:** `textbookproject2026-alt/ontology-for-social-research-a-criti`, since 27 Sep 2026 (textbook-edition-template #12). The previous one, `textbookproject2026-alt/textbook` (book one), was retired from the platform that day (textbook-registry #54). The plugins serve the edition template and every book on the builder.
 - **Edition template (consumer of this repo):** `textbookproject2026-alt/textbook-edition-template`
 - **Platform builder (consumer of this repo):** `textbookproject2026-alt/quartz-book`, pinned in its `quartz.lock.json` and moved by its `bump-extras` bot.
 - **Operating guide:** `docs/updating-department-editions.md` in the edition template
