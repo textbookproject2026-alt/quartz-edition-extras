@@ -3,6 +3,7 @@ import { Window } from "happy-dom";
 import {
   analyticsLoader,
   annotationBadge,
+  phoneMenuStartsClosed,
   noTracking,
   paragraphNumbers,
   tagHelper,
@@ -181,28 +182,6 @@ describe("the annotation badge", () => {
     );
   });
 
-  it("on a phone, the first tap loads the client, then the sidebar opens", async () => {
-    const w = page("https://book.example.org/x");
-    withCount(w, 0);
-    let loads = 0;
-    w.__tbLoadHypothesis = () => {
-      loads++;
-      return loads === 1;
-    };
-    w.eval(trackRuntime);
-    w.eval(annotationBadge);
-    await (w.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
-    const badge = w.document.querySelector("button.tb-anno-badge") as unknown as HTMLElement;
-    expect(badge.textContent).toBe("Annotate this page");
-
-    badge.click();
-    expect(loads).toBe(1);
-    expect(badge.textContent).toBe("Opening annotations\u2026");
-    sidebar(w, true); // embed.js has booted, open (openSidebar on request)
-    await tick(300);
-    expect(badge.textContent).toBe("Annotate this page");
-  });
-
   it("clicking counts the click and opens the sidebar, never closes it", async () => {
     const w = page("https://book.example.org/x");
     withCount(w, 1);
@@ -335,5 +314,50 @@ describe("target flash", () => {
     const css = w.document.getElementById("tb-flash-style")!.textContent!;
     expect(css).toContain("var(--tb-mark, #FDF2B3)");
     expect(css).toContain("scroll-margin-top: 3.75rem");
+  });
+});
+
+describe("the phone menu starts closed", () => {
+  const explorerPage = () =>
+    page(
+      "https://book.example.org/x",
+      '<div class="explorer"><button class="explorer-toggle mobile-explorer">Menu</button>' +
+        '<div class="explorer-content"></div></div>',
+    );
+  const withWidth = (w: Page, narrow: boolean) => {
+    w.matchMedia = ((q: string) => ({
+      matches: narrow,
+      media: q,
+    })) as unknown as typeof w.matchMedia;
+  };
+
+  it("closes a menu Quartz left open on a phone", async () => {
+    const w = explorerPage();
+    withWidth(w, true);
+    w.eval(phoneMenuStartsClosed("800px"));
+    w.document.dispatchEvent(new w.Event("nav"));
+    await tick(20);
+    const ex = w.document.querySelector(".explorer")!;
+    expect(ex.classList.contains("collapsed")).toBe(true);
+    expect(ex.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("never overrides the reader's own tap", async () => {
+    const w = explorerPage();
+    withWidth(w, true);
+    w.eval(phoneMenuStartsClosed("800px"));
+    (w.document.querySelector(".explorer-toggle") as unknown as HTMLElement).click();
+    w.document.dispatchEvent(new w.Event("nav"));
+    await tick(20);
+    expect(w.document.querySelector(".explorer")!.classList.contains("collapsed")).toBe(false);
+  });
+
+  it("leaves wider screens alone", async () => {
+    const w = explorerPage();
+    withWidth(w, false);
+    w.eval(phoneMenuStartsClosed("800px"));
+    w.document.dispatchEvent(new w.Event("nav"));
+    await tick(20);
+    expect(w.document.querySelector(".explorer")!.classList.contains("collapsed")).toBe(false);
   });
 });

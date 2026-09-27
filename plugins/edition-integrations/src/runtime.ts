@@ -360,23 +360,11 @@ export const annotationBadge = `
       document.head.appendChild(style)
     }
 
-    // Only ever opens: clicks the client's toggle when it is collapsed. On a
-    // phone the client isn't loaded until now: load it (it opens itself once
-    // booted) and say so on the badge meanwhile. Otherwise the client may be
-    // absent (blocked, still booting); say so on the badge.
+    // Only ever opens: clicks the client's toggle when it is collapsed. The
+    // client may be absent (blocked, still booting); say so on the badge.
     var openSidebar = function (badge, label) {
       try {
         var host = document.querySelector("hypothesis-sidebar")
-        if (!host && typeof window.__tbLoadHypothesis === "function" && window.__tbLoadHypothesis()) {
-          badge.textContent = "Opening annotations\u2026"
-          var tries = 0
-          var wait = setInterval(function () {
-            tries++
-            if (document.querySelector("hypothesis-sidebar")) { clearInterval(wait); badge.textContent = label }
-            else if (tries > 40) { clearInterval(wait); badge.textContent = BLOCKED_TEXT }
-          }, 250)
-          return
-        }
         if (!host) { badge.textContent = BLOCKED_TEXT; return }
         if (badge.textContent === BLOCKED_TEXT) badge.textContent = label
         var btn = host.shadowRoot && host.shadowRoot.querySelector("button[aria-expanded]")
@@ -443,6 +431,38 @@ export const annotationBadge = `
       window.__tbAnnoBadge.ready = run()
     }
   } catch (e) { /* badge absent */ }
+})()
+`;
+
+/**
+ * The phone menu starts closed. Quartz renders the explorer open and closes it
+ * in script on phones, after checking its toggle is visible; in WebKit that
+ * check can run too early, leaving the menu open over the page on load and
+ * every later tap out of step. On a phone, until the reader first touches the
+ * menu, close it the way Quartz would have.
+ */
+export const phoneMenuStartsClosed = (narrowWidth: string) => `
+;(function () {
+  try {
+    var mq = window.matchMedia("(max-width: ${narrowWidth})")
+    var touched = false
+    document.addEventListener("click", function (e) {
+      if (e.target && e.target.closest && e.target.closest(".explorer-toggle")) touched = true
+    }, true)
+    var close = function () {
+      if (touched || !mq.matches) return
+      var all = document.querySelectorAll(".explorer")
+      for (var i = 0; i < all.length; i++) {
+        var ex = all[i]
+        if (!ex.querySelector(".mobile-explorer") || ex.classList.contains("collapsed")) continue
+        ex.classList.add("collapsed")
+        ex.setAttribute("aria-expanded", "false")
+        document.documentElement.classList.remove("mobile-no-scroll")
+      }
+    }
+    document.addEventListener("nav", function () { setTimeout(close, 0); setTimeout(close, 300) })
+    window.addEventListener("load", function () { setTimeout(close, 0) })
+  } catch (e) { /* the menu keeps Quartz's own behaviour */ }
 })()
 `;
 

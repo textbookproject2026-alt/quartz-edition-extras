@@ -235,6 +235,8 @@ export const designCss = (d: Design): string => {
   --tb-home-link-icon-height: ${d.homeLink.iconHeight};
   --tb-measure: ${layout.measure};
   --tb-rhythm: ${layout.rhythm};
+  /* The width of the annotation client's collapsed tab and buttons, reserved on phones. */
+  --tb-annotation-gutter: 2.5rem;
 }
 :root[saved-theme="dark"] {${colours(dark)}
 }
@@ -314,10 +316,14 @@ pre, article code { background-color: var(--tb-bg-soft); }
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  /* Links get text-wrap: pretty, which turns wrapping back on inside the title. */
+  /* Links get text-wrap: pretty, which turns wrapping back on inside the title.
+     A block that clips itself, so the link's own box never runs past the screen. */
   #quartz-body .left.sidebar .page-title a {
+    display: block;
     white-space: nowrap;
     text-wrap: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   /* Quartz's mobile spacer (flex: 2) would take most of the row; the title's own
      growth already pushes search to the right. */
@@ -370,9 +376,35 @@ pre, article code { background-color: var(--tb-bg-soft); }
     white-space: nowrap;
   }
 
-  /* Once a reader has asked for the annotation client on a phone, its toolbar
-     sits on the right edge: keep the text clear of it. */
-  html.tb-hypothesis-on #quartz-body .center { padding-right: 2.75rem; }
+  /* The annotation client's tab and its eye and note buttons sit on the right
+     edge: the header and the text keep clear of them, open or closed. */
+  html.tb-hypothesis-on #quartz-body .left.sidebar,
+  html.tb-hypothesis-on #quartz-body .center {
+    box-sizing: border-box;
+    padding-right: var(--tb-annotation-gutter);
+  }
+
+  /* Quartz's open menu panel is positioned inside the header, which starts at
+     the page's side margin, so a 100vw panel ran that far past the screen's
+     right edge. Pin it to the screen instead. */
+  #quartz-body .explorer .explorer-content {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    max-width: 100vw;
+    /* The page's side margin on the left, and the annotation gutter on the right. */
+    padding-left: 1rem;
+    padding-right: var(--tb-annotation-gutter);
+  }
+
+  /* Compact: the header bar, and the space from it to the page's heading. */
+  #quartz-body .left.sidebar {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  #quartz-body .page-header h1.article-title { margin-top: 0.75rem; }
+  #quartz-body .page-header .breadcrumb-container { margin-top: 0.25rem; }
 }
 
 /* Print: the chapter alone, at full width, with no annotation layer. */

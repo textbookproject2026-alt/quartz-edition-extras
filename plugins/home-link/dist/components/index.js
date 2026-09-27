@@ -76,20 +76,18 @@ var css = `
     display: none;
   }
 }
-/* On a phone the left sidebar is one row (menu, title, search), and the
-   explorer makes that row a sticky bar. The link sits just above the bar, in
-   space the bar leaves for it, at the page's top left: it scrolls away with
-   the page while the bar stays, and the row is laid out as before. Absolute
-   within the bar (sticky, so its containing block), never fixed. A page
-   without the explorer (the 404) keeps the link in the flow. */
+/* On a phone the left sidebar is one row, which the explorer makes a sticky
+   bar. The link is the first item in that row, before the menu (the explorer
+   has order -1), so the bar is logo, menu, title, search and reader mode. */
 @media all and (max-width: 800px) {
-  .page > #quartz-body .sidebar.left.left:has(> .home-link):has(.explorer) {
-    margin-top: calc(var(--tb-home-link-icon-height, 28px) + 0.5rem);
-  }
-  .sidebar.left:has(.explorer) > .home-link {
-    position: absolute;
-    bottom: 100%;
-    left: 0;
+  .sidebar.left > .home-link {
+    order: -2;
+    flex: 0 0 auto;
+    /* Quartz's open menu is a full-screen panel at z-index 100 that covers the
+       bar; its menu button stays on top at 101. The logo shares that layer, so
+       it stays in the bar while the menu is open (the panel's top is padding). */
+    position: relative;
+    z-index: 101;
   }
 }
 `;

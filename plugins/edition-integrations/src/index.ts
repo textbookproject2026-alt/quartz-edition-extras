@@ -52,6 +52,7 @@ import {
   analyticsLoader,
   annotationBadge,
   noTracking,
+  phoneMenuStartsClosed,
   paragraphNumbers,
   tagHelper,
   targetFlash,
@@ -122,9 +123,8 @@ const hypothesisConfig = (groupId: string) => {
 window.hypothesisConfig = function () {
   return {
     // First-party flow: sidebar collapsed, highlights always visible — same as the
-    // canonical site's publish.js. On a phone the client loads only when the
-    // reader taps "Annotate this page" (hypothesisLoader), and then it opens.
-    openSidebar: !!window.__tbHypothesisOpenOnLoad,
+    // canonical site's publish.js.
+    openSidebar: false,
     showHighlights: 'always',
     // R1 hook — per-edition group locking. UNUSED BY DECISION: the Publisher
     // tier will not be bought, so this is a record of the shape the swap would
@@ -179,34 +179,24 @@ window.plausible.init()
 // tag is appended rather than emitted statically only so the run-once guard has
 // something to guard.
 //
-// Phones (design.yaml layout.narrowWidth and below): the client's tab, its eye
-// and note buttons and its edge strip sit over the header and the text, so it
-// isn't loaded at start. window.__tbLoadHypothesis() loads it on request (the
-// "Annotate this page" badge calls it), opening the sidebar, and marks
-// <html class="tb-hypothesis-on"> so the design keeps the text clear of the
-// toolbar. Wider screens load it at once, as before.
-const hypothesisLoader = (narrowWidth: string) => `
+// It marks <html class="tb-hypothesis-on">: on a phone the design reserves room
+// at the right of the header and the text for the client's tab and buttons, so
+// they never sit over either (design.ts, layout.narrowWidth).
+const hypothesisLoader = `
 ;(function () {
-  var load = function (open) {
-    // Run-once guard: exactly one embed.js per page load. A second client's
-    // connection is refused by the host frame ("Ignoring second request from
-    // Hypothesis sidebar to connect to host frame"), leaving a present-but-dead
-    // sidebar — so guard even though nothing should evaluate this twice.
-    if (window.__editionIntegrations) return false
-    window.__editionIntegrations = true
-    if (open) window.__tbHypothesisOpenOnLoad = true
-    document.documentElement.classList.add("tb-hypothesis-on")
-    var s = document.createElement("script")
-    s.async = true
-    s.src = "https://hypothes.is/embed.js"
-    s.setAttribute("data-edition-hypothesis", "")
-    document.head.appendChild(s)
-    return true
-  }
-  window.__tbLoadHypothesis = function () { return load(true) }
-  var narrow = false
-  try { narrow = window.matchMedia("(max-width: ${narrowWidth})").matches } catch (e) {}
-  if (!narrow) load(false)
+  // Run-once guard: exactly one embed.js per page load. A second client's
+  // connection is refused by the host frame ("Ignoring second request from
+  // Hypothesis sidebar to connect to host frame"), leaving a present-but-dead
+  // sidebar — so guard even though nothing should evaluate this twice.
+  if (window.__editionIntegrations) return
+  window.__editionIntegrations = true
+  document.documentElement.classList.add("tb-hypothesis-on")
+
+  var s = document.createElement("script")
+  s.async = true
+  s.src = "https://hypothes.is/embed.js"
+  s.setAttribute("data-edition-hypothesis", "")
+  document.head.appendChild(s)
 })()
 `;
 
@@ -257,12 +247,9 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
       // Always: it completes fixBlockRefLinks, which is not optional either.
       head.push(script(targetFlash));
+      head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       // Last, so window.hypothesisConfig above is already set when embed.js boots.
-      head.push(
-        h("script", {
-          dangerouslySetInnerHTML: { __html: hypothesisLoader(design.layout.narrowWidth) },
-        }) as VNode,
-      );
+      head.push(h("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }) as VNode);
       return { additionalHead: head };
     },
   };
