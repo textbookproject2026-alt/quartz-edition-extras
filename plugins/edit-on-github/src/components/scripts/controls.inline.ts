@@ -75,7 +75,7 @@ const openSuggestModal: OpenModal | null = (() => {
       style.textContent = `
 #${OVERLAY_ID} { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: flex-start;
   justify-content: center; padding: 3rem 1rem; overflow-y: auto; background: rgba(0, 0, 0, 0.45);
-  font-family: var(--tb-font-text, sans-serif); font-size: var(--tb-size-controls, 0.85rem);
+  font-family: var(--tb-font-ui, sans-serif); font-size: var(--tb-size-controls, 0.85rem);
   line-height: 1.5; color: var(--tb-ink, #2B2B2B); }
 #${OVERLAY_ID} [hidden] { display: none !important; }
 #${OVERLAY_ID} .tb-sg-dialog { width: 100%; max-width: 34rem; padding: 1.5rem 1.5rem 1.25rem;
@@ -83,7 +83,7 @@ const openSuggestModal: OpenModal | null = (() => {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18); }
 #${OVERLAY_ID} .tb-sg-head { display: flex; align-items: baseline; justify-content: space-between;
   gap: 1rem; margin-bottom: 0.75rem; }
-#${OVERLAY_ID} h2 { margin: 0; font-family: var(--tb-font-text, sans-serif); font-size: 1.15rem;
+#${OVERLAY_ID} h2 { margin: 0; font-family: var(--tb-font-ui, sans-serif); font-size: 1.15rem;
   font-weight: 600; color: var(--tb-ink, #2B2B2B); }
 #${OVERLAY_ID} .tb-sg-intro { margin: 0 0 1rem; color: var(--tb-muted, #6E6E73); }
 #${OVERLAY_ID} .tb-sg-field { margin-bottom: 0.9rem; }

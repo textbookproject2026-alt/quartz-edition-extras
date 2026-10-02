@@ -101,7 +101,7 @@ export const tagHelper = `
         "#" + PANEL_ID + " { position: fixed; top: 6rem; right: var(--tb-tag-right, 444px); z-index: 9999;",
         "  max-width: 15rem; padding: 0.75rem 0.85rem; border: 1px solid var(--tb-border, #E6E6E6);",
         "  border-radius: 10px; background: var(--tb-bg, #FFFFFF); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);",
-        "  font-family: var(--tb-font-text, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
+        "  font-family: var(--tb-font-ui, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
         "  line-height: 1.4; color: var(--tb-ink, #2B2B2B); }",
         "#" + PANEL_ID + " p { margin: 0; }",
         "#" + PANEL_ID + " .tb-tag-title { font-weight: 600; margin: 0 1.25rem 0.5rem 0; }",
@@ -348,7 +348,7 @@ export const annotationBadge = `
       var style = document.createElement("style")
       style.id = STYLE_ID
       style.textContent = [
-        "button." + BADGE_CLASS + " { font-family: var(--tb-font-text, sans-serif);",
+        "button." + BADGE_CLASS + " { font-family: var(--tb-font-ui, sans-serif);",
         "  font-size: var(--tb-size-controls, 0.85rem); line-height: 1.4; padding: 0.15rem 0.7rem;",
         "  margin-left: 0.5rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 999px;",
         "  background: var(--tb-bg-soft, #F7F7F5); color: var(--tb-muted, #6E6E73); cursor: pointer; }",
@@ -496,7 +496,7 @@ export const paragraphNumbers = `
       "[data-pnum]::before { content: attr(data-pnum); position: absolute; left: -3.25rem; width: 2.5rem;",
       // line-height 1 and a top in the number's own ems put it on the first
       // line's baseline at the body and lead sizes alike.
-      "  top: 1.15em; text-align: right; font-family: var(--tb-font-text, sans-serif); font-size: 0.72rem;",
+      "  top: 1.15em; text-align: right; font-family: var(--tb-font-ui, sans-serif); font-size: 0.72rem;",
       "  font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;",
       "  color: var(--tb-faint, #9B9BA1); cursor: pointer; user-select: none; -webkit-user-select: none; }",
       "[data-pnum]:hover::before, [data-pnum]:target::before { color: var(--tb-accent, #7C6CF0); }",
@@ -506,7 +506,7 @@ export const paragraphNumbers = `
       // Other pages' paragraphs shown in a popover keep their own numbers to themselves.
       ".popover [data-pnum]::before { content: none; }",
       "@media (max-width: 800px) { [data-pnum]::before { left: -1.9rem; width: 1.6rem; font-size: 0.65rem; } }",
-      "button.tb-pnum-toggle { font-family: var(--tb-font-text, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
+      "button.tb-pnum-toggle { font-family: var(--tb-font-ui, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
       "  line-height: 1.4; padding: 0.15rem 0.7rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 999px;",
       "  background: var(--tb-bg-soft, #F7F7F5); color: var(--tb-muted, #6E6E73); cursor: pointer; }",
       "button.tb-pnum-toggle:hover { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0); }",
@@ -514,7 +514,7 @@ export const paragraphNumbers = `
       "  background: var(--tb-accent-wash, #EEEBFD); }",
       ".tb-pnum-flash { position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%); z-index: 9999;",
       "  padding: 0.4rem 0.9rem; border-radius: 999px; background: var(--tb-ink, #2B2B2B); color: var(--tb-bg, #FFFFFF);",
-      "  font-family: var(--tb-font-text, sans-serif); font-size: 0.85rem; }",
+      "  font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; }",
       "@media print { button.tb-pnum-toggle, .tb-pnum-flash { display: none !important; }",
       "  [data-pnum]:target { background: none; box-shadow: none; } }",
     ].join("\\n")

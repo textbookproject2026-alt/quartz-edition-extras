@@ -29,6 +29,7 @@ type Kind = "colour" | "hex" | "length" | "number" | "font" | "boolean";
 const PALETTE = {
   accent: "hex",
   accentHover: "colour",
+  accentSoft: "colour", // decoration only: link underlines, hover tints; never text
   accentWash: "colour",
   heading: "colour",
   ink: "colour",
@@ -45,7 +46,7 @@ const SCHEMA = {
   palette: { light: PALETTE, dark: PALETTE },
   darkMode: "boolean",
   annotation: { highlight: "colour", focused: "colour" },
-  fonts: { text: "font", mono: "font" },
+  fonts: { text: "font", ui: "font", mono: "font" },
   type: {
     body: { size: "length", lineHeight: "number" },
     lead: { size: "length", lineHeight: "number" },
@@ -81,11 +82,11 @@ const VALID: Record<Kind, RegExp> = {
   boolean: /^(true|false)$/,
 };
 const EXPECTED: Record<Kind, string> = {
-  hex: 'a six-digit hex colour, like "#7C6CF0"',
-  colour: 'a hex or rgb()/rgba() colour, like "#7C6CF0"',
+  hex: 'a six-digit hex colour, like "#52562F"',
+  colour: 'a hex or rgb()/rgba() colour, like "#52562F"',
   length: "a size with a unit, like 1.125rem, 720px or 11pt",
   number: "a plain number, like 600 or 1.65",
-  font: "a font family name, like Inter",
+  font: "a font family name, like Source Sans 3",
   boolean: "true or false",
 };
 
@@ -151,7 +152,8 @@ export const loadDesign = (file = DESIGN_FILE): Design => {
 
 // --- what it emits -------------------------------------------------------------
 
-const TEXT_STACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+const TEXT_STACK = 'Georgia, "Times New Roman", serif';
+const UI_STACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 const MONO_STACK = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 /** Quartz derives --accent-h/s/l from the accent; keep them in step with ours. */
@@ -193,6 +195,7 @@ const colours = (p: Palette) => {
   --accent-l: ${accent.l}%;
   --tb-accent: ${p.accent};
   --tb-accent-hover: ${p.accentHover};
+  --tb-accent-soft: ${p.accentSoft};
   --tb-accent-wash: ${p.accentWash};
   --tb-ink: ${p.ink};
   --tb-muted: ${p.muted};
@@ -207,6 +210,7 @@ const colours = (p: Palette) => {
 export const designCss = (d: Design): string => {
   const { type: t, layout, print } = d;
   const text = `"${d.fonts.text}", ${TEXT_STACK}`;
+  const ui = `"${d.fonts.ui}", ${UI_STACK}`;
   const mono = `"${d.fonts.mono}", ${MONO_STACK}`;
   // Dark mode off: a dark saved-theme (or system preference) still gets the
   // light palette. Quartz's dark block is :root[saved-theme="dark"], so ours
@@ -214,11 +218,12 @@ export const designCss = (d: Design): string => {
   const dark = d.darkMode ? d.palette.dark : d.palette.light;
   return `
 :root {${colours(d.palette.light)}
-  --titleFont: ${text};
-  --headerFont: ${text};
+  --titleFont: ${ui};
+  --headerFont: ${ui};
   --bodyFont: ${text};
   --codeFont: ${mono};
   --tb-font-text: ${text};
+  --tb-font-ui: ${ui};
   --tb-font-mono: ${mono};
   --tb-annotation: ${d.annotation.highlight};
   --tb-annotation-focused: ${d.annotation.focused};
@@ -240,8 +245,28 @@ export const designCss = (d: Design): string => {
 }
 :root[saved-theme="dark"] {${colours(dark)}
 }
+/* Interface text (nav, explorer, search, controls, headings) in the ui face;
+   the chapter's own paragraphs, lists, quotes, tables and captions in the text face. */
 body {
+  font-family: var(--tb-font-ui);
+}
+article p,
+article li,
+article blockquote,
+article table,
+article figcaption,
+article dd,
+article dt {
   font-family: var(--tb-font-text);
+}
+article h1,
+article h2,
+article h3,
+article h4,
+article h5,
+article h6,
+.article-title {
+  font-family: var(--tb-font-ui);
 }
 /* The reading column, on the article itself: Quartz's grid track runs wider. */
 article {
@@ -274,7 +299,7 @@ article h4 {
 article h2 { margin-top: calc(var(--tb-rhythm) * 2); }
 article h3,
 article h4 { margin-top: calc(var(--tb-rhythm) * 1.5); }
-article a { font-weight: ${t.linkWeight}; text-decoration: underline; text-underline-offset: 2px; }
+article a { font-weight: ${t.linkWeight}; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--tb-accent-soft); }
 article a:hover { color: var(--tertiary); }
 pre, article code { background-color: var(--tb-bg-soft); }
 
@@ -407,8 +432,10 @@ pre, article code { background-color: var(--tb-bg-soft); }
   #quartz-body .page-header .breadcrumb-container { margin-top: 0.25rem; }
 }
 
-/* Print: the chapter alone, at full width, with no annotation layer. */
+/* Print: the chapter alone, at full width, with no annotation layer, always light. */
 @media print {
+  :root, :root[saved-theme="dark"] {${colours(d.palette.light)}
+  }
   #quartz-body > .sidebar,
   #quartz-body > footer,
   .page-header .breadcrumb-container,
@@ -477,7 +504,14 @@ pre, article code { background-color: var(--tb-bg-soft); }
 /** The design's fonts from Google Fonts, whatever the config's theme block names. */
 export const fontHref = (d: Design): string => {
   const family = (name: string) => name.trim().replace(/ +/g, "+");
-  const text = `${family(d.fonts.text)}:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700`;
+  // Source Serif 4 is a variable font with an optical-size axis; asking for
+  // opsz 8..60 lets the browser pick the right cut for each size. A family
+  // without that axis would 400 on this request, so it is asked for by name.
+  const text =
+    d.fonts.text.trim() === "Source Serif 4"
+      ? `${family(d.fonts.text)}:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600`
+      : `${family(d.fonts.text)}:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700`;
+  const ui = `${family(d.fonts.ui)}:wght@400;600;700`;
   const mono = `${family(d.fonts.mono)}:wght@400;600`;
-  return `https://fonts.googleapis.com/css2?family=${text}&family=${mono}&display=swap`;
+  return `https://fonts.googleapis.com/css2?family=${text}&family=${ui}&family=${mono}&display=swap`;
 };
