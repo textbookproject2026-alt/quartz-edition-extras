@@ -46,7 +46,7 @@ interface Identity {
   at: number;
 }
 
-const OVERLAY_ID = "tb-editor";
+export const OVERLAY_ID = "tb-editor";
 const STYLE_ID = "tb-editor-style";
 const ID_KEY = "tb-gh-identity";
 const ID_TTL = 7.5 * 60 * 60 * 1000; // under the server's 8h
@@ -57,7 +57,7 @@ const USER_MESSAGE_MAX = 200;
 // --- small DOM helpers ----------------------------------------------------------
 
 type Attrs = Record<string, string | boolean | number>;
-const el = <K extends keyof HTMLElementTagNameMap>(
+export const el = <K extends keyof HTMLElementTagNameMap>(
   tag: K,
   attrs: Attrs = {},
   ...children: (Node | string | null | false)[]
@@ -75,7 +75,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** Octicon-sized icons drawn from paths; no <title>, so they add no text. */
-const icon = (d: string): SVGSVGElement => {
+export const icon = (d: string): SVGSVGElement => {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 16 16");
   svg.setAttribute("width", "16");
@@ -90,14 +90,14 @@ const icon = (d: string): SVGSVGElement => {
 };
 export const PENCIL =
   "M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Zm-2.677 2.323L3.64 10.92a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.25.25 0 0 0 .108-.064l6.11-6.11Z";
-const BRANCH =
+export const BRANCH =
   "M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z";
-const FILE =
+export const FILE =
   "M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z";
 const GITHUB =
   "M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z";
 
-const safeUserMessage = (data: unknown): string | null => {
+export const safeUserMessage = (data: unknown): string | null => {
   const raw = (data as { userMessage?: unknown } | null)?.userMessage;
   const m = typeof raw === "string" ? raw.trim() : "";
   return m ? m.slice(0, USER_MESSAGE_MAX) : null;
@@ -125,7 +125,7 @@ const saveIdentity = (id: Identity | null) => {
 
 // --- styles -----------------------------------------------------------------------
 
-const injectStyle = () => {
+export const injectStyle = () => {
   if (document.getElementById(STYLE_ID)) return;
   const O = `#${OVERLAY_ID}`;
   const style = el("style", { id: STYLE_ID });
@@ -250,7 +250,7 @@ const forPreview = (md: string): string =>
 const DROP = "script, style, iframe, object, embed, form, input, button, link, meta, base, frame, frameset";
 
 /** GitHub's renderer already sanitises; this is the second lock. */
-const sanitise = (html: string): DocumentFragment => {
+export const sanitise = (html: string): DocumentFragment => {
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.querySelectorAll(DROP).forEach((n) => n.remove());
   doc.querySelectorAll("*").forEach((n) => {
@@ -271,7 +271,7 @@ const sanitise = (html: string): DocumentFragment => {
 
 // --- diff rendering --------------------------------------------------------------------
 
-const renderDiff = (before: string, after: string): HTMLElement => {
+export const renderDiff = (before: string, after: string): HTMLElement => {
   const box = el("div", { class: "tb-ed-diff" });
   const hs = hunks(before, after);
   if (!hs.length) {

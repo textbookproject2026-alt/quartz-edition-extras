@@ -3,7 +3,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { renderToString } from "preact-render-to-string";
 import type { QuartzComponentProps } from "@quartz-community/types";
-import EditOnGitHub, { encodePath, proposeEndpoint, repoPath } from "../src/components/EditOnGitHub";
+import EditOnGitHub, {
+  encodePath,
+  proposeEndpoint,
+  repoPath,
+} from "../src/components/EditOnGitHub";
 
 // The page script as a browser gets it (vitest.config.ts bundles it the way
 // tsup.config.ts does).
@@ -236,7 +240,9 @@ describe("the three events", () => {
     const edit = $<HTMLAnchorElement>(w, "a.edit-on-github");
     edit.addEventListener("click", (e) => e.preventDefault());
     // A modified click is still the GitHub link; a plain one opens the in-site editor.
-    edit.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true }) as never);
+    edit.dispatchEvent(
+      new w.MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: true }) as never,
+    );
     fill(w);
     await tick();
     key(w, "Escape");
@@ -264,7 +270,8 @@ describe("the in-site editor", () => {
   const SOURCE = "# T\n\nFirst paragraph.\n\nSecond paragraph, recieve.\n";
   const SHA = "a".repeat(40);
   const rowAndParas = (opts: Record<string, string | boolean>) =>
-    render(opts) + '<p data-pnum="1" id="p1">First paragraph.</p><p data-pnum="2" id="p2">Second paragraph, recieve.</p>';
+    render(opts) +
+    '<p data-pnum="1" id="p1">First paragraph.</p><p data-pnum="2" id="p2">Second paragraph, recieve.</p>';
 
   it("derives /api/propose-edit from the suggest endpoint", () => {
     expect(proposeEndpoint(ENDPOINT)).toBe("https://fn.example/api/propose-edit");
@@ -297,10 +304,18 @@ describe("the in-site editor", () => {
     const w = page(rowAndParas(withSuggest), async (_url, init) => {
       const body = (init as { body?: string } | undefined)?.body;
       if (!body) {
-        return { ok: true, status: 200, json: async () => ({ content: SOURCE, sha: SHA, branch: "drafts", signIn: false }) };
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ content: SOURCE, sha: SHA, branch: "drafts", signIn: false }),
+        };
       }
       sent.push(JSON.parse(body));
-      return { ok: true, status: 201, json: async () => ({ prUrl: "https://github.com/o/r/pull/1" }) };
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({ prUrl: "https://github.com/o/r/pull/1" }),
+      };
     });
     $<HTMLButtonElement>(w, "#p2 > button.tb-pedit").click();
     await tick();
@@ -327,5 +342,120 @@ describe("the in-site editor", () => {
       name: "A Reader",
     });
     expect(w.calls.map((c) => c[0])).toEqual(["page_editor_opened", "page_edit_submitted"]);
+  });
+});
+
+describe("the History panel", () => {
+  const REVISIONS = "https://fn.example/api/page-revision?book=b";
+  const withHistory = { ...withSuggest, revisionEndpoint: REVISIONS };
+  const renderPage = (opts: Record<string, string | boolean>) =>
+    renderToString(
+      EditOnGitHub(opts)({
+        fileData: {
+          relativePath: "chapters/chapter-03.md",
+          filePath: "x",
+          slug: "chapters/chapter-03",
+        },
+      } as unknown as QuartzComponentProps) as never,
+    );
+  const LIST = [
+    {
+      sha: "b".repeat(40),
+      date: "2026-09-03T10:00:00Z",
+      who: "a reader",
+      reader: true,
+      message: "Clearer",
+      path: "chapters/chapter-03.md",
+    },
+    {
+      sha: "a".repeat(40),
+      date: "2026-09-01T10:00:00Z",
+      who: "ann",
+      message: "First",
+      path: "chapters/ch3.md",
+    },
+  ];
+
+  it("is 'History' with an endpoint, keeping GitHub's history as the no-script href", () => {
+    const html = renderPage(withHistory);
+    expect(html).toMatch(
+      /class="tb-history-link" href="https:\/\/github\.com\/o\/r\/commits\/main\/chapters\/chapter-03\.md"[^>]*>History</,
+    );
+    expect(html).toContain('data-history="/.well-known/history/chapters/chapter-03.json"');
+  });
+
+  it("stays GitHub's history without an endpoint (editions) or with editor: false", () => {
+    expect(renderPage(withSuggest)).toContain("View revision history ↗");
+    expect(renderPage({ ...withHistory, editor: false })).toContain("View revision history ↗");
+  });
+
+  it("lists the page's revisions, then opens one from the endpoint: its diff, the page as it was, the reader's name", async () => {
+    const urls: string[] = [];
+    const w = page(renderPage(withHistory), async (url) => {
+      urls.push(String(url));
+      if (String(url).endsWith(".json")) return { ok: true, status: 200, json: async () => LIST };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          before: "One\nold line\n",
+          after: "One\nnew line\n",
+          html: "<p>new line</p><script>x()</script>",
+          proposer: "Jo Reader",
+          status: "modified",
+        }),
+      };
+    });
+    $<HTMLAnchorElement>(w, "a.tb-history-link").click();
+    await tick();
+    const rows = [...w.document.querySelectorAll("#tb-editor .tb-hi-rev")].map(
+      (b) => b.textContent,
+    );
+    expect(rows[0]).toContain("Clearer");
+    expect(rows[0]).toContain("a reader");
+    expect(rows[1]).toContain("ann");
+    $<HTMLButtonElement>(w, "#tb-editor .tb-hi-rev").click();
+    await tick();
+    const rev = new URL(urls[1]!);
+    expect(rev.origin + rev.pathname).toBe("https://fn.example/api/page-revision");
+    expect(Object.fromEntries(rev.searchParams)).toEqual({
+      book: "b",
+      sha: "b".repeat(40),
+      path: "chapters/chapter-03.md",
+    });
+    expect($(w, "#tb-editor .tb-ed-del").textContent).toContain("old");
+    expect($(w, "#tb-editor .tb-ed-add").textContent).toContain("new");
+    expect($(w, "#tb-hi-panel-1").innerHTML).toBe("<p>new line</p>");
+    expect($(w, "#tb-editor .tb-hi-head").textContent).toContain("Jo Reader");
+    // Back to the list: the reader's name is kept there too.
+    [...w.document.querySelectorAll<HTMLButtonElement>("#tb-editor button")]
+      .find((b) => b.textContent === "← All revisions")!
+      .click();
+    expect($(w, "#tb-editor .tb-hi-rev").textContent).toContain("Jo Reader");
+    key(w, "Escape");
+    expect($(w, "#tb-editor")).toBeNull();
+    expect(w.document.activeElement).toBe($(w, "a.tb-history-link"));
+    expect(w.calls.map((c) => c[0])).toEqual(["page_history_opened", "page_revision_opened"]);
+  });
+
+  it("says so, with GitHub's history as the way on, when the endpoint refuses", async () => {
+    const w = page(renderPage(withHistory), async (url) =>
+      String(url).endsWith(".json")
+        ? { ok: true, status: 200, json: async () => LIST }
+        : {
+            ok: false,
+            status: 429,
+            json: async () => ({ userMessage: "Too many revisions opened." }),
+          },
+    );
+    $<HTMLAnchorElement>(w, "a.tb-history-link").click();
+    await tick();
+    $<HTMLButtonElement>(w, "#tb-editor .tb-hi-rev").click();
+    await tick();
+    const alert = $(w, '#tb-editor [role="alert"]');
+    expect(alert.textContent).toContain("Too many revisions opened.");
+    expect(alert.querySelector("a")?.getAttribute("href")).toBe(
+      "https://github.com/o/r/commits/main/chapters/chapter-03.md",
+    );
   });
 });

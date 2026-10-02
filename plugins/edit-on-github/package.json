@@ -99,7 +99,8 @@
       "repo": "",
       "branch": "main",
       "contentDir": "content",
-      "suggestEndpoint": ""
+      "suggestEndpoint": "",
+      "revisionEndpoint": ""
     },
     "components": {
       "EditOnGitHub": {
