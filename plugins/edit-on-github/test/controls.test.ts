@@ -438,6 +438,19 @@ describe("the History panel", () => {
     expect(w.calls.map((c) => c[0])).toEqual(["page_history_opened", "page_revision_opened"]);
   });
 
+  it("says a page moved, rather than showing an empty diff", async () => {
+    const w = page(renderPage(withHistory), async (url) =>
+      String(url).endsWith(".json")
+        ? { ok: true, status: 200, json: async () => LIST }
+        : { ok: true, status: 200, json: async () => ({ before: "Same\n", after: "Same\n", html: "<p>Same</p>", previousPath: "content/chapters/chapter-03.md", status: "renamed" }) },
+    );
+    $<HTMLAnchorElement>(w, "a.tb-history-link").click();
+    await tick();
+    $<HTMLButtonElement>(w, "#tb-editor .tb-hi-rev").click();
+    await tick();
+    expect($(w, "#tb-hi-panel-0").textContent).toBe("The page moved here from content/chapters/chapter-03.md; its text didn’t change.");
+  });
+
   it("says so, with GitHub's history as the way on, when the endpoint refuses", async () => {
     const w = page(renderPage(withHistory), async (url) =>
       String(url).endsWith(".json")

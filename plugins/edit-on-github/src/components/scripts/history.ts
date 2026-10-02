@@ -248,6 +248,7 @@ export const openHistory = (o: HistoryOptions) => {
           html?: unknown;
           proposer?: unknown;
           status?: unknown;
+          previousPath?: unknown;
         };
         if (r.reader && typeof d.proposer === "string" && d.proposer.trim()) {
           names.set(r.sha, d.proposer.trim().slice(0, 80));
@@ -282,7 +283,16 @@ export const openHistory = (o: HistoryOptions) => {
               text: "The page was first published in this revision.",
             }),
           );
-        changes.append(renderDiff(before, after));
+        const moved =
+          typeof d.previousPath === "string" && d.previousPath !== r.path ? d.previousPath : "";
+        if (moved)
+          changes.append(
+            el("p", {
+              class: "tb-ed-panel tb-ed-muted",
+              text: `The page moved here from ${moved}${before === after ? "; its text didn’t change." : "."}`,
+            }),
+          );
+        if (!moved || before !== after) changes.append(renderDiff(before, after));
         const page = el("div", {
           role: "tabpanel",
           id: "tb-hi-panel-1",
