@@ -394,6 +394,12 @@ describe("the History panel", () => {
     const w = page(renderPage(withHistory), async (url) => {
       urls.push(String(url));
       if (String(url).endsWith(".json")) return { ok: true, status: 200, json: async () => LIST };
+      if (String(url).includes("shas="))
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ names: { ["b".repeat(40)]: "Jo Reader" } }),
+        };
       return {
         ok: true,
         status: 200,
@@ -412,11 +418,15 @@ describe("the History panel", () => {
       (b) => b.textContent,
     );
     expect(rows[0]).toContain("Clearer");
-    expect(rows[0]).toContain("a reader");
+    expect(rows[0]).toContain("Jo Reader");
+    expect(rows[0]).not.toContain("a reader");
     expect(rows[1]).toContain("ann");
+    // One call for every "a reader" row's name, as the list opens.
+    const names = new URL(urls[1]!);
+    expect(Object.fromEntries(names.searchParams)).toEqual({ book: "b", shas: "b".repeat(40) });
     $<HTMLButtonElement>(w, "#tb-editor .tb-hi-rev").click();
     await tick();
-    const rev = new URL(urls[1]!);
+    const rev = new URL(urls[2]!);
     expect(rev.origin + rev.pathname).toBe("https://fn.example/api/page-revision");
     expect(Object.fromEntries(rev.searchParams)).toEqual({
       book: "b",
@@ -438,17 +448,52 @@ describe("the History panel", () => {
     expect(w.calls.map((c) => c[0])).toEqual(["page_history_opened", "page_revision_opened"]);
   });
 
+  it("keeps 'a reader' when the names call fails, and asks nothing when no row needs a name", async () => {
+    const urls: string[] = [];
+    const w = page(renderPage(withHistory), async (url) => {
+      urls.push(String(url));
+      if (String(url).endsWith(".json")) return { ok: true, status: 200, json: async () => LIST };
+      return { ok: false, status: 429, json: async () => ({}) };
+    });
+    $<HTMLAnchorElement>(w, "a.tb-history-link").click();
+    await tick();
+    expect($(w, "#tb-editor .tb-hi-rev").textContent).toContain("a reader");
+    expect(urls.length).toBe(2);
+    key(w, "Escape");
+
+    const urls2: string[] = [];
+    const w2 = page(renderPage(withHistory), async (url) => {
+      urls2.push(String(url));
+      return { ok: true, status: 200, json: async () => [LIST[1]] };
+    });
+    $<HTMLAnchorElement>(w2, "a.tb-history-link").click();
+    await tick();
+    expect(urls2.length).toBe(1);
+  });
+
   it("says a page moved, rather than showing an empty diff", async () => {
     const w = page(renderPage(withHistory), async (url) =>
       String(url).endsWith(".json")
         ? { ok: true, status: 200, json: async () => LIST }
-        : { ok: true, status: 200, json: async () => ({ before: "Same\n", after: "Same\n", html: "<p>Same</p>", previousPath: "content/chapters/chapter-03.md", status: "renamed" }) },
+        : {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              before: "Same\n",
+              after: "Same\n",
+              html: "<p>Same</p>",
+              previousPath: "content/chapters/chapter-03.md",
+              status: "renamed",
+            }),
+          },
     );
     $<HTMLAnchorElement>(w, "a.tb-history-link").click();
     await tick();
     $<HTMLButtonElement>(w, "#tb-editor .tb-hi-rev").click();
     await tick();
-    expect($(w, "#tb-hi-panel-0").textContent).toBe("The page moved here from content/chapters/chapter-03.md; its text didn’t change.");
+    expect($(w, "#tb-hi-panel-0").textContent).toBe(
+      "The page moved here from content/chapters/chapter-03.md; its text didn’t change.",
+    );
   });
 
   it("says so, with GitHub's history as the way on, when the endpoint refuses", async () => {

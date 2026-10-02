@@ -57,6 +57,8 @@ interface Revision {
 }
 
 const STYLE_ID = "tb-history-style";
+/** page-revision's cap on one names call. */
+const MAX_NAMES = 30;
 const FETCH_TIMEOUT = 20000;
 
 const historyStyle = () => {
@@ -114,7 +116,7 @@ export const openHistory = (o: HistoryOptions) => {
   const previousOverflow = document.body.style.overflow;
   let controller: AbortController | null = null;
   let listScroll = 0;
-  /** Names an anonymous proposal gave, learnt as revisions are opened. */
+  /** Names anonymous proposals gave: asked for in one call when the list opens. */
   const names = new Map<string, string>();
 
   const overlay = el("div", {
@@ -177,6 +179,37 @@ export const openHistory = (o: HistoryOptions) => {
   const meta = (r: Revision) => `${whoOf(r)} · ${when(r.date)}`;
 
   let revisions: Revision[] | null = null;
+
+  /**
+   * The list says "a reader" for anonymous proposals whose commits predate the
+   * Proposed-by trailer (the build has no GitHub access). One call asks for all
+   * their names; without it, or without scripts, "a reader" stands.
+   */
+  const askNames = () => {
+    const shas = [...new Set((revisions ?? []).filter((r) => r.reader).map((r) => r.sha))].slice(
+      0,
+      MAX_NAMES,
+    );
+    if (!shas.length) return;
+    const url = new URL(o.endpoint, location.href);
+    url.searchParams.set("shas", shas.join(","));
+    const c = new AbortController();
+    const timer = setTimeout(() => c.abort(), FETCH_TIMEOUT);
+    getJson(url.toString(), c.signal)
+      .then((data) => {
+        const got = (data as { names?: Record<string, unknown> } | null)?.names ?? {};
+        for (const [sha, name] of Object.entries(got))
+          if (typeof name === "string" && name.trim()) names.set(sha, name.trim().slice(0, 80));
+        const metas = inner.querySelectorAll<HTMLElement>(".tb-hi-list .tb-hi-meta");
+        revisions?.forEach((r, i) => {
+          if (metas[i]) metas[i]!.textContent = meta(r);
+        });
+      })
+      .catch(() => {
+        /* "a reader" stands */
+      })
+      .finally(() => clearTimeout(timer));
+  };
 
   const showList = () => {
     inner.textContent = "";
@@ -386,6 +419,7 @@ export const openHistory = (o: HistoryOptions) => {
           typeof (r as Revision).path === "string",
       );
       showList();
+      askNames();
     })
     .catch((err) => {
       if (!req.current()) return;
