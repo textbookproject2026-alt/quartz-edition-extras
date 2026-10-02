@@ -136,6 +136,9 @@ ${O} { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction:
   background: var(--tb-bg, #FFFFFF); color: var(--tb-ink, #2B2B2B);
   font-family: var(--tb-font-ui, sans-serif); font-size: 0.9rem; line-height: 1.5; }
 ${O} [hidden] { display: none !important; }
+/* The annotation client's tab and buttons sit over the right edge, above everything:
+   keep the close button and the text clear of them, as the page does. */
+html.tb-hypothesis-on ${O} { padding-right: var(--tb-annotation-gutter, 2.5rem); box-sizing: border-box; }
 ${O} button { font: inherit; cursor: pointer; }
 ${O} button:disabled { cursor: default; opacity: 0.55; }
 ${O} :focus-visible { outline: 2px solid var(--tb-accent, #7C6CF0); outline-offset: 2px; }
