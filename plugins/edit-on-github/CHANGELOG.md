@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The History panel: with `revisionEndpoint` set (the shared builder sets it for every
+  book) and the editor on, "View revision history ↗" becomes "History", which lists the
+  page's published revisions (the builder's `/.well-known/history/<slug>.json`) in the
+  editor's overlay. Opening one loads its diff (the editor's Changes view) and the page
+  as it was from the platform function's `/api/page-revision`. No-script and modified
+  clicks still go to GitHub. Events `page_history_opened`, `page_revision_opened`.
 - The in-site editor: with `suggestEndpoint` set, "Edit on GitHub ↗" becomes "Edit
   this page", a GitHub-style editor (Edit / Preview / Changes, Propose changes) that
   sends a pull request into the book's drafts branch through the platform function's

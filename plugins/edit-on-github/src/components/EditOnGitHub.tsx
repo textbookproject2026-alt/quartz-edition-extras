@@ -31,6 +31,15 @@ export interface Options {
    * GitHub link. Without scripts the link still goes to GitHub either way.
    */
   editor: boolean;
+  /**
+   * The platform function's /api/page-revision for this book
+   * (".../api/page-revision?book=<slug>"). Set by the shared builder for every
+   * book it builds, which also writes each page's revision list to
+   * /.well-known/history/<slug>.json. With it (and the editor on), "History"
+   * opens the page's revisions on the site; without it, or without scripts,
+   * the link goes to GitHub's history of the file.
+   */
+  revisionEndpoint: string;
 }
 
 const defaultOptions: Options = {
@@ -39,7 +48,11 @@ const defaultOptions: Options = {
   contentDir: "content",
   suggestEndpoint: "",
   editor: true,
+  revisionEndpoint: "",
 };
+
+/** Where the builder writes a page's revision list (quartz-book's HISTORY_DIR). */
+export const historyUrl = (slug: string): string => `/.well-known/history/${encodePath(slug)}.json`;
 
 /** /api/propose-edit beside the configured /api/suggest-edit. "" if it can't be derived. */
 export const proposeEndpoint = (suggestEndpoint: string): string => {
@@ -67,7 +80,7 @@ export const encodePath = (path: string): string =>
 
 /**
  * The controls row under the title (BOOK-ONE-TO-QUARTZ §1b, §8 step 5):
- * Edit on GitHub, View revision history, Suggest an edit, and the annotation
+ * Edit this page (or Edit on GitHub), History, Suggest an edit, and the annotation
  * badge, which edition-integrations adds to the row when it is installed.
  *
  * Edit keeps class "edit-on-github" and its href shape: book two's post-build
@@ -100,11 +113,26 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
           ? { "data-edit-endpoint": editEndpoint, "data-path": path, "data-repo": opts.repo }
           : {},
       ),
-      link(
-        "tb-history-link",
-        `https://github.com/${opts.repo}/commits/${opts.branch}/${gh}`,
-        "View revision history ↗",
-      ),
+      // With a revision endpoint, the page script opens the History panel on a
+      // plain click; the href stays GitHub's history, the no-script fallback.
+      opts.editor && opts.revisionEndpoint && fileData.slug
+        ? link(
+            "tb-history-link",
+            `https://github.com/${opts.repo}/commits/${opts.branch}/${gh}`,
+            "History",
+            {
+              "data-revision-endpoint": opts.revisionEndpoint,
+              "data-history": historyUrl(fileData.slug),
+              "data-path": path,
+              "data-repo": opts.repo,
+              "data-branch": opts.branch,
+            },
+          )
+        : link(
+            "tb-history-link",
+            `https://github.com/${opts.repo}/commits/${opts.branch}/${gh}`,
+            "View revision history ↗",
+          ),
       // Hidden until the page's script arms the modal, so a reader whose
       // scripts are blocked never meets a button that does nothing.
       opts.suggestEndpoint

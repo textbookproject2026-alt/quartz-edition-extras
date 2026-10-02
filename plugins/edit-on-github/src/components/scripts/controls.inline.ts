@@ -16,6 +16,10 @@
  * They go through window.tbTrack, which edition-integrations defines; without
  * it (book two, or an edition with that plugin off) they are dropped silently.
  *
+ * The History panel: when the History link carries data-revision-endpoint, a
+ * plain click opens history.ts (page_history_opened, page_revision_opened);
+ * otherwise, and for a modified click, it is GitHub's history of the file.
+ *
  * Failure-safe like publish.js: armed inside try/catch, and if arming fails the
  * Suggest button stays hidden rather than becoming a dead control.
  *
@@ -30,6 +34,7 @@
 // listener sits on an element a route swap replaces, so none needs addCleanup.
 /* eslint-disable no-restricted-syntax */
 import { closeIfOpen as closeEditorIfOpen, openEditor, PENCIL } from "./editor";
+import { closeIfOpen as closeHistoryIfOpen, openHistory } from "./history";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
 
@@ -540,7 +545,7 @@ const openSuggestModal: OpenModal | null = (() => {
               "That did not go through",
               (err && err.userMessage) ||
                 "Something went wrong sending your suggestion — nothing was lost. " +
-                  'Try again in a moment, or use the Edit link above.',
+                  "Try again in a moment, or use the Edit link above.",
               null,
               true,
             );
@@ -657,12 +662,31 @@ const armEditor = (edit: HTMLAnchorElement, endpoint: string) => {
   }
 };
 
+/** The History panel on the History link, when the builder gave it an endpoint. */
+const armHistory = (link: HTMLAnchorElement, endpoint: string) => {
+  link.addEventListener("click", (e) => {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    openHistory({
+      endpoint,
+      listUrl: link.dataset.history ?? "",
+      path: link.dataset.path ?? "",
+      repo: link.dataset.repo ?? "",
+      branch: link.dataset.branch ?? "",
+      githubHref: link.href,
+      trigger: link,
+      track,
+    });
+  });
+};
+
 // Wires every row on the page once. "nav" fires after each full load, and
 // after each route swap on a site with SPA on.
 const wire = () => {
   try {
     openSuggestModal?.closeIfOpen();
     closeEditorIfOpen();
+    closeHistoryIfOpen();
     for (const row of Array.from(document.querySelectorAll<HTMLElement>(".tb-page-controls"))) {
       if (row.dataset.tbWired) continue;
       row.dataset.tbWired = "1";
@@ -675,6 +699,15 @@ const wire = () => {
           /* the link still goes to GitHub */
         }
       } else edit?.addEventListener("click", () => track("edit_on_github_clicked"));
+      const history = row.querySelector<HTMLAnchorElement>("a.tb-history-link");
+      const revisionEndpoint = history?.dataset.revisionEndpoint;
+      if (history && revisionEndpoint) {
+        try {
+          armHistory(history, revisionEndpoint);
+        } catch {
+          /* the link still goes to GitHub */
+        }
+      }
       const btn = row.querySelector<HTMLButtonElement>("button.tb-suggest-btn");
       const endpoint = btn?.dataset.endpoint;
       if (!btn || !endpoint || !openSuggestModal) continue;

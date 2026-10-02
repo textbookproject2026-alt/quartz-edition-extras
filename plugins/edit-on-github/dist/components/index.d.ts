@@ -24,10 +24,19 @@ interface Options {
      * GitHub link. Without scripts the link still goes to GitHub either way.
      */
     editor: boolean;
+    /**
+     * The platform function's /api/page-revision for this book
+     * (".../api/page-revision?book=<slug>"). Set by the shared builder for every
+     * book it builds, which also writes each page's revision list to
+     * /.well-known/history/<slug>.json. With it (and the editor on), "History"
+     * opens the page's revisions on the site; without it, or without scripts,
+     * the link goes to GitHub's history of the file.
+     */
+    revisionEndpoint: string;
 }
 /**
  * The controls row under the title (BOOK-ONE-TO-QUARTZ §1b, §8 step 5):
- * Edit on GitHub, View revision history, Suggest an edit, and the annotation
+ * Edit this page (or Edit on GitHub), History, Suggest an edit, and the annotation
  * badge, which edition-integrations adds to the row when it is installed.
  *
  * Edit keeps class "edit-on-github" and its href shape: book two's post-build
