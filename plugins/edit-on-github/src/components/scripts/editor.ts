@@ -134,7 +134,7 @@ const injectStyle = () => {
   style.textContent = `
 ${O} { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; overflow: hidden;
   background: var(--tb-bg, #FFFFFF); color: var(--tb-ink, #2B2B2B);
-  font-family: var(--tb-font-text, sans-serif); font-size: 0.9rem; line-height: 1.5; }
+  font-family: var(--tb-font-ui, sans-serif); font-size: 0.9rem; line-height: 1.5; }
 ${O} [hidden] { display: none !important; }
 ${O} button { font: inherit; cursor: pointer; }
 ${O} button:disabled { cursor: default; opacity: 0.55; }

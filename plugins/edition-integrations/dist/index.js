@@ -7323,6 +7323,8 @@ var DESIGN_FILE = fileURLToPath(new URL("../design.yaml", import.meta.url));
 var PALETTE = {
   accent: "hex",
   accentHover: "colour",
+  accentSoft: "colour",
+  // decoration only: link underlines, hover tints; never text
   accentWash: "colour",
   heading: "colour",
   ink: "colour",
@@ -7338,7 +7340,7 @@ var SCHEMA = {
   palette: { light: PALETTE, dark: PALETTE },
   darkMode: "boolean",
   annotation: { highlight: "colour", focused: "colour" },
-  fonts: { text: "font", mono: "font" },
+  fonts: { text: "font", ui: "font", mono: "font" },
   type: {
     body: { size: "length", lineHeight: "number" },
     lead: { size: "length", lineHeight: "number" },
@@ -7363,11 +7365,11 @@ var VALID = {
   boolean: /^(true|false)$/
 };
 var EXPECTED = {
-  hex: 'a six-digit hex colour, like "#7C6CF0"',
-  colour: 'a hex or rgb()/rgba() colour, like "#7C6CF0"',
+  hex: 'a six-digit hex colour, like "#52562F"',
+  colour: 'a hex or rgb()/rgba() colour, like "#52562F"',
   length: "a size with a unit, like 1.125rem, 720px or 11pt",
   number: "a plain number, like 600 or 1.65",
-  font: "a font family name, like Inter",
+  font: "a font family name, like Source Sans 3",
   boolean: "true or false"
 };
 var check = (schema, value, path, errors) => {
@@ -7422,7 +7424,8 @@ var loadDesign = (file = DESIGN_FILE) => {
   }
   return parseDesign(text, file);
 };
-var TEXT_STACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+var TEXT_STACK = 'Georgia, "Times New Roman", serif';
+var UI_STACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 var MONO_STACK = "ui-monospace, SFMono-Regular, Menlo, monospace";
 var hsl = (hex) => {
   const [r2, g2, b] = [1, 3, 5].map((i2) => parseInt(hex.slice(i2, i2 + 2), 16) / 255);
@@ -7456,6 +7459,7 @@ var colours = (p2) => {
   --accent-l: ${accent.l}%;
   --tb-accent: ${p2.accent};
   --tb-accent-hover: ${p2.accentHover};
+  --tb-accent-soft: ${p2.accentSoft};
   --tb-accent-wash: ${p2.accentWash};
   --tb-ink: ${p2.ink};
   --tb-muted: ${p2.muted};
@@ -7468,15 +7472,17 @@ var colours = (p2) => {
 var designCss = (d2) => {
   const { type: t2, layout, print } = d2;
   const text = `"${d2.fonts.text}", ${TEXT_STACK}`;
+  const ui = `"${d2.fonts.ui}", ${UI_STACK}`;
   const mono = `"${d2.fonts.mono}", ${MONO_STACK}`;
   const dark = d2.darkMode ? d2.palette.dark : d2.palette.light;
   return `
 :root {${colours(d2.palette.light)}
-  --titleFont: ${text};
-  --headerFont: ${text};
+  --titleFont: ${ui};
+  --headerFont: ${ui};
   --bodyFont: ${text};
   --codeFont: ${mono};
   --tb-font-text: ${text};
+  --tb-font-ui: ${ui};
   --tb-font-mono: ${mono};
   --tb-annotation: ${d2.annotation.highlight};
   --tb-annotation-focused: ${d2.annotation.focused};
@@ -7498,8 +7504,28 @@ var designCss = (d2) => {
 }
 :root[saved-theme="dark"] {${colours(dark)}
 }
+/* Interface text (nav, explorer, search, controls, headings) in the ui face;
+   the chapter's own paragraphs, lists, quotes, tables and captions in the text face. */
 body {
+  font-family: var(--tb-font-ui);
+}
+article p,
+article li,
+article blockquote,
+article table,
+article figcaption,
+article dd,
+article dt {
   font-family: var(--tb-font-text);
+}
+article h1,
+article h2,
+article h3,
+article h4,
+article h5,
+article h6,
+.article-title {
+  font-family: var(--tb-font-ui);
 }
 /* The reading column, on the article itself: Quartz's grid track runs wider. */
 article {
@@ -7532,7 +7558,7 @@ article h4 {
 article h2 { margin-top: calc(var(--tb-rhythm) * 2); }
 article h3,
 article h4 { margin-top: calc(var(--tb-rhythm) * 1.5); }
-article a { font-weight: ${t2.linkWeight}; text-decoration: underline; text-underline-offset: 2px; }
+article a { font-weight: ${t2.linkWeight}; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--tb-accent-soft); }
 article a:hover { color: var(--tertiary); }
 pre, article code { background-color: var(--tb-bg-soft); }
 
@@ -7665,8 +7691,10 @@ pre, article code { background-color: var(--tb-bg-soft); }
   #quartz-body .page-header .breadcrumb-container { margin-top: 0.25rem; }
 }
 
-/* Print: the chapter alone, at full width, with no annotation layer. */
+/* Print: the chapter alone, at full width, with no annotation layer, always light. */
 @media print {
+  :root, :root[saved-theme="dark"] {${colours(d2.palette.light)}
+  }
   #quartz-body > .sidebar,
   #quartz-body > footer,
   .page-header .breadcrumb-container,
@@ -7733,9 +7761,10 @@ pre, article code { background-color: var(--tb-bg-soft); }
 };
 var fontHref = (d2) => {
   const family = (name) => name.trim().replace(/ +/g, "+");
-  const text = `${family(d2.fonts.text)}:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700`;
+  const text = d2.fonts.text.trim() === "Source Serif 4" ? `${family(d2.fonts.text)}:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600` : `${family(d2.fonts.text)}:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700`;
+  const ui = `${family(d2.fonts.ui)}:wght@400;600;700`;
   const mono = `${family(d2.fonts.mono)}:wght@400;600`;
-  return `https://fonts.googleapis.com/css2?family=${text}&family=${mono}&display=swap`;
+  return `https://fonts.googleapis.com/css2?family=${text}&family=${ui}&family=${mono}&display=swap`;
 };
 
 // src/transforms.ts
@@ -7881,7 +7910,7 @@ var tagHelper = `
         "#" + PANEL_ID + " { position: fixed; top: 6rem; right: var(--tb-tag-right, 444px); z-index: 9999;",
         "  max-width: 15rem; padding: 0.75rem 0.85rem; border: 1px solid var(--tb-border, #E6E6E6);",
         "  border-radius: 10px; background: var(--tb-bg, #FFFFFF); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);",
-        "  font-family: var(--tb-font-text, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
+        "  font-family: var(--tb-font-ui, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
         "  line-height: 1.4; color: var(--tb-ink, #2B2B2B); }",
         "#" + PANEL_ID + " p { margin: 0; }",
         "#" + PANEL_ID + " .tb-tag-title { font-weight: 600; margin: 0 1.25rem 0.5rem 0; }",
@@ -8112,7 +8141,7 @@ var annotationBadge = `
       var style = document.createElement("style")
       style.id = STYLE_ID
       style.textContent = [
-        "button." + BADGE_CLASS + " { font-family: var(--tb-font-text, sans-serif);",
+        "button." + BADGE_CLASS + " { font-family: var(--tb-font-ui, sans-serif);",
         "  font-size: var(--tb-size-controls, 0.85rem); line-height: 1.4; padding: 0.15rem 0.7rem;",
         "  margin-left: 0.5rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 999px;",
         "  background: var(--tb-bg-soft, #F7F7F5); color: var(--tb-muted, #6E6E73); cursor: pointer; }",
@@ -8238,7 +8267,7 @@ var paragraphNumbers = `
       "[data-pnum]::before { content: attr(data-pnum); position: absolute; left: -3.25rem; width: 2.5rem;",
       // line-height 1 and a top in the number's own ems put it on the first
       // line's baseline at the body and lead sizes alike.
-      "  top: 1.15em; text-align: right; font-family: var(--tb-font-text, sans-serif); font-size: 0.72rem;",
+      "  top: 1.15em; text-align: right; font-family: var(--tb-font-ui, sans-serif); font-size: 0.72rem;",
       "  font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;",
       "  color: var(--tb-faint, #9B9BA1); cursor: pointer; user-select: none; -webkit-user-select: none; }",
       "[data-pnum]:hover::before, [data-pnum]:target::before { color: var(--tb-accent, #7C6CF0); }",
@@ -8248,7 +8277,7 @@ var paragraphNumbers = `
       // Other pages' paragraphs shown in a popover keep their own numbers to themselves.
       ".popover [data-pnum]::before { content: none; }",
       "@media (max-width: 800px) { [data-pnum]::before { left: -1.9rem; width: 1.6rem; font-size: 0.65rem; } }",
-      "button.tb-pnum-toggle { font-family: var(--tb-font-text, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
+      "button.tb-pnum-toggle { font-family: var(--tb-font-ui, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
       "  line-height: 1.4; padding: 0.15rem 0.7rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 999px;",
       "  background: var(--tb-bg-soft, #F7F7F5); color: var(--tb-muted, #6E6E73); cursor: pointer; }",
       "button.tb-pnum-toggle:hover { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0); }",
@@ -8256,7 +8285,7 @@ var paragraphNumbers = `
       "  background: var(--tb-accent-wash, #EEEBFD); }",
       ".tb-pnum-flash { position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%); z-index: 9999;",
       "  padding: 0.4rem 0.9rem; border-radius: 999px; background: var(--tb-ink, #2B2B2B); color: var(--tb-bg, #FFFFFF);",
-      "  font-family: var(--tb-font-text, sans-serif); font-size: 0.85rem; }",
+      "  font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; }",
       "@media print { button.tb-pnum-toggle, .tb-pnum-flash { display: none !important; }",
       "  [data-pnum]:target { background: none; box-shadow: none; } }",
     ].join("\\n")

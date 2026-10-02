@@ -5,51 +5,62 @@
 # value here needs no `npm run build`. A value that isn't a plain colour, size
 # or number fails the build with the key's name, rather than breaking the page.
 #
-# Seeded on 23 Sep 2026 from book one's publish.css, which is what readers see
-# today (BOOK-ONE-TO-QUARTZ §4a). Two values wait for the client (D12): the
-# accent stays #7C6CF0 (the "AA-strict" alternative is #6A57E0 for link text),
-# and dark mode stays off.
+# Seeded on 23 Sep 2026 from book one's publish.css. Palette and fonts replaced
+# on 2 Oct 2026 from Brandon's draft "Confused4Now fonts and colours" and his
+# landing-page draft (visual direction v3): white, near-black, grey, a light
+# hairline, deep olive, light olive, brown. The dark values are the draft's
+# own (the olives and the brown lifted, on #17181C). Values the draft left
+# out (accentHover, accentWash, faint, backgroundSoft, mark) are derived from
+# the draft's own hues. The same palette is in textbook-portal/src/styles.css.
+#
+# Contrast (WCAG, checked 2 Oct 2026): light ink 16.1, accent 7.7, muted 6.1
+# on white; dark ink 14.7, accent 6.9, muted 6.7 on #17181C. accentSoft is
+# 3.0:1 on white, so it is decoration only, never text.
 
 palette:
   light:
-    accent: "#7C6CF0" # links, active nav, the graph's current page
-    accentHover: "#6A57E0"
-    accentWash: "#EEEBFD" # active-nav background, internal-link tint
-    heading: "#2B2B2B"
-    ink: "#2B2B2B" # body text
-    muted: "#6E6E73" # captions, secondary text, the controls row
-    faint: "#9B9BA1" # placeholders, disabled, the graph's other pages
-    border: "#E6E6E6"
+    accent: "#52562F" # deep olive: links, active nav, buttons, the graph's current page
+    accentHover: "#353820" # derived: the accent, darker
+    accentSoft: "#9B9569" # light olive: decoration only (link underlines, hover tints)
+    accentWash: "#F0EFE8" # derived: light olive at low strength on white
+    heading: "#202124"
+    ink: "#202124" # body text
+    muted: "#5F6368" # captions, secondary text, the controls row
+    faint: "#9AA0A6" # placeholders, disabled, the graph's other pages
+    border: "#DADCE0" # hairline
     background: "#FFFFFF"
-    backgroundSoft: "#F7F7F5" # code, chips
+    backgroundSoft: "#F1F3F4" # code, chips
     mark: "#FDF2B3" # ==highlighted text==
-  # Used only when darkMode is true. Not reviewed: kept from the edition
-  # template's darkMode block so that turning it on starts somewhere sane.
   dark:
-    accent: "#A79AF7"
-    accentHover: "#8F7FF2"
-    accentWash: "rgba(124, 108, 240, 0.15)"
-    heading: "#EBEBEC"
-    ink: "#D4D4D4"
-    muted: "#A0A0A6"
-    faint: "#646464"
-    border: "#393639"
-    background: "#161618"
-    backgroundSoft: "#222225"
-    mark: "#b3aa0288"
+    accent: "#A7A374"
+    accentHover: "#D6D3B5"
+    accentSoft: "#C7C39B"
+    accentWash: "rgba(167, 163, 116, 0.16)"
+    heading: "#E8EAED"
+    ink: "#E8EAED"
+    muted: "#9AA0A6"
+    faint: "#5F6368"
+    border: "#3C4043"
+    background: "#17181C"
+    backgroundSoft: "#202124"
+    mark: "rgba(253, 242, 179, 0.22)"
 
-# false: the page stays light even where the reader's system is dark (D12).
-darkMode: false
+# Dark mode follows the reader's system setting until they use the toggle
+# (quartz-book's darkmode plugin); each site remembers its own choice. Print
+# always uses the light palette.
+darkMode: true
 
-# Hypothes.is highlights: the accent at low alpha, so black text on it stays
-# readable. Swap for "#FDF2B3" if the client prefers yellow.
+# Hypothes.is highlights: the light olive at low alpha, so dark text on it
+# stays readable in both themes.
 annotation:
-  highlight: "rgba(124, 108, 240, 0.22)"
-  focused: "rgba(124, 108, 240, 0.40)"
+  highlight: "rgba(155, 149, 105, 0.30)"
+  focused: "rgba(155, 149, 105, 0.50)"
 
-# Google Fonts family names.
+# Google Fonts family names. text: the chapter's paragraphs, lists, quotes and
+# tables. ui: headings, nav, explorer, search, controls, buttons, the editor.
 fonts:
-  text: Inter
+  text: Source Serif 4
+  ui: Source Sans 3
   mono: JetBrains Mono
 
 type:

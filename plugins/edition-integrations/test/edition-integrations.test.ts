@@ -135,7 +135,7 @@ describe("Plausible", () => {
     );
     expect(head[1]?.type).toBe("style");
     const css = (head[1]?.props as ScriptProps).dangerouslySetInnerHTML?.__html ?? "";
-    expect(css).toContain("--secondary: #7C6CF0;");
+    expect(css).toContain("--secondary: #52562F;");
     expect(css).toContain("@media print");
   });
 });
