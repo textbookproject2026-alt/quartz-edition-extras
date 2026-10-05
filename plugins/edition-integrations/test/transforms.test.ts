@@ -81,7 +81,21 @@ describe("the title from the first heading", () => {
     ]);
   });
 
-  it("keeps a page's own frontmatter title, even one equal to the filename", () => {
+  it("keeps its own title and drops an H1 that repeats it", () => {
+    const tree = chapter();
+    const data: PageData = { frontmatter: { title: "Chapter 3: Structure" }, toc: toc() };
+    const source = '---\ntitle: "Chapter 3: Structure"\ntopic: x\n---\n# Chapter 3: *Structure*\n';
+    expect(titleFromFirstHeading(tree, data, source)).toBeNull();
+    expect(data.frontmatter).toEqual({ title: "Chapter 3: Structure" });
+    const h1s = (tree.children ?? []).filter((n) => n.tagName === "h1");
+    expect(h1s.map((n) => n.properties?.id)).toEqual(["a-second-h1"]);
+    expect(data.toc).toEqual([
+      { depth: 0, text: "Introduction", slug: "introduction" },
+      { depth: 1, text: "Deeper", slug: "deeper" },
+    ]);
+  });
+
+  it("keeps a page's own frontmatter title, and an H1 that differs from it", () => {
     for (const source of [
       "---\ntitle: chapter-03\n---\n# Chapter 3\n",
       '---\naliases: [x]\ntitle: "My page"\n---\n# Heading\n',

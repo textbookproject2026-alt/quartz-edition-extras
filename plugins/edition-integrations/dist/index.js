@@ -7787,24 +7787,25 @@ var fixBlockRefLinks = (tree) => {
   });
   return changed;
 };
-var hasOwnTitle = (source) => {
+var ownTitle = (source) => {
   const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(source.trimStart());
-  if (!match) return false;
+  if (!match) return null;
   const line = /^title\s*:\s*(.*?)\s*$/m.exec(match[1]);
-  if (!line) return false;
+  if (!line) return null;
   const value = line[1].replace(/^(["'])(.*)\1$/, "$2").trim();
-  return value.length > 0;
+  return value.length > 0 ? value : null;
 };
 var titleFromFirstHeading = (tree, data, source) => {
-  if (hasOwnTitle(source)) return null;
+  const own = ownTitle(source);
   const children = tree.children ?? [];
   const index = children.findIndex((n2) => n2.type === "element" && n2.tagName === "h1");
   if (index === -1) return null;
   const h1 = children[index];
   const title = textOf(h1).replace(/\s+/g, " ").trim();
   if (!title) return null;
+  if (own !== null && own.replace(/\s+/g, " ") !== title) return null;
   children.splice(index, 1);
-  data.frontmatter = { ...data.frontmatter ?? {}, title };
+  if (own === null) data.frontmatter = { ...data.frontmatter ?? {}, title };
   const id = h1.properties?.id;
   if (data.toc && typeof id === "string") {
     const kept = data.toc.filter((entry) => entry.slug !== id);
@@ -7814,7 +7815,7 @@ var titleFromFirstHeading = (tree, data, source) => {
       if (data.toc.length === 0) delete data.toc;
     }
   }
-  return title;
+  return own === null ? title : null;
 };
 var isElement = (node) => node?.type === "element";
 var isBlank = (node) => node.type === "text" && !(node.value ?? "").trim();
