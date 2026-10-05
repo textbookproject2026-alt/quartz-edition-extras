@@ -51,6 +51,7 @@ import type { HastNode, PageData } from "./transforms";
 import {
   analyticsLoader,
   annotationBadge,
+  explorerKeepsPageStill,
   noTracking,
   phoneMenuStartsClosed,
   paragraphNumbers,
@@ -245,6 +246,8 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       if (opts.tagHelper) head.push(script(tagHelper));
       if (opts.annotationBadge) head.push(script(annotationBadge));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
+      // Always, and before the explorer's script runs: see explorerKeepsPageStill.
+      head.push(script(explorerKeepsPageStill));
       // Always: it completes fixBlockRefLinks, which is not optional either.
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));

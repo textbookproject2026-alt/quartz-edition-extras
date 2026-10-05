@@ -585,6 +585,30 @@ export const paragraphNumbers = `
 `;
 
 /**
+ * Opening a page leaves it at the top. Quartz's explorer brings the current
+ * page's entry into view with `.active.scrollIntoView({ behavior: "smooth" })`
+ * when it renders (it restores a saved position only after an SPA navigation,
+ * and this site has none), and that scrolls the window too: a chapter opened
+ * at 1280x800 loaded about 700px down. For an element inside the explorer's
+ * list this scrolls only the list, centring the entry if it is out of view.
+ * Everything else reaches the browser's own scrollIntoView. It must run
+ * before the explorer's script, so it is an inline <head> script.
+ */
+export const explorerKeepsPageStill = `
+;(function () {
+  try {
+    var orig = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function () {
+      var list = this.closest ? this.closest(".explorer-ul") : null
+      if (!list) return orig.apply(this, arguments)
+      var r = this.getBoundingClientRect(), box = list.getBoundingClientRect()
+      if (r.top < box.top || r.bottom > box.bottom) list.scrollTop += r.top - box.top - (box.height - r.height) / 2
+    }
+  } catch (e) { /* the explorer keeps Quartz's own behaviour */ }
+})()
+`;
+
+/**
  * Following a link to a place on a page flashes that place, as Publish does.
  *
  * A citation (`[Bhaskar, 1979](#^ref-bhaskar-1979)`, fixed to `#ref-…` by
