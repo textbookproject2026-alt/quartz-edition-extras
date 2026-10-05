@@ -609,6 +609,50 @@ export const explorerKeepsPageStill = `
 `;
 
 /**
+ * The explorer follows the book's Contents. Quartz's explorer sorts
+ * alphabetically, so Introduction lands after Chapter 11; the order the book
+ * means is the list under "## Contents" in its index.md, which the builder
+ * passes in as `order` (slugs, e.g. "chapters/introduction").
+ *
+ * The explorer reads div.explorer's data-data-fns on every "nav" event and
+ * builds its sort from the sortFn string with new Function, so the sort below
+ * is self-contained: the order is written into its source. This listener is
+ * registered in the <head>, so it runs before the explorer's. A folder ranks
+ * by its first listed page; anything unlisted keeps the explorer's default
+ * order, after the listed pages.
+ */
+export const explorerFollowsContents = (order: string[]) => `
+;(function () {
+  try {
+    var ORDER = ${JSON.stringify(order).replace(/</g, "\\u003c")}
+    if (!ORDER.length) return
+    var sort = function (a, b) {
+      var O = __ORDER__
+      var rank = function (n) {
+        var s = n.slugSegments.join("/")
+        for (var i = 0; i < O.length; i++) if (n.isFolder ? O[i].indexOf(s + "/") === 0 : O[i] === s) return i
+        return O.length
+      }
+      var ra = rank(a), rb = rank(b)
+      if (ra !== rb) return ra - rb
+      if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1
+      return a.displayName.localeCompare(b.displayName, undefined, { numeric: true, sensitivity: "base" })
+    }
+    var src = sort.toString().replace("__ORDER__", JSON.stringify(ORDER))
+    document.addEventListener("nav", function () {
+      var all = document.querySelectorAll("div.explorer")
+      for (var i = 0; i < all.length; i++) {
+        var fns = {}
+        try { fns = JSON.parse(all[i].dataset.dataFns || "{}") } catch (e) {}
+        fns.sortFn = src
+        all[i].dataset.dataFns = JSON.stringify(fns)
+      }
+    })
+  } catch (e) { /* the explorer keeps its own order */ }
+})()
+`;
+
+/**
  * Following a link to a place on a page flashes that place, as Publish does.
  *
  * A citation (`[Bhaskar, 1979](#^ref-bhaskar-1979)`, fixed to `#ref-…` by

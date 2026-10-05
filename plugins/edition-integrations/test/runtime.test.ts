@@ -3,6 +3,7 @@ import { Window } from "happy-dom";
 import {
   analyticsLoader,
   annotationBadge,
+  explorerFollowsContents,
   explorerKeepsPageStill,
   phoneMenuStartsClosed,
   noTracking,
@@ -407,5 +408,81 @@ describe("the explorer keeps the page still", () => {
     const h = w.document.getElementById("h")!;
     h.scrollIntoView();
     expect(calls()).toEqual([h]);
+  });
+});
+
+describe("the explorer follows the Contents", () => {
+  type Node = { slugSegments: string[]; isFolder: boolean; displayName: string };
+  const file = (slug: string, displayName: string): Node => ({
+    slugSegments: slug.split("/"),
+    isFolder: false,
+    displayName,
+  });
+  const folder = (slug: string): Node => ({
+    slugSegments: slug.split("/"),
+    isFolder: true,
+    displayName: slug,
+  });
+  /** The sort the explorer builds from data-data-fns after a nav event, as it builds it. */
+  const sortAfterNav = (order: string[]) => {
+    const w = page(
+      "https://book.example.org/chapters/introduction",
+      `<div class="explorer" data-data-fns='{"filterFn":"(n) => true"}'></div>`,
+    );
+    w.eval(explorerFollowsContents(order));
+    w.document.dispatchEvent(new w.Event("nav"));
+    const fns = JSON.parse(
+      (w.document.querySelector("div.explorer") as unknown as HTMLElement).dataset.dataFns!,
+    );
+    expect(fns.filterFn).toBe("(n) => true");
+    return new Function("a", "b", "return (" + fns.sortFn + ")(a, b)") as (
+      a: Node,
+      b: Node,
+    ) => number;
+  };
+  const ORDER = [
+    "chapters/introduction",
+    "chapters/chapter-01",
+    "chapters/chapter-02",
+    "chapters/chapter-10",
+    "glossary",
+  ];
+  const names = (nodes: Node[]) => nodes.map((n) => n.slugSegments.join("/"));
+
+  it("sorts the chapters in Contents order, Introduction first", () => {
+    const sort = sortAfterNav(ORDER);
+    const chapters = [
+      file("chapters/chapter-10", "Chapter 10"),
+      file("chapters/chapter-02", "Chapter 2"),
+      file("chapters/introduction", "Introduction"),
+      file("chapters/chapter-01", "Chapter 1"),
+    ];
+    expect(names(chapters.sort(sort))).toEqual(ORDER.slice(0, 4));
+  });
+
+  it("ranks a folder by its first listed page, and puts unlisted nodes after, in the default order", () => {
+    const sort = sortAfterNav(ORDER);
+    const root = [
+      file("zz", "Zz"),
+      file("glossary", "Glossary"),
+      file("about", "About"),
+      folder("assets"),
+      folder("chapters"),
+    ];
+    expect(names(root.sort(sort))).toEqual(["chapters", "glossary", "assets", "about", "zz"]);
+    const unlisted = [
+      file("chapters/appendix-10", "Appendix 10"),
+      file("chapters/appendix-2", "Appendix 2"),
+      file("chapters/chapter-01", "Chapter 1"),
+    ];
+    expect(names(unlisted.sort(sort))).toEqual([
+      "chapters/chapter-01",
+      "chapters/appendix-2",
+      "chapters/appendix-10",
+    ]);
+  });
+
+  it("can't be closed early by a slug", () => {
+    expect(explorerFollowsContents(["a</script><script>alert(1)"])).not.toContain("</");
   });
 });

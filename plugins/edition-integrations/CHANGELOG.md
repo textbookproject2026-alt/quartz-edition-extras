@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `explorerOrder`: the book's reading order, as slugs (the builder reads the links under
+  "## Contents" in index.md). The explorer lists pages in that order, so Introduction comes
+  before Chapter 1 instead of after Chapter 11; a folder ranks by its first listed page,
+  and unlisted pages follow in the explorer's own order. Default `[]` keeps the
+  explorer's order and adds no script.
+
 ### Fixed
 
 - Opening a page no longer scrolls it down. Quartz's explorer scrolled the current page's
