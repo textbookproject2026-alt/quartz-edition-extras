@@ -8367,6 +8367,36 @@ var explorerKeepsPageStill = `
   } catch (e) { /* the explorer keeps Quartz's own behaviour */ }
 })()
 `;
+var explorerFollowsContents = (order) => `
+;(function () {
+  try {
+    var ORDER = ${JSON.stringify(order).replace(/</g, "\\u003c")}
+    if (!ORDER.length) return
+    var sort = function (a, b) {
+      var O = __ORDER__
+      var rank = function (n) {
+        var s = n.slugSegments.join("/")
+        for (var i = 0; i < O.length; i++) if (n.isFolder ? O[i].indexOf(s + "/") === 0 : O[i] === s) return i
+        return O.length
+      }
+      var ra = rank(a), rb = rank(b)
+      if (ra !== rb) return ra - rb
+      if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1
+      return a.displayName.localeCompare(b.displayName, undefined, { numeric: true, sensitivity: "base" })
+    }
+    var src = sort.toString().replace("__ORDER__", JSON.stringify(ORDER))
+    document.addEventListener("nav", function () {
+      var all = document.querySelectorAll("div.explorer")
+      for (var i = 0; i < all.length; i++) {
+        var fns = {}
+        try { fns = JSON.parse(all[i].dataset.dataFns || "{}") } catch (e) {}
+        fns.sortFn = src
+        all[i].dataset.dataFns = JSON.stringify(fns)
+      }
+    })
+  } catch (e) { /* the explorer keeps its own order */ }
+})()
+`;
 var targetFlash = `
 ;(function () {
   try {
@@ -8453,7 +8483,8 @@ var defaultOptions = {
   tagHelper: true,
   annotationBadge: true,
   paragraphNumbers: true,
-  hypothesisGroupId: ""
+  hypothesisGroupId: "",
+  explorerOrder: []
 };
 var HYPOTHESIS_GROUP_PLACEHOLDER = "GROUP_ID";
 var isRealGroupId = (groupId) => {
@@ -8548,6 +8579,7 @@ var EditionIntegrations = (userOpts) => {
       if (opts.annotationBadge) head.push(script(annotationBadge));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
       head.push(script(explorerKeepsPageStill));
+      if (opts.explorerOrder.length) head.push(script(explorerFollowsContents(opts.explorerOrder)));
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));

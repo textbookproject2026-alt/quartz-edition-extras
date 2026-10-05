@@ -21,6 +21,12 @@ interface Options {
     paragraphNumbers: boolean;
     /** Hypothes.is group ID — inert: it would only take effect if the commented services block below were enabled, and that is unused by decision (Publisher tier not bought, R1 closed). */
     hypothesisGroupId: string;
+    /**
+     * The book's reading order, as slugs ("chapters/introduction"): the links
+     * under "## Contents" in its index.md, which the builder reads. The
+     * explorer lists pages in this order. [] (the default) keeps its own.
+     */
+    explorerOrder: string[];
 }
 declare const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>>;
 

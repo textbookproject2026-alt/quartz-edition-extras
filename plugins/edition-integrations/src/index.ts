@@ -51,6 +51,7 @@ import type { HastNode, PageData } from "./transforms";
 import {
   analyticsLoader,
   annotationBadge,
+  explorerFollowsContents,
   explorerKeepsPageStill,
   noTracking,
   phoneMenuStartsClosed,
@@ -81,6 +82,12 @@ interface Options {
   paragraphNumbers: boolean;
   /** Hypothes.is group ID — inert: it would only take effect if the commented services block below were enabled, and that is unused by decision (Publisher tier not bought, R1 closed). */
   hypothesisGroupId: string;
+  /**
+   * The book's reading order, as slugs ("chapters/introduction"): the links
+   * under "## Contents" in its index.md, which the builder reads. The
+   * explorer lists pages in this order. [] (the default) keeps its own.
+   */
+  explorerOrder: string[];
 }
 
 const defaultOptions: Options = {
@@ -90,6 +97,7 @@ const defaultOptions: Options = {
   annotationBadge: true,
   paragraphNumbers: true,
   hypothesisGroupId: "",
+  explorerOrder: [],
 };
 
 // --- 1. Design values --------------------------------------------------------
@@ -248,6 +256,7 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
       // Always, and before the explorer's script runs: see explorerKeepsPageStill.
       head.push(script(explorerKeepsPageStill));
+      if (opts.explorerOrder.length) head.push(script(explorerFollowsContents(opts.explorerOrder)));
       // Always: it completes fixBlockRefLinks, which is not optional either.
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));

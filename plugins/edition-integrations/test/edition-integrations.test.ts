@@ -163,3 +163,16 @@ describe("Hypothes.is loads on page load at every width", () => {
     expect(w.document.documentElement.classList.contains("tb-hypothesis-on")).toBe(true);
   });
 });
+
+describe("the explorer's order", () => {
+  it("adds no script when the order is empty (the default)", () => {
+    expect(inlineScripts(headOf()).some((html) => html.includes("sortFn"))).toBe(false);
+  });
+
+  it("adds the script carrying the order when one is set", () => {
+    const head = headOf({ explorerOrder: ["chapters/introduction"] });
+    const found = inlineScripts(head).filter((html) => html.includes("sortFn"));
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain('["chapters/introduction"]');
+  });
+});
