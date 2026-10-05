@@ -80,34 +80,39 @@ export const fixBlockRefLinks = (tree: HastNode): number => {
  * not from `frontmatter.title`, because note-properties has already filled that
  * in with the filename when it was missing.
  */
-export const hasOwnTitle = (source: string): boolean => {
+export const ownTitle = (source: string): string | null => {
   const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(source.trimStart());
-  if (!match) return false;
+  if (!match) return null;
   const line = /^title\s*:\s*(.*?)\s*$/m.exec(match[1]!);
-  if (!line) return false;
+  if (!line) return null;
   const value = line[1]!.replace(/^(["'])(.*)\1$/, "$2").trim();
-  return value.length > 0;
+  return value.length > 0 ? value : null;
 };
+
+export const hasOwnTitle = (source: string): boolean => ownTitle(source) !== null;
 
 /**
  * Moves the first top-level H1 into the page's title. Returns the new title, or
- * null when nothing was changed (the page has its own title, or no H1).
+ * null when the title didn't change (the page has its own title, or no H1).
+ * A page with its own title keeps it; its first H1 is taken out only when it
+ * says the same, so the title isn't shown twice.
  */
 export const titleFromFirstHeading = (
   tree: HastNode,
   data: PageData,
   source: string,
 ): string | null => {
-  if (hasOwnTitle(source)) return null;
+  const own = ownTitle(source);
   const children = tree.children ?? [];
   const index = children.findIndex((n) => n.type === "element" && n.tagName === "h1");
   if (index === -1) return null;
   const h1 = children[index]!;
   const title = textOf(h1).replace(/\s+/g, " ").trim();
   if (!title) return null;
+  if (own !== null && own.replace(/\s+/g, " ") !== title) return null;
 
   children.splice(index, 1);
-  data.frontmatter = { ...(data.frontmatter ?? {}), title };
+  if (own === null) data.frontmatter = { ...(data.frontmatter ?? {}), title };
 
   // The heading's entry in the table of contents would point at nothing now.
   const id = h1.properties?.id;
@@ -119,7 +124,7 @@ export const titleFromFirstHeading = (
       if (data.toc.length === 0) delete data.toc;
     }
   }
-  return title;
+  return own === null ? title : null;
 };
 
 // --- 3. the lead paragraph -------------------------------------------------------
