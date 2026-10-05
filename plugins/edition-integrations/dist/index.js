@@ -35,9 +35,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/identity.js
+// node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/identity.js"(exports$1) {
+  "node_modules/yaml/dist/nodes/identity.js"(exports$1) {
     var ALIAS = /* @__PURE__ */ Symbol.for("yaml.alias");
     var DOC = /* @__PURE__ */ Symbol.for("yaml.document");
     var MAP = /* @__PURE__ */ Symbol.for("yaml.map");
@@ -91,9 +91,9 @@ var require_identity = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/visit.js
+// node_modules/yaml/dist/visit.js
 var require_visit = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/visit.js"(exports$1) {
+  "node_modules/yaml/dist/visit.js"(exports$1) {
     var identity = require_identity();
     var BREAK = /* @__PURE__ */ Symbol("break visit");
     var SKIP = /* @__PURE__ */ Symbol("skip children");
@@ -248,9 +248,9 @@ var require_visit = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/doc/directives.js
+// node_modules/yaml/dist/doc/directives.js
 var require_directives = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/doc/directives.js"(exports$1) {
+  "node_modules/yaml/dist/doc/directives.js"(exports$1) {
     var identity = require_identity();
     var visit = require_visit();
     var escapeChars = {
@@ -418,9 +418,9 @@ var require_directives = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/doc/anchors.js
+// node_modules/yaml/dist/doc/anchors.js
 var require_anchors = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/doc/anchors.js"(exports$1) {
+  "node_modules/yaml/dist/doc/anchors.js"(exports$1) {
     var identity = require_identity();
     var visit = require_visit();
     function anchorIsValid(anchor) {
@@ -487,9 +487,9 @@ var require_anchors = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/doc/applyReviver.js
+// node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/doc/applyReviver.js"(exports$1) {
+  "node_modules/yaml/dist/doc/applyReviver.js"(exports$1) {
     function applyReviver(reviver, obj, key, val) {
       if (val && typeof val === "object") {
         if (Array.isArray(val)) {
@@ -536,9 +536,9 @@ var require_applyReviver = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/toJS.js
+// node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/toJS.js"(exports$1) {
+  "node_modules/yaml/dist/nodes/toJS.js"(exports$1) {
     var identity = require_identity();
     function toJS(value, arg, ctx) {
       if (Array.isArray(value))
@@ -565,9 +565,9 @@ var require_toJS = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/Node.js
+// node_modules/yaml/dist/nodes/Node.js
 var require_Node = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/Node.js"(exports$1) {
+  "node_modules/yaml/dist/nodes/Node.js"(exports$1) {
     var applyReviver = require_applyReviver();
     var identity = require_identity();
     var toJS = require_toJS();
@@ -605,9 +605,9 @@ var require_Node = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/Alias.js
+// node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/Alias.js"(exports$1) {
+  "node_modules/yaml/dist/nodes/Alias.js"(exports$1) {
     var anchors = require_anchors();
     var visit = require_visit();
     var identity = require_identity();
@@ -722,9 +722,9 @@ var require_Alias = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/Scalar.js
+// node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/Scalar.js"(exports$1) {
+  "node_modules/yaml/dist/nodes/Scalar.js"(exports$1) {
     var identity = require_identity();
     var Node = require_Node();
     var toJS = require_toJS();
@@ -751,9 +751,9 @@ var require_Scalar = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/doc/createNode.js
+// node_modules/yaml/dist/doc/createNode.js
 var require_createNode = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/doc/createNode.js"(exports$1) {
+  "node_modules/yaml/dist/doc/createNode.js"(exports$1) {
     var Alias = require_Alias();
     var identity = require_identity();
     var Scalar = require_Scalar();
@@ -825,9 +825,9 @@ var require_createNode = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/Collection.js
+// node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/Collection.js"(exports$1) {
+  "node_modules/yaml/dist/nodes/Collection.js"(exports$1) {
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
@@ -967,9 +967,9 @@ var require_Collection = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyComment.js
+// node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyComment.js"(exports$1) {
+  "node_modules/yaml/dist/stringify/stringifyComment.js"(exports$1) {
     var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
     function indentComment(comment, indent) {
       if (/^\n+$/.test(comment))
@@ -983,9 +983,9 @@ var require_stringifyComment = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/foldFlowLines.js
+// node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports$1) {
+  "node_modules/yaml/dist/stringify/foldFlowLines.js"(exports$1) {
     var FOLD_FLOW = "flow";
     var FOLD_BLOCK = "block";
     var FOLD_QUOTED = "quoted";
@@ -1118,9 +1118,9 @@ ${indent}${text.slice(fold + 1, end2)}`;
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyString.js
+// node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyString.js"(exports$1) {
+  "node_modules/yaml/dist/stringify/stringifyString.js"(exports$1) {
     var Scalar = require_Scalar();
     var foldFlowLines = require_foldFlowLines();
     var getFoldOptions = (ctx, isBlock) => ({
@@ -1400,9 +1400,9 @@ ${indent}`);
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringify.js
+// node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringify.js"(exports$1) {
+  "node_modules/yaml/dist/stringify/stringify.js"(exports$1) {
     var anchors = require_anchors();
     var identity = require_identity();
     var stringifyComment = require_stringifyComment();
@@ -1523,9 +1523,9 @@ ${ctx.indent}${str}`;
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyPair.js
+// node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyPair.js"(exports$1) {
+  "node_modules/yaml/dist/stringify/stringifyPair.js"(exports$1) {
     var identity = require_identity();
     var Scalar = require_Scalar();
     var stringify = require_stringify();
@@ -1655,9 +1655,9 @@ ${ctx.indent}`;
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/log.js
+// node_modules/yaml/dist/log.js
 var require_log = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/log.js"(exports$1) {
+  "node_modules/yaml/dist/log.js"(exports$1) {
     var node_process = __require("process");
     function debug(logLevel, ...messages) {
       if (logLevel === "debug")
@@ -1676,9 +1676,9 @@ var require_log = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/merge.js
+// node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports$1) {
+  "node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports$1) {
     var identity = require_identity();
     var Scalar = require_Scalar();
     var MERGE_KEY = "<<";
@@ -1735,9 +1735,9 @@ var require_merge = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/addPairToJSMap.js
+// node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports$1) {
+  "node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports$1) {
     var log = require_log();
     var merge = require_merge();
     var stringify = require_stringify();
@@ -1798,9 +1798,9 @@ var require_addPairToJSMap = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/Pair.js
+// node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/Pair.js"(exports$1) {
+  "node_modules/yaml/dist/nodes/Pair.js"(exports$1) {
     var createNode = require_createNode();
     var stringifyPair = require_stringifyPair();
     var addPairToJSMap = require_addPairToJSMap();
@@ -1837,9 +1837,9 @@ var require_Pair = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyCollection.js
+// node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports$1) {
+  "node_modules/yaml/dist/stringify/stringifyCollection.js"(exports$1) {
     var identity = require_identity();
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
@@ -1987,9 +1987,9 @@ ${indent}${end}`;
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/YAMLMap.js
+// node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/YAMLMap.js"(exports$1) {
+  "node_modules/yaml/dist/nodes/YAMLMap.js"(exports$1) {
     var stringifyCollection = require_stringifyCollection();
     var addPairToJSMap = require_addPairToJSMap();
     var Collection = require_Collection();
@@ -2130,9 +2130,9 @@ var require_YAMLMap = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/common/map.js
+// node_modules/yaml/dist/schema/common/map.js
 var require_map = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/common/map.js"(exports$1) {
+  "node_modules/yaml/dist/schema/common/map.js"(exports$1) {
     var identity = require_identity();
     var YAMLMap = require_YAMLMap();
     var map = {
@@ -2151,9 +2151,9 @@ var require_map = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/YAMLSeq.js
+// node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports$1) {
+  "node_modules/yaml/dist/nodes/YAMLSeq.js"(exports$1) {
     var createNode = require_createNode();
     var stringifyCollection = require_stringifyCollection();
     var Collection = require_Collection();
@@ -2266,9 +2266,9 @@ var require_YAMLSeq = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/common/seq.js
+// node_modules/yaml/dist/schema/common/seq.js
 var require_seq = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/common/seq.js"(exports$1) {
+  "node_modules/yaml/dist/schema/common/seq.js"(exports$1) {
     var identity = require_identity();
     var YAMLSeq = require_YAMLSeq();
     var seq = {
@@ -2287,9 +2287,9 @@ var require_seq = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/common/string.js
+// node_modules/yaml/dist/schema/common/string.js
 var require_string = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/common/string.js"(exports$1) {
+  "node_modules/yaml/dist/schema/common/string.js"(exports$1) {
     var stringifyString = require_stringifyString();
     var string = {
       identify: (value) => typeof value === "string",
@@ -2305,9 +2305,9 @@ var require_string = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/common/null.js
+// node_modules/yaml/dist/schema/common/null.js
 var require_null = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/common/null.js"(exports$1) {
+  "node_modules/yaml/dist/schema/common/null.js"(exports$1) {
     var Scalar = require_Scalar();
     var nullTag = {
       identify: (value) => value == null,
@@ -2322,9 +2322,9 @@ var require_null = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/core/bool.js
+// node_modules/yaml/dist/schema/core/bool.js
 var require_bool = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/core/bool.js"(exports$1) {
+  "node_modules/yaml/dist/schema/core/bool.js"(exports$1) {
     var Scalar = require_Scalar();
     var boolTag = {
       identify: (value) => typeof value === "boolean",
@@ -2345,9 +2345,9 @@ var require_bool = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyNumber.js
+// node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports$1) {
+  "node_modules/yaml/dist/stringify/stringifyNumber.js"(exports$1) {
     function stringifyNumber({ format, minFractionDigits, tag, value }) {
       if (typeof value === "bigint")
         return String(value);
@@ -2371,9 +2371,9 @@ var require_stringifyNumber = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/core/float.js
+// node_modules/yaml/dist/schema/core/float.js
 var require_float = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/core/float.js"(exports$1) {
+  "node_modules/yaml/dist/schema/core/float.js"(exports$1) {
     var Scalar = require_Scalar();
     var stringifyNumber = require_stringifyNumber();
     var floatNaN = {
@@ -2416,9 +2416,9 @@ var require_float = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/core/int.js
+// node_modules/yaml/dist/schema/core/int.js
 var require_int = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/core/int.js"(exports$1) {
+  "node_modules/yaml/dist/schema/core/int.js"(exports$1) {
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
     var intResolve = (str, offset, radix, { intAsBigInt }) => intAsBigInt ? BigInt(str) : parseInt(str.substring(offset), radix);
@@ -2460,9 +2460,9 @@ var require_int = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/core/schema.js
+// node_modules/yaml/dist/schema/core/schema.js
 var require_schema = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/core/schema.js"(exports$1) {
+  "node_modules/yaml/dist/schema/core/schema.js"(exports$1) {
     var map = require_map();
     var _null = require_null();
     var seq = require_seq();
@@ -2487,9 +2487,9 @@ var require_schema = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/json/schema.js
+// node_modules/yaml/dist/schema/json/schema.js
 var require_schema2 = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/json/schema.js"(exports$1) {
+  "node_modules/yaml/dist/schema/json/schema.js"(exports$1) {
     var Scalar = require_Scalar();
     var map = require_map();
     var seq = require_seq();
@@ -2553,9 +2553,9 @@ var require_schema2 = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/binary.js
+// node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports$1) {
+  "node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports$1) {
     var node_buffer = __require("buffer");
     var Scalar = require_Scalar();
     var stringifyString = require_stringifyString();
@@ -2618,9 +2618,9 @@ var require_binary = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+// node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports$1) {
+  "node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports$1) {
     var identity = require_identity();
     var Pair = require_Pair();
     var Scalar = require_Scalar();
@@ -2695,9 +2695,9 @@ ${cn.comment}` : item.comment;
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/omap.js
+// node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports$1) {
+  "node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports$1) {
     var identity = require_identity();
     var toJS = require_toJS();
     var YAMLMap = require_YAMLMap();
@@ -2772,9 +2772,9 @@ var require_omap = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/bool.js
+// node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool2 = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports$1) {
+  "node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports$1) {
     var Scalar = require_Scalar();
     function boolStringify({ value, source }, ctx) {
       const boolObj = value ? trueTag : falseTag;
@@ -2803,9 +2803,9 @@ var require_bool2 = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/float.js
+// node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float2 = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports$1) {
+  "node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports$1) {
     var Scalar = require_Scalar();
     var stringifyNumber = require_stringifyNumber();
     var floatNaN = {
@@ -2851,9 +2851,9 @@ var require_float2 = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/int.js
+// node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int2 = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports$1) {
+  "node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports$1) {
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
     function intResolve(str, offset, radix, { intAsBigInt }) {
@@ -2929,9 +2929,9 @@ var require_int2 = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/set.js
+// node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports$1) {
+  "node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports$1) {
     var identity = require_identity();
     var Pair = require_Pair();
     var YAMLMap = require_YAMLMap();
@@ -3017,9 +3017,9 @@ var require_set = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+// node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports$1) {
+  "node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports$1) {
     var stringifyNumber = require_stringifyNumber();
     function parseSexagesimal(str, asBigInt) {
       const sign = str[0];
@@ -3104,9 +3104,9 @@ var require_timestamp = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/schema.js
+// node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema3 = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports$1) {
+  "node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports$1) {
     var map = require_map();
     var _null = require_null();
     var seq = require_seq();
@@ -3147,9 +3147,9 @@ var require_schema3 = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/tags.js
+// node_modules/yaml/dist/schema/tags.js
 var require_tags = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/tags.js"(exports$1) {
+  "node_modules/yaml/dist/schema/tags.js"(exports$1) {
     var map = require_map();
     var _null = require_null();
     var seq = require_seq();
@@ -3240,9 +3240,9 @@ var require_tags = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/Schema.js
+// node_modules/yaml/dist/schema/Schema.js
 var require_Schema = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/schema/Schema.js"(exports$1) {
+  "node_modules/yaml/dist/schema/Schema.js"(exports$1) {
     var identity = require_identity();
     var map = require_map();
     var seq = require_seq();
@@ -3271,9 +3271,9 @@ var require_Schema = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyDocument.js
+// node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports$1) {
+  "node_modules/yaml/dist/stringify/stringifyDocument.js"(exports$1) {
     var identity = require_identity();
     var stringify = require_stringify();
     var stringifyComment = require_stringifyComment();
@@ -3350,9 +3350,9 @@ var require_stringifyDocument = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/doc/Document.js
+// node_modules/yaml/dist/doc/Document.js
 var require_Document = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/doc/Document.js"(exports$1) {
+  "node_modules/yaml/dist/doc/Document.js"(exports$1) {
     var Alias = require_Alias();
     var Collection = require_Collection();
     var identity = require_identity();
@@ -3658,9 +3658,9 @@ var require_Document = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/errors.js
+// node_modules/yaml/dist/errors.js
 var require_errors = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/errors.js"(exports$1) {
+  "node_modules/yaml/dist/errors.js"(exports$1) {
     var YAMLError = class extends Error {
       constructor(name, pos, code, message) {
         super();
@@ -3722,9 +3722,9 @@ ${pointer}
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-props.js
+// node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-props.js"(exports$1) {
+  "node_modules/yaml/dist/compose/resolve-props.js"(exports$1) {
     function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
       let spaceBefore = false;
       let atNewline = startOnNewline;
@@ -3855,9 +3855,9 @@ var require_resolve_props = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/util-contains-newline.js
+// node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/util-contains-newline.js"(exports$1) {
+  "node_modules/yaml/dist/compose/util-contains-newline.js"(exports$1) {
     function containsNewline(key) {
       if (!key)
         return null;
@@ -3896,9 +3896,9 @@ var require_util_contains_newline = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/util-flow-indent-check.js
+// node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports$1) {
+  "node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports$1) {
     var utilContainsNewline = require_util_contains_newline();
     function flowIndentCheck(indent, fc, onError) {
       if (fc?.type === "flow-collection") {
@@ -3913,9 +3913,9 @@ var require_util_flow_indent_check = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/util-map-includes.js
+// node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/util-map-includes.js"(exports$1) {
+  "node_modules/yaml/dist/compose/util-map-includes.js"(exports$1) {
     var identity = require_identity();
     function mapIncludes(ctx, items, search) {
       const { uniqueKeys } = ctx.options;
@@ -3928,9 +3928,9 @@ var require_util_map_includes = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-block-map.js
+// node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-block-map.js"(exports$1) {
+  "node_modules/yaml/dist/compose/resolve-block-map.js"(exports$1) {
     var Pair = require_Pair();
     var YAMLMap = require_YAMLMap();
     var resolveProps = require_resolve_props();
@@ -4035,9 +4035,9 @@ var require_resolve_block_map = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-block-seq.js
+// node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports$1) {
+  "node_modules/yaml/dist/compose/resolve-block-seq.js"(exports$1) {
     var YAMLSeq = require_YAMLSeq();
     var resolveProps = require_resolve_props();
     var utilFlowIndentCheck = require_util_flow_indent_check();
@@ -4085,9 +4085,9 @@ var require_resolve_block_seq = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-end.js
+// node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-end.js"(exports$1) {
+  "node_modules/yaml/dist/compose/resolve-end.js"(exports$1) {
     function resolveEnd(end, offset, reqSpace, onError) {
       let comment = "";
       if (end) {
@@ -4127,9 +4127,9 @@ var require_resolve_end = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-flow-collection.js
+// node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports$1) {
+  "node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports$1) {
     var identity = require_identity();
     var Pair = require_Pair();
     var YAMLMap = require_YAMLMap();
@@ -4320,9 +4320,9 @@ var require_resolve_flow_collection = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/compose-collection.js
+// node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/compose-collection.js"(exports$1) {
+  "node_modules/yaml/dist/compose/compose-collection.js"(exports$1) {
     var identity = require_identity();
     var Scalar = require_Scalar();
     var YAMLMap = require_YAMLMap();
@@ -4384,9 +4384,9 @@ var require_compose_collection = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-block-scalar.js
+// node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports$1) {
+  "node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports$1) {
     var Scalar = require_Scalar();
     function resolveBlockScalar(ctx, scalar, onError) {
       const start = scalar.offset;
@@ -4566,9 +4566,9 @@ var require_resolve_block_scalar = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-flow-scalar.js
+// node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports$1) {
+  "node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports$1) {
     var Scalar = require_Scalar();
     var resolveEnd = require_resolve_end();
     function resolveFlowScalar(scalar, strict, onError) {
@@ -4786,9 +4786,9 @@ var require_resolve_flow_scalar = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/compose-scalar.js
+// node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/compose-scalar.js"(exports$1) {
+  "node_modules/yaml/dist/compose/compose-scalar.js"(exports$1) {
     var identity = require_identity();
     var Scalar = require_Scalar();
     var resolveBlockScalar = require_resolve_block_scalar();
@@ -4866,9 +4866,9 @@ var require_compose_scalar = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/util-empty-scalar-position.js
+// node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports$1) {
+  "node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports$1) {
     function emptyScalarPosition(offset, before, pos) {
       if (before) {
         pos ?? (pos = before.length);
@@ -4895,9 +4895,9 @@ var require_util_empty_scalar_position = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/compose-node.js
+// node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/compose-node.js"(exports$1) {
+  "node_modules/yaml/dist/compose/compose-node.js"(exports$1) {
     var Alias = require_Alias();
     var identity = require_identity();
     var composeCollection = require_compose_collection();
@@ -5000,9 +5000,9 @@ var require_compose_node = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/compose-doc.js
+// node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/compose-doc.js"(exports$1) {
+  "node_modules/yaml/dist/compose/compose-doc.js"(exports$1) {
     var Document = require_Document();
     var composeNode = require_compose_node();
     var resolveEnd = require_resolve_end();
@@ -5042,9 +5042,9 @@ var require_compose_doc = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/composer.js
+// node_modules/yaml/dist/compose/composer.js
 var require_composer = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/compose/composer.js"(exports$1) {
+  "node_modules/yaml/dist/compose/composer.js"(exports$1) {
     var node_process = __require("process");
     var directives = require_directives();
     var Document = require_Document();
@@ -5249,9 +5249,9 @@ ${end.comment}` : end.comment;
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/cst-scalar.js
+// node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/cst-scalar.js"(exports$1) {
+  "node_modules/yaml/dist/parse/cst-scalar.js"(exports$1) {
     var resolveBlockScalar = require_resolve_block_scalar();
     var resolveFlowScalar = require_resolve_flow_scalar();
     var errors = require_errors();
@@ -5433,9 +5433,9 @@ var require_cst_scalar = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/cst-stringify.js
+// node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/cst-stringify.js"(exports$1) {
+  "node_modules/yaml/dist/parse/cst-stringify.js"(exports$1) {
     var stringify = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
     function stringifyToken(token) {
       switch (token.type) {
@@ -5493,9 +5493,9 @@ var require_cst_stringify = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/cst-visit.js
+// node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/cst-visit.js"(exports$1) {
+  "node_modules/yaml/dist/parse/cst-visit.js"(exports$1) {
     var BREAK = /* @__PURE__ */ Symbol("break visit");
     var SKIP = /* @__PURE__ */ Symbol("skip children");
     var REMOVE = /* @__PURE__ */ Symbol("remove item");
@@ -5554,9 +5554,9 @@ var require_cst_visit = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/cst.js
+// node_modules/yaml/dist/parse/cst.js
 var require_cst = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/cst.js"(exports$1) {
+  "node_modules/yaml/dist/parse/cst.js"(exports$1) {
     var cstScalar = require_cst_scalar();
     var cstStringify = require_cst_stringify();
     var cstVisit = require_cst_visit();
@@ -5655,9 +5655,9 @@ var require_cst = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/lexer.js
+// node_modules/yaml/dist/parse/lexer.js
 var require_lexer = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/lexer.js"(exports$1) {
+  "node_modules/yaml/dist/parse/lexer.js"(exports$1) {
     var cst = require_cst();
     function isEmpty(ch) {
       switch (ch) {
@@ -6243,9 +6243,9 @@ var require_lexer = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/line-counter.js
+// node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/line-counter.js"(exports$1) {
+  "node_modules/yaml/dist/parse/line-counter.js"(exports$1) {
     var LineCounter = class {
       constructor() {
         this.lineStarts = [];
@@ -6273,9 +6273,9 @@ var require_line_counter = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/parser.js
+// node_modules/yaml/dist/parse/parser.js
 var require_parser = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/parse/parser.js"(exports$1) {
+  "node_modules/yaml/dist/parse/parser.js"(exports$1) {
     var node_process = __require("process");
     var cst = require_cst();
     var lexer = require_lexer();
@@ -7146,9 +7146,9 @@ var require_parser = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/public-api.js
+// node_modules/yaml/dist/public-api.js
 var require_public_api = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/public-api.js"(exports$1) {
+  "node_modules/yaml/dist/public-api.js"(exports$1) {
     var composer = require_composer();
     var Document = require_Document();
     var errors = require_errors();
@@ -7242,9 +7242,9 @@ var require_public_api = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/index.js
+// node_modules/yaml/dist/index.js
 var require_dist = __commonJS({
-  "../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/yaml/dist/index.js"(exports$1) {
+  "node_modules/yaml/dist/index.js"(exports$1) {
     var composer = require_composer();
     var Document = require_Document();
     var Schema = require_Schema();
@@ -7293,7 +7293,7 @@ var require_dist = __commonJS({
   }
 });
 
-// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edition-integrations/node_modules/preact/dist/preact.mjs
+// node_modules/preact/dist/preact.mjs
 var n;
 var l;
 var u;
