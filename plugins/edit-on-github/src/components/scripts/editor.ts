@@ -491,12 +491,18 @@ export const openEditor = (o: EditorOptions) => {
   };
   const titleF = field("tb-ed-msg", "Title", el("input", { type: "text", maxlength: 200, autocomplete: "off" }));
   const descF = field("tb-ed-desc", "Extended description", el("textarea", { rows: 3, maxlength: 5000 }), true);
-  const nameF = field("tb-ed-name", "Your name", el("input", { type: "text", autocomplete: "name" }));
+  const nameF = field("tb-ed-name", "Your name", el("input", { type: "text", autocomplete: "name", "aria-describedby": "tb-ed-name-note" }), true);
   const emailF = field("tb-ed-email", "Your email", el("input", { type: "email", autocomplete: "email" }));
   const hp = el("input", { type: "text", name: "website", id: "tb-ed-website", tabindex: -1, autocomplete: "off", "aria-hidden": "true" });
   const hpWrap = el("div", { class: "tb-ed-hp", "aria-hidden": "true" }, el("label", { for: "tb-ed-website", text: "Leave this field empty" }), hp);
 
   const who = el("div", { class: "tb-ed-who" });
+  const nameNote = el("p", {
+    class: "tb-ed-muted",
+    id: "tb-ed-name-note",
+    text: "The name you give is shown publicly in this page's history. Leave it blank to appear as “a reader”.",
+  });
+  nameF.wrap.insertBefore(nameNote, nameF.err);
   const anon = el("div", {}, nameF.wrap, emailF.wrap, el("p", { class: "tb-ed-muted tb-ed-foot", text: "Your email is never published: the editors see it masked." }));
   const what = el("div", { class: "tb-ed-what" }, icon(BRANCH));
   const whatText = el("span");
@@ -539,7 +545,7 @@ export const openEditor = (o: EditorOptions) => {
       }
       const btn = el("button", { type: "button", class: "tb-ed-btn tb-ed-gh" }, icon(GITHUB), "Sign in with GitHub");
       btn.addEventListener("click", signIn);
-      who.append(btn, el("span", { class: "tb-ed-muted", text: "to get credit on your GitHub profile — or just add your name below." }));
+      who.append(btn, el("span", { class: "tb-ed-muted", text: "to get credit on your GitHub profile — or propose without signing in below." }));
       who.hidden = false;
     }
   };
@@ -578,7 +584,7 @@ export const openEditor = (o: EditorOptions) => {
     f.control.removeAttribute("aria-describedby");
     f.err.textContent = "";
   };
-  for (const f of [titleF, nameF, emailF]) f.control.addEventListener("input", () => clear(f));
+  for (const f of [titleF, emailF]) f.control.addEventListener("input", () => clear(f));
 
   const openDialog = () => {
     if (!titleF.control.value) {
@@ -626,14 +632,13 @@ export const openEditor = (o: EditorOptions) => {
     e.preventDefault();
     if (busy) return;
     let bad: HTMLElement | null = null;
-    for (const f of [titleF, nameF, emailF]) clear(f);
+    for (const f of [titleF, emailF]) clear(f);
     const fail = (f: typeof titleF, msg: string) => {
       invalid(f, msg);
       bad ??= f.control;
     };
     if (!titleF.control.value.trim()) fail(titleF, "Please give your change a short title.");
     if (!identity) {
-      if (!nameF.control.value.trim()) fail(nameF, "Please add your name.");
       const em = emailF.control.value.trim();
       if (!em) fail(emailF, "Please add your email.");
       else if (!EMAIL_RE.test(em)) fail(emailF, "That does not look like an email address.");
