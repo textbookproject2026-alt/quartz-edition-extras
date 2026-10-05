@@ -343,6 +343,32 @@ describe("the in-site editor", () => {
     });
     expect(w.calls.map((c) => c[0])).toEqual(["page_editor_opened", "page_edit_submitted"]);
   });
+
+  it("the name is optional, and the form says it is public", async () => {
+    const sent: unknown[] = [];
+    const w = page(rowAndParas(withSuggest), async (_url, init) => {
+      const body = (init as { body?: string } | undefined)?.body;
+      if (!body) {
+        return { ok: true, status: 200, json: async () => ({ content: SOURCE, sha: SHA, branch: "drafts", signIn: false }) };
+      }
+      sent.push(JSON.parse(body));
+      return { ok: true, status: 201, json: async () => ({ prUrl: "https://github.com/o/r/pull/1" }) };
+    });
+    $<HTMLButtonElement>(w, "#p2 > button.tb-pedit").click();
+    await tick();
+    const ta = $<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text");
+    ta.value = "Second paragraph, receive.";
+    ta.dispatchEvent(new w.Event("input") as never);
+    [...w.document.querySelectorAll<HTMLButtonElement>("#tb-editor .tb-ed-primary")]
+      .find((b) => b.textContent === "Propose changes…")!
+      .click();
+    expect($<HTMLElement>(w, "#tb-ed-name-note").textContent).toContain("shown publicly in this page's history");
+    expect($<HTMLInputElement>(w, "#tb-ed-name").getAttribute("aria-describedby")).toBe("tb-ed-name-note");
+    $<HTMLInputElement>(w, "#tb-ed-email").value = "reader@example.org";
+    $<HTMLFormElement>(w, "#tb-editor form").requestSubmit();
+    await tick();
+    expect(sent[0]).toMatchObject({ mode: "paragraph", name: "", email: "reader@example.org" });
+  });
 });
 
 describe("the History panel", () => {
