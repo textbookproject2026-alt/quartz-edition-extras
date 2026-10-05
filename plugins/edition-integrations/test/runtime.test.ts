@@ -3,6 +3,7 @@ import { Window } from "happy-dom";
 import {
   analyticsLoader,
   annotationBadge,
+  explorerKeepsPageStill,
   phoneMenuStartsClosed,
   noTracking,
   paragraphNumbers,
@@ -359,5 +360,52 @@ describe("the phone menu starts closed", () => {
     w.document.dispatchEvent(new w.Event("nav"));
     await tick(20);
     expect(w.document.querySelector(".explorer")!.classList.contains("collapsed")).toBe(false);
+  });
+});
+
+describe("the explorer keeps the page still", () => {
+  /** A page whose browser scrollIntoView is a spy, with the script run after it. */
+  const withSpy = () => {
+    const w = page(
+      "https://book.example.org/chapters/introduction",
+      '<ul class="explorer-ul"><li><a class="active">Intro</a></li></ul><h2 id="h">H</h2>',
+    );
+    w.eval(
+      "window.__calls = []; Element.prototype.scrollIntoView = function () { window.__calls.push(this) }",
+    );
+    w.eval(explorerKeepsPageStill);
+    return { w, calls: () => w.__calls as unknown[] };
+  };
+  const rect = (top: number, height: number) => () => ({ top, bottom: top + height, height });
+
+  it("scrolls only the list when the entry is outside it", () => {
+    const { w, calls } = withSpy();
+    const list = w.document.querySelector(".explorer-ul") as unknown as HTMLElement;
+    const active = w.document.querySelector(".active") as unknown as HTMLElement;
+    list.getBoundingClientRect = rect(100, 400) as unknown as typeof list.getBoundingClientRect;
+    active.getBoundingClientRect = rect(900, 20) as unknown as typeof active.getBoundingClientRect;
+    active.scrollIntoView({ behavior: "smooth" });
+    expect(calls()).toHaveLength(0);
+    // 900 - 100 - (400 - 20) / 2: the entry ends up centred in the list.
+    expect(list.scrollTop).toBe(610);
+    expect(w.scrollY).toBe(0);
+  });
+
+  it("leaves the list alone when the entry is already in view", () => {
+    const { w, calls } = withSpy();
+    const list = w.document.querySelector(".explorer-ul") as unknown as HTMLElement;
+    const active = w.document.querySelector(".active") as unknown as HTMLElement;
+    list.getBoundingClientRect = rect(100, 400) as unknown as typeof list.getBoundingClientRect;
+    active.getBoundingClientRect = rect(200, 20) as unknown as typeof active.getBoundingClientRect;
+    active.scrollIntoView();
+    expect(calls()).toHaveLength(0);
+    expect(list.scrollTop).toBe(0);
+  });
+
+  it("passes anything outside the explorer to the browser", () => {
+    const { w, calls } = withSpy();
+    const h = w.document.getElementById("h")!;
+    h.scrollIntoView();
+    expect(calls()).toEqual([h]);
   });
 });

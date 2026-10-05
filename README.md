@@ -103,6 +103,10 @@ the graph reads, the graph as drawn (this needs the network, because the graph
 loads d3 and pixi from jsDelivr), the controls row, dark mode off, the
 highlight, and print. `--pdf` saves the print.
 
+`scripts/check-scroll.mjs <out-dir> [page.html]` checks that a chapter opened
+with no `#fragment` is still at the top three seconds after load (1280x800),
+with the explorer's active entry inside the explorer's list.
+
 **Options**
 
 | Option | Default | Notes |

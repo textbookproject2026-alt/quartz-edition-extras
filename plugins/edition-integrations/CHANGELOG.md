@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Opening a page no longer scrolls it down. Quartz's explorer scrolled the current page's
+  entry into view with `scrollIntoView`, which moved the window as well (a chapter opened
+  at 1280x800 loaded at scrollY 692). Now only the explorer's list scrolls, and a page
+  opens at its top. Always on.
+
 ### Added
 
 - Following a link to a place on a page flashes that place in the `mark` colour for three

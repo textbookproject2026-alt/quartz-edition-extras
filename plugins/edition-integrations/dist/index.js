@@ -8354,6 +8354,19 @@ var paragraphNumbers = `
   } catch (e) { /* numbers stay as the page drew them; nothing else affected */ }
 })()
 `;
+var explorerKeepsPageStill = `
+;(function () {
+  try {
+    var orig = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function () {
+      var list = this.closest ? this.closest(".explorer-ul") : null
+      if (!list) return orig.apply(this, arguments)
+      var r = this.getBoundingClientRect(), box = list.getBoundingClientRect()
+      if (r.top < box.top || r.bottom > box.bottom) list.scrollTop += r.top - box.top - (box.height - r.height) / 2
+    }
+  } catch (e) { /* the explorer keeps Quartz's own behaviour */ }
+})()
+`;
 var targetFlash = `
 ;(function () {
   try {
@@ -8534,6 +8547,7 @@ var EditionIntegrations = (userOpts) => {
       if (opts.tagHelper) head.push(script(tagHelper));
       if (opts.annotationBadge) head.push(script(annotationBadge));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
+      head.push(script(explorerKeepsPageStill));
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
