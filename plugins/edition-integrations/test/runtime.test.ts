@@ -113,6 +113,11 @@ describe("the tag helper", () => {
     expect(names(w)).toEqual(["annotation_sidebar_opened"]);
     const chips = [...w.document.querySelectorAll("#tb-tag-helper button.tb-tag-chip")];
     expect(chips.map((c) => c.textContent)).toEqual(["copy-edit", "discussion"]);
+    // Placed by the sidebar's own width, and the page told it's there.
+    expect(w.document.getElementById("tb-tag-helper-style")!.textContent).toContain(
+      "right: calc(var(--tb-hypothesis-width, 428px) + 16px)",
+    );
+    expect(w.document.documentElement.classList.contains("tb-tag-helper-on")).toBe(true);
 
     (chips[1] as unknown as HTMLElement).click();
     expect(w.plausibleCalls[1]).toEqual([
@@ -123,6 +128,7 @@ describe("the tag helper", () => {
     toggle.setAttribute("aria-expanded", "false");
     await tick();
     expect(w.document.getElementById("tb-tag-helper")).toBeNull();
+    expect(w.document.documentElement.classList.contains("tb-tag-helper-on")).toBe(false);
     toggle.setAttribute("aria-expanded", "true");
     await tick();
     expect(names(w).filter((n) => n === "annotation_sidebar_opened")).toHaveLength(2);

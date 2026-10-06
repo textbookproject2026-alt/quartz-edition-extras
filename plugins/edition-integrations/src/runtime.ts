@@ -218,6 +218,11 @@ export const annotationsControl = `
  * chips. The composer lives in a cross-origin iframe, so this can't fill in the
  * Tags field; it only reads the client's open/closed state from the open shadow
  * root of <hypothesis-sidebar>, and tears itself down on any error.
+ *
+ * It sits just left of the open sidebar by the sidebar's own width,
+ * --tb-hypothesis-width (hypothesisConfig's onLayoutChange), and marks <html
+ * class="tb-tag-helper-on"> while shown, so the page can make room for it too
+ * (design.ts).
  */
 export const tagHelper = `
 ;(function () {
@@ -229,14 +234,14 @@ export const tagHelper = `
     var dismissed = false
     var arrivalObserver = null, arrivalTimer = null, probeTimer = null, probeAttempts = 0
     var stateObserver = null, attachedHost = null, sidebarOpen = false, flashTimer = null
-    var onResize = null
+    var ON = "tb-tag-helper-on"
 
     var teardown = function () {
       if (arrivalObserver) { arrivalObserver.disconnect(); arrivalObserver = null }
       if (stateObserver) { stateObserver.disconnect(); stateObserver = null }
       attachedHost = null
       clearTimeout(flashTimer); clearTimeout(arrivalTimer); clearTimeout(probeTimer)
-      if (onResize) window.removeEventListener("resize", onResize)
+      document.documentElement.classList.remove(ON)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
     }
@@ -249,8 +254,9 @@ export const tagHelper = `
       var style = document.createElement("style")
       style.id = STYLE_ID
       style.textContent = [
-        "#" + PANEL_ID + " { position: fixed; top: 6rem; right: var(--tb-tag-right, 444px); z-index: 9999;",
-        "  max-width: 15rem; padding: 0.75rem 0.85rem; border: 1px solid var(--tb-border, #E6E6E6);",
+        // Clear of the open sidebar by its own width; 428px is the client's default width.
+        "#" + PANEL_ID + " { position: fixed; top: 6rem; right: calc(var(--tb-hypothesis-width, 428px) + 16px); z-index: 9999;",
+        "  box-sizing: border-box; width: 14rem; padding: 0.75rem 0.85rem; border: 1px solid var(--tb-border, #E6E6E6);",
         "  border-radius: 10px; background: var(--tb-bg, #FFFFFF); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);",
         "  font-family: var(--tb-font-ui, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
         "  line-height: 1.4; color: var(--tb-ink, #2B2B2B); }",
@@ -267,7 +273,7 @@ export const tagHelper = `
         "#" + PANEL_ID + " button.tb-tag-close { position: absolute; top: 0.3rem; right: 0.45rem; font: inherit;",
         "  line-height: 1; padding: 0.1rem 0.25rem; border: 0; background: none; color: var(--tb-faint, #9B9BA1); cursor: pointer; }",
         "#" + PANEL_ID + " button.tb-tag-close:hover { color: var(--tb-ink, #2B2B2B); }",
-        "@media (max-width: 768px) { #" + PANEL_ID + " { top: auto; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; max-width: none; } }",
+        "@media (max-width: 768px) { #" + PANEL_ID + " { top: auto; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; width: auto; } }",
         "@media print { #" + PANEL_ID + " { display: none !important; } }",
       ].join("\\n")
       document.head.appendChild(style)
@@ -339,26 +345,14 @@ export const tagHelper = `
       return panel
     }
 
-    // Just left of the sidebar; the bounding rect is what's real.
-    var positionPanel = function (host) {
-      var panel = document.getElementById(PANEL_ID)
-      if (!panel) return
-      var rect = host.getBoundingClientRect()
-      var fromRight = window.innerWidth - rect.left
-      var usable = fromRight > 0 && fromRight < window.innerWidth
-      panel.style.setProperty("--tb-tag-right", (usable ? fromRight + 16 : 444) + "px")
-    }
-    onResize = safely(function () {
-      var host = document.querySelector("hypothesis-sidebar")
-      if (sidebarOpen && host) positionPanel(host)
-    })
-    var showPanel = function (host) {
+    var showPanel = function () {
       if (dismissed) return
       injectStyle()
       if (!document.getElementById(PANEL_ID)) document.body.appendChild(buildPanel())
-      positionPanel(host)
+      document.documentElement.classList.add(ON)
     }
     var hidePanel = function () {
+      document.documentElement.classList.remove(ON)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
     }
@@ -378,11 +372,9 @@ export const tagHelper = `
       sidebarOpen = open
       if (open) {
         window.tbTrack("annotation_sidebar_opened") // once per closed->open transition
-        showPanel(host)
-        window.addEventListener("resize", onResize)
+        showPanel()
       } else {
         hidePanel()
-        window.removeEventListener("resize", onResize)
         // The reader may have just annotated: this page's cached count is stale.
         if (window.__tbInvalidateAnnoCount) window.__tbInvalidateAnnoCount()
       }

@@ -356,6 +356,13 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     height: auto;
   }
 }
+/* With room for it, the tag helper beside the open sidebar (14rem, 16px each side)
+   is kept clear of the text as well. Below this it overlays, as the sidebar does. */
+@media (min-width: 1440px) {
+  :root.tb-hypothesis-expanded.tb-tag-helper-on body {
+    padding-right: calc(var(--tb-hypothesis-width) + 14rem + 32px);
+  }
+}
 
 @media (max-width: ${layout.mobileWidth}) {
   :root {

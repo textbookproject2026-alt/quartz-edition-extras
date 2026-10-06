@@ -240,6 +240,10 @@ describe("editing design.yaml", () => {
     expect(declared(wide, ":root.tb-hypothesis-expanded body", "padding-right")).toBe(
       "var(--tb-hypothesis-width)",
     );
+    const wider = css.slice(css.indexOf("@media (min-width: 1440px)"));
+    expect(declared(wider, ":root.tb-hypothesis-expanded.tb-tag-helper-on body", "padding-right")).toBe(
+      "calc(var(--tb-hypothesis-width) + 14rem + 32px)",
+    );
     expect(declared(css, ":root.tb-annotations-off .hypothesis-highlight,\n:root.tb-annotations-off .hypothesis-highlight.hypothesis-highlight-focused", "background-color")).toBe("transparent");
   });
 
