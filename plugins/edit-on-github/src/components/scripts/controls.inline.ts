@@ -13,6 +13,8 @@
  * click opens editor.ts instead of GitHub (a modified click still goes to
  * GitHub, and without scripts the link is what it always was), and every
  * numbered paragraph gets a pencil that opens the editor on that paragraph.
+ * The editor is a history entry (#edit, #edit-<¶>): a page loaded with one, or
+ * reached again with Forward, opens it.
  * They go through window.tbTrack, which edition-integrations defines; without
  * it (book two, or an edition with that plugin off) they are dropped silently.
  *
@@ -33,7 +35,7 @@
 // The "nav" listener lives as long as the page, not a route, and every other
 // listener sits on an element a route swap replaces, so none needs addCleanup.
 /* eslint-disable no-restricted-syntax */
-import { closeIfOpen as closeEditorIfOpen, openEditor, PENCIL } from "./editor";
+import { closeIfOpen as closeEditorIfOpen, EDIT_HASH, openEditor, PENCIL } from "./editor";
 import { closeIfOpen as closeHistoryIfOpen, openHistory } from "./history";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
@@ -629,13 +631,20 @@ const pencil = () => {
   return b;
 };
 
+/** Opens the editor the given #edit names; set by armEditor for this page. */
+let openFromHash: ((hash: string, push: boolean) => void) | null = null;
+// Forward onto an #edit entry, or #edit typed into the address bar.
+window.addEventListener("popstate", () => openFromHash?.(location.hash, false));
+
 /** The editor on the Edit link and, where there are numbered paragraphs, on each. */
-const armEditor = (edit: HTMLAnchorElement, endpoint: string) => {
+const armEditor = (edit: HTMLAnchorElement, endpoint: string, suggest?: () => void) => {
   const base = {
     endpoint,
     path: edit.dataset.path ?? "",
     repo: edit.dataset.repo ?? "",
     githubHref: edit.href,
+    builtBlob: edit.closest<HTMLElement>(".tb-page-controls")?.dataset.sourceBlob,
+    suggest,
     track,
   };
   edit.addEventListener("click", (e) => {
@@ -647,11 +656,11 @@ const armEditor = (edit: HTMLAnchorElement, endpoint: string) => {
     e.preventDefault();
     openEditor({ ...base, mode: "page", trigger: edit });
   });
+  const pencils = new Map<string, { p: HTMLElement; b: HTMLButtonElement }>();
   const paras = Array.from(document.querySelectorAll<HTMLElement>("[data-pnum]")).filter(
     (p) => !p.closest(".popover") && !p.querySelector(":scope > button.tb-pedit"),
   );
-  if (!paras.length) return;
-  pencilStyle();
+  if (paras.length) pencilStyle();
   for (const p of paras) {
     const b = pencil();
     b.addEventListener("click", (e) => {
@@ -659,7 +668,18 @@ const armEditor = (edit: HTMLAnchorElement, endpoint: string) => {
       openEditor({ ...base, mode: "paragraph", para: p, trigger: b });
     });
     p.append(b);
+    pencils.set(p.dataset.pnum ?? "", { p, b });
   }
+  openFromHash = (hash, push) => {
+    const m = EDIT_HASH.exec(hash);
+    if (!m) return;
+    const at = m[1] ? pencils.get(m[1]) : undefined;
+    openEditor(
+      at
+        ? { ...base, mode: "paragraph", para: at.p, trigger: at.b, push }
+        : { ...base, mode: "page", trigger: edit, push },
+    );
+  };
 };
 
 /** The History panel on the History link, when the builder gave it an endpoint. */
@@ -690,11 +710,24 @@ const wire = () => {
     for (const row of Array.from(document.querySelectorAll<HTMLElement>(".tb-page-controls"))) {
       if (row.dataset.tbWired) continue;
       row.dataset.tbWired = "1";
+      const btn = row.querySelector<HTMLButtonElement>("button.tb-suggest-btn");
+      const endpoint = btn?.dataset.endpoint;
+      const suggest =
+        btn && endpoint && openSuggestModal
+          ? () => openSuggestModal(endpoint, btn.dataset.path ?? "", btn)
+          : undefined;
       const edit = row.querySelector<HTMLAnchorElement>("a.edit-on-github");
       const editEndpoint = edit?.dataset.editEndpoint;
       if (edit && editEndpoint) {
         try {
-          armEditor(edit, editEndpoint);
+          armEditor(edit, editEndpoint, suggest);
+          // Loaded with #edit (a reload): the entry becomes the page, and the
+          // editor pushes its own on top, so Back still lands on the page.
+          if (EDIT_HASH.test(location.hash)) {
+            const hash = location.hash;
+            window.history.replaceState(window.history.state, "", location.pathname + location.search);
+            openFromHash?.(hash, true);
+          }
         } catch {
           /* the link still goes to GitHub */
         }
@@ -708,11 +741,8 @@ const wire = () => {
           /* the link still goes to GitHub */
         }
       }
-      const btn = row.querySelector<HTMLButtonElement>("button.tb-suggest-btn");
-      const endpoint = btn?.dataset.endpoint;
-      if (!btn || !endpoint || !openSuggestModal) continue;
-      const path = btn.dataset.path ?? "";
-      btn.addEventListener("click", () => openSuggestModal(endpoint, path, btn));
+      if (!btn || !suggest) continue;
+      btn.addEventListener("click", suggest);
       btn.hidden = false;
     }
   } catch {

@@ -40,6 +40,15 @@ export interface Options {
    * the link goes to GitHub's history of the file.
    */
   revisionEndpoint: string;
+  /**
+   * What the page was built from, stamped on its controls row: the source
+   * commit (data-source-commit) and each file's git blob sha by repo path
+   * (data-source-blob). Set by the shared builder. The editor compares the blob
+   * with the one it loads from drafts and says when unpublished changes are
+   * waiting.
+   */
+  sourceCommit: string;
+  sourceBlobs: Record<string, string>;
 }
 
 const defaultOptions: Options = {
@@ -49,6 +58,8 @@ const defaultOptions: Options = {
   suggestEndpoint: "",
   editor: true,
   revisionEndpoint: "",
+  sourceCommit: "",
+  sourceBlobs: {},
 };
 
 /** Where the builder writes a page's revision list (quartz-book's HISTORY_DIR). */
@@ -102,9 +113,15 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
       h("a", { class: cls, href, target: "_blank", rel: "noopener noreferrer", ...data }, text);
     const editEndpoint =
       opts.editor && opts.suggestEndpoint ? proposeEndpoint(opts.suggestEndpoint) : "";
+    const blob = opts.sourceBlobs[path];
     return h(
       "div",
-      { class: "tb-page-controls" },
+      {
+        class: "tb-page-controls",
+        "data-source-path": path,
+        ...(opts.sourceCommit ? { "data-source-commit": opts.sourceCommit } : {}),
+        ...(blob ? { "data-source-blob": blob } : {}),
+      },
       link(
         "edit-on-github",
         `https://github.com/${opts.repo}/edit/${opts.branch}/${gh}`,

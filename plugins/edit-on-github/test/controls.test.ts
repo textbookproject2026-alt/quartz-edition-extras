@@ -299,38 +299,67 @@ describe("the in-site editor", () => {
     expect($(w, "#p2 > button.tb-pedit").getAttribute("tabindex")).toBe("-1");
   });
 
-  it("a paragraph edit becomes a paragraph proposal", async () => {
+  const ID = { token: "v1.tok.sig", login: "reader", id: 7, name: "A Reader" };
+  const signedIn = (w: Page) =>
+    w.sessionStorage.setItem("tb-gh-identity", JSON.stringify({ ...ID, at: Date.now() }));
+  /** A page whose function serves SOURCE at SHA, and records every proposal. */
+  const editorPage = (
+    opts: Record<string, unknown> = withSuggest,
+    url = "https://book.example.org/chapters/chapter-03",
+    login = true,
+  ) => {
     const sent: unknown[] = [];
-    const w = page(rowAndParas(withSuggest), async (_url, init) => {
-      const body = (init as { body?: string } | undefined)?.body;
-      if (!body) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ content: SOURCE, sha: SHA, branch: "drafts", signIn: false }),
-        };
+    const gets: string[] = [];
+    const w = new Window({ url }) as unknown as Page;
+    if (login) signedIn(w);
+    w.document.write(
+      `<html><head></head><body><h1>T</h1>${render(opts as Record<string, string>)}<p data-pnum="1" id="p1">First paragraph.</p><p data-pnum="2" id="p2">Second paragraph, recieve.</p></body></html>`,
+    );
+    w.calls = [];
+    w.eval("window.tbTrack = function () { window.calls.push([].slice.call(arguments)) }");
+    (w as unknown as { fetch: unknown }).fetch = async (u: string, init?: { body?: string }) => {
+      if (!init?.body) {
+        gets.push(u);
+        return { ok: true, status: 200, json: async () => ({ content: SOURCE, sha: SHA, branch: "drafts" }) };
       }
-      sent.push(JSON.parse(body));
-      return {
-        ok: true,
-        status: 201,
-        json: async () => ({ prUrl: "https://github.com/o/r/pull/1" }),
-      };
-    });
+      sent.push(JSON.parse(init.body));
+      return { ok: true, status: 201, json: async () => ({ prUrl: "https://github.com/o/r/pull/1" }) };
+    };
+    w.eval(script);
+    w.document.dispatchEvent(new w.CustomEvent("nav"));
+    opened.push(w);
+    return { w, sent, gets };
+  };
+  const propose = (w: Page) => {
+    [...w.document.querySelectorAll("#tb-editor .tb-ed-primary")]
+      .find((b) => b.textContent === "Propose changes…")!
+      .dispatchEvent(new w.MouseEvent("click") as never);
+  };
+  const type = (w: Page, text: string) => {
+    const ta = $<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text");
+    ta.value = text;
+    ta.dispatchEvent(new w.Event("input") as never);
+  };
+  /** history.back(), and its popstate. */
+  const back = async (w: Page) => {
+    w.history.back();
+    await tick();
+  };
+
+  it("a paragraph edit becomes a paragraph proposal, credited to the signed-in reader", async () => {
+    const { w, sent } = editorPage();
     $<HTMLButtonElement>(w, "#p2 > button.tb-pedit").click();
     await tick();
-    const ta = $<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text");
-    expect(ta.value).toBe("Second paragraph, recieve.");
-    ta.value = "Second paragraph, receive.";
-    ta.dispatchEvent(new w.Event("input") as never);
-    [...w.document.querySelectorAll<HTMLButtonElement>("#tb-editor .tb-ed-primary")]
-      .find((b) => b.textContent === "Propose changes…")!
-      .click();
-    $<HTMLInputElement>(w, "#tb-ed-name").value = "A Reader";
-    $<HTMLInputElement>(w, "#tb-ed-email").value = "reader@example.org";
+    expect($<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text").value).toBe(
+      "Second paragraph, recieve.",
+    );
+    type(w, "Second paragraph, receive.");
+    propose(w);
+    expect($(w, "#tb-editor .tb-ed-who").textContent).toContain("@reader");
+    expect(w.document.querySelector("#tb-ed-name, #tb-ed-email, #tb-ed-website")).toBeNull();
     $<HTMLFormElement>(w, "#tb-editor form").requestSubmit();
     await tick();
-    expect(sent[0]).toMatchObject({
+    expect(sent[0]).toEqual({
       mode: "paragraph",
       path: "chapters/chapter-03.md",
       baseSha: SHA,
@@ -339,35 +368,153 @@ describe("the in-site editor", () => {
       replacement: "Second paragraph, receive.",
       paragraph: 2,
       title: "Edit ¶2 of chapter-03.md",
-      name: "A Reader",
+      description: "",
+      identity: ID.token,
     });
     expect(w.calls.map((c) => c[0])).toEqual(["page_editor_opened", "page_edit_submitted"]);
   });
 
-  it("the name is optional, and the form says it is public", async () => {
-    const sent: unknown[] = [];
-    const w = page(rowAndParas(withSuggest), async (_url, init) => {
-      const body = (init as { body?: string } | undefined)?.body;
-      if (!body) {
-        return { ok: true, status: 200, json: async () => ({ content: SOURCE, sha: SHA, branch: "drafts", signIn: false }) };
-      }
-      sent.push(JSON.parse(body));
-      return { ok: true, status: 201, json: async () => ({ prUrl: "https://github.com/o/r/pull/1" }) };
-    });
+  it("asks for GitHub sign-in before loading the source, and opens on the same paragraph after", async () => {
+    const { w, gets } = editorPage(withSuggest, undefined, false);
+    let popupUrl = "";
+    (w as unknown as { open: unknown }).open = (u: string) => ((popupUrl = u), { close() {} });
     $<HTMLButtonElement>(w, "#p2 > button.tb-pedit").click();
     await tick();
-    const ta = $<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text");
-    ta.value = "Second paragraph, receive.";
-    ta.dispatchEvent(new w.Event("input") as never);
-    [...w.document.querySelectorAll<HTMLButtonElement>("#tb-editor .tb-ed-primary")]
-      .find((b) => b.textContent === "Propose changes…")!
+    expect(gets).toEqual([]);
+    expect(w.document.querySelector("#tb-editor textarea.tb-ed-text")).toBeNull();
+    const gate = $(w, "#tb-editor .tb-ed-gate");
+    expect(gate.textContent).toContain("Sign in to edit");
+    expect(gate.textContent).toContain("No GitHub account?");
+    const btn = [...gate.querySelectorAll("button")].find((b) => b.textContent === "Sign in with GitHub")!;
+    expect(w.document.activeElement).toBe(btn);
+    btn.click();
+    expect(popupUrl).toBe(
+      "https://fn.example/api/github-auth?origin=" + encodeURIComponent("https://book.example.org"),
+    );
+    // A message from anywhere but the function is ignored.
+    w.dispatchEvent(new w.MessageEvent("message", { origin: "https://evil.example", data: { type: "tb-github-identity", ...ID } }) as never);
+    await tick();
+    expect(gets).toEqual([]);
+    w.dispatchEvent(new w.MessageEvent("message", { origin: "https://fn.example", data: { type: "tb-github-identity", ...ID } }) as never);
+    await tick();
+    expect(gets).toEqual(["https://fn.example/api/propose-edit?path=chapters%2Fchapter-03.md"]);
+    expect($<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text").value).toBe(
+      "Second paragraph, recieve.",
+    );
+    expect(w.location.hash).toBe("#edit-2");
+  });
+
+  it("points a reader without GitHub at Suggest an edit, which needs no account", async () => {
+    const { w } = editorPage(withSuggest, undefined, false);
+    $<HTMLAnchorElement>(w, "a.edit-on-github").click();
+    await tick();
+    const link = [...w.document.querySelectorAll("#tb-editor .tb-ed-gate button")].find(
+      (b) => b.textContent === "Suggest an edit",
+    )!;
+    link.click();
+    await tick();
+    expect(w.document.getElementById("tb-editor")).toBeNull();
+    expect(w.document.getElementById("tb-suggest-overlay")).not.toBeNull();
+  });
+
+  it("is one history entry: Back, Escape and × return to the page where it was opened", async () => {
+    const { w } = editorPage();
+    const start = w.history.length;
+    w.scrollTo(0, 640);
+    for (const how of ["back", "escape", "x", "cancel"]) {
+      $<HTMLButtonElement>(w, "#p2 > button.tb-pedit").click();
+      await tick();
+      expect(w.location.hash).toBe("#edit-2");
+      expect(w.document.getElementById("tb-editor")).not.toBeNull();
+      if (how === "back") await back(w);
+      else if (how === "escape") {
+        key(w, "Escape");
+        await tick();
+      } else {
+        const sel = how === "x" ? "#tb-editor .tb-ed-x" : "#tb-editor .tb-ed-actions .tb-ed-btn";
+        $<HTMLButtonElement>(w, sel).click();
+        await tick();
+      }
+      expect(w.document.getElementById("tb-editor"), how).toBeNull();
+      expect(w.location.href, how).toBe("https://book.example.org/chapters/chapter-03");
+      expect(w.scrollY, how).toBe(640);
+    }
+    // Each open pushed one entry, and each close went back over it.
+    expect(w.history.length).toBe(start + 1);
+  });
+
+  it("Back with unsaved text asks first, and keeps the text", async () => {
+    const { w } = editorPage();
+    $<HTMLAnchorElement>(w, "a.edit-on-github").click();
+    await tick();
+    expect(w.location.hash).toBe("#edit");
+    type(w, "# T\n\nchanged\n");
+    await back(w);
+    expect(w.document.getElementById("tb-editor")).not.toBeNull();
+    expect(w.location.hash).toBe("#edit");
+    expect($(w, "#tb-editor .tb-ed-discard").hidden).toBe(false);
+    expect($<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text").value).toBe("# T\n\nchanged\n");
+    [...w.document.querySelectorAll<HTMLButtonElement>("#tb-editor .tb-ed-discard button")]
+      .find((b) => b.textContent === "Discard")!
       .click();
-    expect($<HTMLElement>(w, "#tb-ed-name-note").textContent).toContain("shown publicly in this page's history");
-    expect($<HTMLInputElement>(w, "#tb-ed-name").getAttribute("aria-describedby")).toBe("tb-ed-name-note");
-    $<HTMLInputElement>(w, "#tb-ed-email").value = "reader@example.org";
+    await tick();
+    expect(w.document.getElementById("tb-editor")).toBeNull();
+    expect(w.location.hash).toBe("");
+  });
+
+  it("after a proposal, Back still returns to the page", async () => {
+    const { w, sent } = editorPage();
+    $<HTMLAnchorElement>(w, "a.edit-on-github").click();
+    await tick();
+    type(w, "# T\n\nchanged\n");
+    propose(w);
     $<HTMLFormElement>(w, "#tb-editor form").requestSubmit();
     await tick();
-    expect(sent[0]).toMatchObject({ mode: "paragraph", name: "", email: "reader@example.org" });
+    expect(sent).toHaveLength(1);
+    expect($(w, "#tb-editor .tb-ed-result").textContent).toContain("Proposal opened");
+    await back(w);
+    expect(w.document.getElementById("tb-editor")).toBeNull();
+    expect(w.location.hash).toBe("");
+  });
+
+  it("reopens on a reload with #edit, with the page under it in history", async () => {
+    const { w } = editorPage(withSuggest, "https://book.example.org/chapters/chapter-03#edit-2");
+    await tick();
+    expect($<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text").value).toBe(
+      "Second paragraph, recieve.",
+    );
+    expect(w.location.hash).toBe("#edit-2");
+    await back(w);
+    expect(w.document.getElementById("tb-editor")).toBeNull();
+    expect(w.location.href).toBe("https://book.example.org/chapters/chapter-03");
+    // Forward onto the entry opens it again.
+    w.history.forward();
+    await tick();
+    expect(w.document.getElementById("tb-editor")).not.toBeNull();
+  });
+
+  it("stamps what the page was built from, and says when drafts has moved on", async () => {
+    const built = { ...withSuggest, sourceCommit: "c".repeat(40), sourceBlobs: { "chapters/chapter-03.md": "b".repeat(40) } };
+    const html = render(built as unknown as Record<string, string>);
+    expect(html).toContain('data-source-path="chapters/chapter-03.md"');
+    expect(html).toContain(`data-source-commit="${"c".repeat(40)}"`);
+    expect(html).toContain(`data-source-blob="${"b".repeat(40)}"`);
+
+    const moved = editorPage(built);
+    $<HTMLAnchorElement>(moved.w, "a.edit-on-github").click();
+    await tick();
+    const note = [...moved.w.document.querySelectorAll<HTMLElement>("#tb-editor .tb-ed-note")].find((n) =>
+      n.textContent!.includes("waiting for review"),
+    )!;
+    expect(note.textContent).toBe("This page has changes waiting for review; you’re editing the latest draft.");
+    expect(note.hidden).toBe(false);
+
+    const same = editorPage({ ...built, sourceBlobs: { "chapters/chapter-03.md": SHA } });
+    $<HTMLAnchorElement>(same.w, "a.edit-on-github").click();
+    await tick();
+    expect(
+      [...same.w.document.querySelectorAll<HTMLElement>("#tb-editor .tb-ed-note")].every((n) => n.hidden),
+    ).toBe(true);
   });
 });
 
