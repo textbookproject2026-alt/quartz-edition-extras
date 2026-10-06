@@ -33,6 +33,15 @@ interface Options {
      * the link goes to GitHub's history of the file.
      */
     revisionEndpoint: string;
+    /**
+     * What the page was built from, stamped on its controls row: the source
+     * commit (data-source-commit) and each file's git blob sha by repo path
+     * (data-source-blob). Set by the shared builder. The editor compares the blob
+     * with the one it loads from drafts and says when unpublished changes are
+     * waiting.
+     */
+    sourceCommit: string;
+    sourceBlobs: Record<string, string>;
 }
 /**
  * The controls row under the title (BOOK-ONE-TO-QUARTZ §1b, §8 step 5):
