@@ -211,6 +211,36 @@ describe("paragraph numbers", () => {
     expect(JSON.stringify(tree, (k, v) => (k === "properties" ? undefined : v))).toBe(before);
   });
 
+  it("leaves a reference list's entries unnumbered, and goes on counting after it", () => {
+    const tree = root(
+      el("p", {}, text("Body.")),
+      el("h2", {}, text("References")),
+      el("p", { id: "ref-a" }, text("Archer, M. (1995).")),
+      el("h3", {}, text("Archival sources")),
+      el("p", {}, text("Box 4, folder 2.")),
+      el("h2", {}, text("Appendix")),
+      el("p", {}, text("After.")),
+      el("h2", {}, text("8. Bibliography:")),
+      el("p", {}, text("Bhaskar, R. (1975).")),
+    );
+    expect(numberParagraphs(tree)).toBe(2);
+    const ps = (tree.children ?? []).filter((c) => c.tagName === "p");
+    expect(ps.map((p) => p.properties?.dataPnum)).toEqual([
+      "1",
+      undefined,
+      undefined,
+      "2",
+      undefined,
+    ]);
+    expect(ps[1]!.properties!.id).toBe("ref-a"); // a citation target keeps its id
+    expect(ps[2]!.properties!.id).toBeUndefined();
+  });
+
+  it("a heading that only mentions references is not a reference list", () => {
+    const tree = root(el("h2", {}, text("References to Kant")), el("p", {}, text("Body.")));
+    expect(numberParagraphs(tree)).toBe(1);
+  });
+
   it("leaves nested paragraphs alone", () => {
     const tree = page();
     numberParagraphs(tree);

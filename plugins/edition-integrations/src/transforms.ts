@@ -160,7 +160,9 @@ export const markLeadParagraph = (tree: HastNode): boolean => {
 /**
  * Numbers a page's body paragraphs, ¶1, ¶2 …, for citing and linking. Only
  * top-level <p>: not paragraphs inside lists, block quotes, callouts, tables or
- * footnotes, which aren't the book's running text. Each gets `data-pnum="n"`,
+ * footnotes, which aren't the book's running text; and not the entries of a
+ * reference list (a section headed References, Bibliography, Works cited …, up to
+ * the next heading of the same or higher rank). Each gets `data-pnum="n"`,
  * and `id="pn"` unless it already has an id (a citation target keeps its own,
  * and is linked by that).
  *
@@ -170,10 +172,21 @@ export const markLeadParagraph = (tree: HastNode): boolean => {
  *
  * Returns how many paragraphs were numbered.
  */
+const REFERENCE_HEADING =
+  /^(?:[\d.]+\s+)?(?:references|reference list|bibliography|works cited|literature cited)\s*:?$/i;
+
 export const numberParagraphs = (tree: HastNode): number => {
   let n = 0;
+  let refsRank = 0; // the rank of the reference list's heading while inside it, else 0
   for (const node of tree.children ?? []) {
-    if (!isElement(node) || node.tagName !== "p") continue;
+    if (!isElement(node)) continue;
+    const rank = /^h[1-6]$/.test(node.tagName ?? "") ? Number(node.tagName![1]) : 0;
+    if (rank) {
+      if (refsRank && rank <= refsRank) refsRank = 0;
+      if (REFERENCE_HEADING.test(textOf(node).replace(/\s+/g, " ").trim())) refsRank = rank;
+      continue;
+    }
+    if (node.tagName !== "p" || refsRank) continue;
     if (!textOf(node).trim()) continue; // an image on its own line, say
     n++;
     const props = (node.properties ??= {});
