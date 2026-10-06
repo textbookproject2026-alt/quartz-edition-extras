@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The controls row is now a sticky header on every page: the book's title and the
+  page's place on the left; Search (Quartz's own, also Cmd/Ctrl-K), Contribute ▾,
+  Annotate, Appearance (Aa) and ⋯ on the right, icons only on a phone. Contribute
+  holds Edit this page (or Edit on GitHub ↗ without an editor), Note to the authors
+  (the suggest form), Public comment and How contributing works, each with a
+  one-line subtitle. ⋯ holds Cite this page (APA 7 and a CC attribution line, each
+  with Copy), Print, Page history, What links here, Download as Markdown and View
+  source at the build's commit. A first Contribute, pencil or Annotate on a site
+  shows how contributing works, once. Options `authors`, `licence`, `howTo`; a
+  page with frontmatter `tbBuilderPage: true` gets the header without the items
+  that need a source file. Every menu and panel: aria-expanded, Escape closes it
+  and gives focus back.
+
 - The in-site editor needs GitHub sign-in, asked for before the source loads: a reader
   who isn't signed in gets a "Sign in with GitHub" panel (the popup, so the page and
   paragraph stay put) and a one-line pointer to "Suggest an edit", which needs no

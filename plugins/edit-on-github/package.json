@@ -102,7 +102,10 @@
       "suggestEndpoint": "",
       "revisionEndpoint": "",
       "sourceCommit": "",
-      "sourceBlobs": {}
+      "sourceBlobs": {},
+      "authors": "",
+      "licence": "",
+      "howTo": "how-to-comment"
     },
     "components": {
       "EditOnGitHub": {

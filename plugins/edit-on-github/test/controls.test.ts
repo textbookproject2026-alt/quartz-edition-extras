@@ -14,12 +14,17 @@ import EditOnGitHub, {
 const script = EditOnGitHub({}).afterDOMLoaded as string;
 
 const render = (
-  opts: Record<string, string | boolean>,
+  opts: Record<string, unknown>,
   relativePath = "chapters/chapter-03.md",
   filePath: string | null = "book/" + relativePath,
+  frontmatter: Record<string, unknown> = { title: "Chapter 3" },
 ) => {
   const Component = EditOnGitHub(opts);
-  const props = { fileData: { relativePath, filePath } } as unknown as QuartzComponentProps;
+  const slug = relativePath.replace(/\.md$/, "");
+  const props = {
+    fileData: { relativePath, filePath, slug, frontmatter },
+    cfg: { pageTitle: "A Book" },
+  } as unknown as QuartzComponentProps;
   return renderToString(Component(props) as never);
 };
 
@@ -36,6 +41,7 @@ const page = (row: string, fetchImpl?: (...a: unknown[]) => Promise<unknown>) =>
   w.document.write(`<html><head></head><body><h1>T</h1>${row}<p>after</p></body></html>`);
   w.calls = [];
   w.eval("window.tbTrack = function () { window.calls.push([].slice.call(arguments)) }");
+  w.localStorage.setItem("tb-contribute-explained", "1");
   if (fetchImpl) (w as unknown as { fetch: unknown }).fetch = fetchImpl;
   w.eval(script);
   w.document.dispatchEvent(new w.CustomEvent("nav"));
@@ -100,16 +106,25 @@ describe("the Edit and History links", () => {
     expect(repoPath("./book/", "a/b.md")).toBe("book/a/b.md");
   });
 
-  it("keep the class-then-href shape book two's form reads", () => {
-    expect(render({ repo: "o/r" })).toMatch(
-      /class="edit-on-github" href="https:\/\/github\.com\/[^"]+\/edit\/[^/"]+\/([^"]+\.md)"/,
+  it("keep class edit-on-github on the GitHub edit link, which the editor and edition-integrations find", () => {
+    const w = page(render({ repo: "o/r", contentDir: "" }));
+    expect($<HTMLAnchorElement>(w, "a.edit-on-github").getAttribute("href")).toBe(
+      "https://github.com/o/r/edit/main/chapters/chapter-03.md",
     );
   });
 
-  it("render nothing for a virtual page, a page with no source file, or no repo", () => {
-    expect(render({ repo: "o/r" }, "")).toBe("");
-    expect(render({ repo: "o/r" }, "tags/index.md", null)).toBe(""); // a tag listing
-    expect(render({ repo: "" })).toBe("");
+  it("leave out what needs a source file on a virtual page, a page with none, a builder page or no repo", () => {
+    for (const html of [
+      render({ repo: "o/r" }, ""),
+      render({ repo: "o/r" }, "tags/index.md", null), // a tag listing
+      render({ repo: "" }),
+      render({ repo: "o/r" }, "how-to-comment.md", "book/how-to-comment.md", { tbBuilderPage: true }),
+    ]) {
+      expect(html).toContain('class="tb-header tb-page-controls"');
+      for (const needsSource of ["edit-on-github", "tb-history-link", "data-tb-download", "View source", "data-source-path"])
+        expect(html, needsSource).not.toContain(needsSource);
+      expect(html).toContain("data-tb-cite");
+    }
   });
 });
 
@@ -120,7 +135,7 @@ describe("Suggest an edit", () => {
 
   it("is rendered hidden, and shown only once the script arms it", () => {
     const html = render(withSuggest);
-    expect(html).toMatch(/<button[^>]*class="tb-suggest-btn"[^>]*hidden/);
+    expect(html).toMatch(/<button[^>]*class="tb-mi tb-suggest-btn"[^>]*hidden/);
     const w = page(html);
     expect($<HTMLButtonElement>(w, "button.tb-suggest-btn").hidden).toBe(false);
   });
@@ -146,7 +161,8 @@ describe("Suggest an edit", () => {
     expect(dialog.contains(w.document.activeElement as never)).toBe(true);
     key(w, "Escape");
     expect($(w, "#tb-suggest-overlay")).toBeNull();
-    expect(w.document.activeElement).toBe(btn);
+    // Focus goes back to Contribute: the item itself is in a closed menu.
+    expect(w.document.activeElement).toBe($(w, "[data-tb-contribute]"));
   });
 
   it("has the four honeypot guards and a counter with no live region", () => {
@@ -280,7 +296,7 @@ describe("the in-site editor", () => {
 
   it("turns Edit into 'Edit this page', keeping the GitHub href as the no-script fallback", () => {
     const html = render(withSuggest);
-    expect(html).toContain(">Edit this page</a>");
+    expect(html).toContain(">Edit this page</span>");
     expect(html).toContain('data-edit-endpoint="https://fn.example/api/propose-edit"');
     expect(html).toContain('href="https://github.com/o/r/edit/main/chapters/chapter-03.md"');
   });
@@ -312,6 +328,7 @@ describe("the in-site editor", () => {
     const gets: string[] = [];
     const w = new Window({ url }) as unknown as Page;
     if (login) signedIn(w);
+    w.localStorage.setItem("tb-contribute-explained", "1");
     w.document.write(
       `<html><head></head><body><h1>T</h1>${render(opts as Record<string, string>)}<p data-pnum="1" id="p1">First paragraph.</p><p data-pnum="2" id="p2">Second paragraph, recieve.</p></body></html>`,
     );
@@ -578,7 +595,7 @@ describe("the History panel", () => {
   it("is 'History' with an endpoint, keeping GitHub's history as the no-script href", () => {
     const html = renderPage(withHistory);
     expect(html).toMatch(
-      /class="tb-history-link" href="https:\/\/github\.com\/o\/r\/commits\/main\/chapters\/chapter-03\.md"[^>]*>History</,
+      /class="tb-mi tb-history-link" href="https:\/\/github\.com\/o\/r\/commits\/main\/chapters\/chapter-03\.md"[^>]*><span class="tb-mi-t">Page history</,
     );
     expect(html).toContain('data-history="/.well-known/history/chapters/chapter-03.json"');
   });
@@ -643,7 +660,7 @@ describe("the History panel", () => {
     expect($(w, "#tb-editor .tb-hi-rev").textContent).toContain("Jo Reader");
     key(w, "Escape");
     expect($(w, "#tb-editor")).toBeNull();
-    expect(w.document.activeElement).toBe($(w, "a.tb-history-link"));
+    expect(w.document.activeElement).toBe($(w, "[data-tb-more]")); // the item is in a closed menu
     expect(w.calls.map((c) => c[0])).toEqual(["page_history_opened", "page_revision_opened"]);
   });
 

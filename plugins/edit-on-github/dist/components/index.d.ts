@@ -42,16 +42,31 @@ interface Options {
      */
     sourceCommit: string;
     sourceBlobs: Record<string, string>;
+    /** Who wrote the book, as the registry gives it ("A Name, B Name"): Cite this page. */
+    authors: string;
+    /** The book's SPDX licence id ("CC-BY-SA-4.0"): Cite this page's attribution line. */
+    licence: string;
+    /** The page that explains the ways to contribute, relative to the site root. */
+    howTo: string;
 }
 /**
- * The controls row under the title (BOOK-ONE-TO-QUARTZ §1b, §8 step 5):
- * Edit this page (or Edit on GitHub), History, Suggest an edit, and the annotation
- * badge, which edition-integrations adds to the row when it is installed.
+ * The sticky header on every page (A): the book's title and where the page sits
+ * on the left; Search, Contribute ▾, Annotate, Appearance (Aa) and ⋯ on the
+ * right, icons only on a phone.
  *
- * Edit keeps class "edit-on-github" and its href shape: book two's post-build
- * form and edition-integrations both find the link by it. With the editor on,
- * it reads "Edit this page" and carries the data the page script needs; its
- * href stays the GitHub edit URL, the no-script fallback.
+ * Contribute (D) holds what was the controls row: Edit this page (or Edit on
+ * GitHub, where there's no editor), Note to the authors (the suggest-an-edit
+ * form), Public comment, How contributing works. ⋯ (F) holds Cite, Print, Page
+ * history, What links here, Download as Markdown and View source. Annotate and
+ * Appearance are run by edition-integrations' window.tbAnnotations and
+ * window.tbPrefs; every button stays hidden until its script arms it, and a
+ * reader without scripts gets the plain GitHub links.
+ *
+ * The root keeps class "tb-page-controls" and the data-source-* stamp, and Edit
+ * keeps class "edit-on-github" and its href shape: book two's post-build form,
+ * edition-integrations and the editor find them by those. A page with no source
+ * file (a folder or tag listing, the builder's own pages: frontmatter
+ * tbBuilderPage) gets the header without the items that need one.
  */
 declare const EditOnGitHub: QuartzComponentConstructor<Partial<Options>>;
 
