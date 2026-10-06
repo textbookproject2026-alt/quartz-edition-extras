@@ -273,9 +273,6 @@ var EditOnGitHub = (userOpts) => {
 /* The sidebars hold Quartz's search overlay, the graph's full view and the phone
    menu: they stack above the header. */
 #quartz-body > .sidebar { z-index: 2; }
-@media (min-width: 801px) {
-  #quartz-body > .sidebar { padding-top: 0.75rem; }
-}
 /* Search lives in the header now; Quartz's own button stays, unseen, for its overlay. */
 .left.sidebar .search > .search-button { display: none; }
 .popover .tb-header { display: none; }
