@@ -290,13 +290,16 @@ describe("E. the explainer", () => {
     const book = routes(page(undefined, { explained: true }));
     expect(book.intro).toBe("There are three ways to help with this book. They differ in who sees what you write, and in which account you need.");
     expect(book.titles).toEqual(["Edit this page", "Note to the authors", "Public comment"]);
-    expect(book.text).toContain("showing your name and your email address masked to its first letter and its domain (like a***@example.org)");
-    expect(book.text).not.toContain("never published");
+    expect(book.text).toContain("Who sees it: The authors. It becomes a public issue on the book's GitHub repository, showing your name. It doesn't appear on this page.");
+    expect(book.text).toContain("Account: None. You give your name.");
+    expect(book.text).toContain("Who sees it: Anyone on the internet, with your Hypothes.is username.");
+    expect(book.text).not.toMatch(/email/i);
     // An edition: no editor, no suggest form.
     const edition = routes(page(render({ repo: "o/r" }), { explained: true }));
     expect(edition.intro).toBe("There are two ways to help with this edition. They differ in who sees what you write, and in which account you need.");
     expect(edition.titles).toEqual(["Edit on GitHub", "Public comment"]);
     expect(edition.text).not.toContain("Note to the authors");
+    expect(edition.text).toContain("Who sees it: The edition's maintainers review it. The proposal is public on the edition's GitHub repository and shows your GitHub username.");
     // The same on a page with no source file of its own.
     const listing = render(BOOK, "chapters/index.md", {});
     expect(listing).toContain('data-routes="edit note comment"');
