@@ -54,6 +54,7 @@ import {
   analyticsLoader,
   annotationBadge,
   annotationsControl,
+  breakpointBand,
   explorerFollowsContents,
   explorerKeepsPageStill,
   noTracking,
@@ -257,7 +258,9 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       const head: VNode[] = [
         h("link", { rel: "stylesheet", href: fontHref(design) }) as VNode,
         h("style", { dangerouslySetInnerHTML: { __html: designCss(design) } }) as VNode,
-        // First of the scripts: the theme and the reader's settings, before paint.
+        // First of the scripts: the phone layout's width, the theme and the
+        // reader's settings, all before paint.
+        h("script", { dangerouslySetInnerHTML: { __html: breakpointBand(design.layout.narrowWidth) } }) as VNode,
         h("script", { dangerouslySetInnerHTML: { __html: readerPrefs } }) as VNode,
         h("script", {
           dangerouslySetInnerHTML: { __html: hypothesisConfig(opts.hypothesisGroupId) },

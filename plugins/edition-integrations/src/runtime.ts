@@ -607,6 +607,47 @@ export const annotationBadge = `
 `;
 
 /**
+ * Quartz's phone layout, from `narrowWidth` down instead of 800px. Quartz's grid
+ * and its plugins (the explorer's drawer, search, the home link, the graph, the
+ * header) all say 800px in their compiled CSS, and the explorer's script follows
+ * its CSS. This rewrites the 800px in every same-origin @media rule before the
+ * first paint: an inline <head> script runs only once the stylesheets before it
+ * have loaded. Without scripts, 801px up keeps Quartz's tablet layout.
+ */
+export const breakpointBand = (narrowWidth: string) => `
+;(function () {
+  try {
+    var TO = ${JSON.stringify(narrowWidth)}
+    if (TO === "800px") return
+    var WIDTH = /((?:max|min)-width:\\s*)800px/g
+    var walk = function (parent, rules) {
+      for (var i = 0; i < rules.length; i++) {
+        var r = rules[i]
+        if (r.media && /width:\\s*800px/.test(r.media.mediaText)) {
+          var want = r.media.mediaText.replace(WIDTH, "$1" + TO)
+          r.media.mediaText = want
+          // Where the media list can't be set, the rule is put back rewritten.
+          if (r.media.mediaText !== want && parent.insertRule) {
+            var text = r.cssText.replace(WIDTH, "$1" + TO)
+            parent.deleteRule(i)
+            parent.insertRule(text, i)
+            r = parent.cssRules[i]
+          }
+        }
+        if (r.cssRules) walk(r, r.cssRules)
+      }
+    }
+    for (var s = 0; s < document.styleSheets.length; s++) {
+      var rules = null
+      // A cross-origin sheet (fonts, KaTeX) can't be read, and has no layout rules.
+      try { rules = document.styleSheets[s].cssRules } catch (e) {}
+      if (rules) walk(document.styleSheets[s], rules)
+    }
+  } catch (e) { /* Quartz's own 800px stays */ }
+})()
+`;
+
+/**
  * The phone menu starts closed. Quartz renders the explorer open and closes it
  * in script on phones, after checking its toggle is visible; in WebKit that
  * check can run too early, leaving the menu open over the page on load and

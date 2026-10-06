@@ -246,6 +246,19 @@ describe("editing design.yaml", () => {
     expect(declared(css, ":root.tb-annotations-off .hypothesis-highlight,\n:root.tb-annotations-off .hypothesis-highlight.hypothesis-highlight-focused", "background-color")).toBe("transparent");
   });
 
+  it("puts the phone layout's edge where an explorer sidebar, a 560px column and the client's strip fit (A, B)", () => {
+    const d = loadDesign();
+    // Quartz's side panel 320, its column gap 5, page gutters 2 x 16, the column, the strip.
+    const strip = parseFloat("2.5rem") * 16;
+    expect(parseFloat(d.layout.narrowWidth)).toBe(320 + 5 + 32 + 560 + strip - 1);
+    const css = designCss(d);
+    const tablet = css.slice(css.indexOf("@media (max-width: 1199px)"));
+    expect(declared(tablet, "html.tb-hypothesis-on #quartz-body .center", "padding-right")).toBe(
+      "var(--tb-annotation-gutter)",
+    );
+    expect(declared(css, ":root", "--tb-annotation-gutter")).toBe("2.5rem");
+  });
+
   it("says where the file should be when it is missing", () => {
     expect(() => loadDesign("/nowhere/design.yaml")).toThrow(/missing\. It ships beside dist\//);
   });

@@ -1039,6 +1039,31 @@ const armHistory = (link: HTMLAnchorElement, endpoint: string, back: HTMLElement
   });
 };
 
+/**
+ * Header items never clip: when the header's contents are wider than the header
+ * (labels, a long title, an annotation count, a larger font), it goes to icons.
+ * Measured with the labels shown, on every change of the header's or its
+ * controls' size.
+ */
+const fitHeader = (header: HTMLElement) => {
+  const fit = () => {
+    header.classList.remove("tb-hdr-icons");
+    if (header.scrollWidth > header.clientWidth + 1) header.classList.add("tb-hdr-icons");
+  };
+  fit();
+  // The window (and zoom); the header's own width (the page padded for the open
+  // annotation sidebar); the controls' size (an annotation count arriving). A fit
+  // ends at the size it started from, so it doesn't feed back into itself.
+  window.addEventListener("resize", fit);
+  if (typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver(() => requestAnimationFrame(fit));
+    ro.observe(header);
+    const actions = header.querySelector(".tb-hdr-actions");
+    if (actions) ro.observe(actions);
+  }
+  return fit;
+};
+
 const armHeader = (header: HTMLElement) => {
   const $ = <T extends HTMLElement = HTMLElement>(sel: string) => header.querySelector<T>(sel);
   const howTo = header.dataset.howTo ?? "/how-to-comment";
@@ -1171,6 +1196,9 @@ const armHeader = (header: HTMLElement) => {
     });
     more.hidden = false;
   });
+
+  // Last: the armed controls are all shown now, so the fit is measured on them.
+  each(() => void fitHeader(header));
 };
 
 // Wires the header once per page. "nav" fires after each full load, and after

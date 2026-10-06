@@ -358,6 +358,21 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
     );
   };
 
+  // Icons only, each control keeping its name for assistive tech; the title gets
+  // the rest of the row, and a menu opens the header's full width. Applied by a
+  // container query as the first-paint guess, and by the page script whenever
+  // the header's contents don't fit (class tb-hdr-icons): nothing ever clips.
+  const iconsOnly = (scope: string) => `
+${scope} .tb-hdr-where, ${scope} .tb-hdr-actions { gap: 0.3rem; }
+${scope} .tb-hdr-crumbs { display: none; }
+${scope} .tb-hdr-btn { padding: 0.3rem 0.45rem; }
+${scope} .tb-hdr-label {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+${scope} .tb-hdr-wrap { position: static; }
+${scope} .tb-menu, ${scope} .tb-panel { left: 0; right: 0; width: auto; max-width: none; }`;
+
   // Every value from edition-integrations' design.yaml tokens, with this
   // plugin's own fallbacks where it isn't installed. No colour of its own.
   Component.css = `
@@ -400,7 +415,7 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
 /* Search lives in the header now; Quartz's own button stays, unseen, for its overlay. */
 .left.sidebar .search > .search-button { display: none; }
 .popover .tb-header { display: none; }
-.tb-hdr-where { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; flex: 1 1 auto; }
+.tb-hdr-where { display: flex; align-items: baseline; gap: 0.6rem; min-width: 3.5rem; flex: 1 1 auto; overflow: hidden; }
 .tb-hdr-title {
   min-width: 0;
   overflow: hidden;
@@ -411,7 +426,7 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
   color: var(--tb-ink, var(--dark));
   text-decoration: none;
 }
-.tb-hdr-crumbs { display: flex; gap: 0.4rem; white-space: nowrap; color: var(--tb-muted, var(--gray)); }
+.tb-hdr-crumbs { display: flex; gap: 0.4rem; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--tb-muted, var(--gray)); }
 .tb-hdr-crumbs a { color: inherit; text-decoration: none; }
 .tb-hdr-crumbs a::before { content: "›"; margin-right: 0.4rem; color: var(--tb-faint, var(--gray)); }
 .tb-hdr-title:hover, .tb-hdr-crumbs a:hover { color: var(--tb-accent, var(--secondary)); }
@@ -508,19 +523,10 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
 }
 .tb-hdr-plain { margin-left: 0.75rem; color: var(--tb-muted, var(--gray)); font-weight: 600; }
 /* A narrow header (a phone, or the centre column beside the open annotation
-   sidebar): icons only, each keeping its name for assistive tech; the title gets
-   the rest of the row, and a menu opens the header's full width. */
-@container tb-header (max-width: 640px) {
-  .tb-hdr-where, .tb-hdr-actions { gap: 0.3rem; }
-  .tb-hdr-crumbs { display: none; }
-  .tb-hdr-btn { padding: 0.3rem 0.5rem; }
-  .tb-hdr-label {
-    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
-    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
-  }
-  .tb-hdr-wrap { position: static; }
-  .tb-menu, .tb-panel { left: 0; right: 0; width: auto; max-width: none; }
+   sidebar), or one whose controls don't fit: icons only. */
+@container tb-header (max-width: 640px) {${iconsOnly("")}
 }
+${iconsOnly(".tb-header.tb-hdr-icons")}
 @media (max-width: 800px) {
   .tb-header { gap: 0.4rem; margin-bottom: 1rem; }
 }

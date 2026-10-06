@@ -123,6 +123,24 @@ describe("A. the sticky header", () => {
     void bare.happyDOM.close();
   });
 
+  it("never clips: goes to icons whenever its contents are wider than it, and back when they fit", async () => {
+    const w = page(undefined, { explained: true });
+    const header = $(w, ".tb-header");
+    let content = 900;
+    Object.defineProperty(header, "scrollWidth", { get: () => (header.classList.contains("tb-hdr-icons") ? 500 : content) });
+    Object.defineProperty(header, "clientWidth", { get: () => 600 });
+    w.dispatchEvent(new w.Event("resize"));
+    await tick(40);
+    expect(header.classList.contains("tb-hdr-icons")).toBe(true);
+    content = 580; // the labels fit again
+    w.dispatchEvent(new w.Event("resize"));
+    await tick(40);
+    expect(header.classList.contains("tb-hdr-icons")).toBe(false);
+    const css = EditOnGitHub({}).css as string;
+    expect(css).toMatch(/\.tb-header\.tb-hdr-icons \.tb-hdr-label \{[^}]*clip-path: inset\(50%\)/);
+    expect(css).toMatch(/\.tb-hdr-crumbs \{[^}]*min-width: 0; overflow: hidden;/);
+  });
+
   it("names folders as a reader would, and finds the root from any depth", () => {
     expect(folderName("further-reading")).toBe("Further reading");
     expect(rootOf("index")).toBe("./");

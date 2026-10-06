@@ -431,9 +431,8 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
   body[data-slug="index"] #quartz-body .left.sidebar .page-title { visibility: hidden; }
 
   /* The annotation client's tab and its eye and note buttons sit on the right
-     edge: the header and the text keep clear of them, open or closed. */
-  html.tb-hypothesis-on #quartz-body .left.sidebar,
-  html.tb-hypothesis-on #quartz-body .center {
+     edge: the header bar keeps clear of them, open or closed. */
+  html.tb-hypothesis-on #quartz-body .left.sidebar {
     box-sizing: border-box;
     padding-right: var(--tb-annotation-gutter);
   }
@@ -459,6 +458,16 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
   }
   #quartz-body .page-header h1.article-title { margin-top: 0.75rem; }
   #quartz-body .page-header .breadcrumb-container { margin-top: 0.25rem; }
+}
+
+/* Below Quartz's desktop layout (1200px) nothing but the page is at the right
+   edge, where the annotation client's strip sits: the header and the text keep
+   clear of it, open or closed. (On a desktop the right rail is under it.) */
+@media (max-width: 1199px) {
+  html.tb-hypothesis-on #quartz-body .center {
+    box-sizing: border-box;
+    padding-right: var(--tb-annotation-gutter);
+  }
 }
 
 /* Print: the chapter alone, at full width, with no annotation layer, always light. */

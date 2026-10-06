@@ -7690,9 +7690,8 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
   body[data-slug="index"] #quartz-body .left.sidebar .page-title { visibility: hidden; }
 
   /* The annotation client's tab and its eye and note buttons sit on the right
-     edge: the header and the text keep clear of them, open or closed. */
-  html.tb-hypothesis-on #quartz-body .left.sidebar,
-  html.tb-hypothesis-on #quartz-body .center {
+     edge: the header bar keeps clear of them, open or closed. */
+  html.tb-hypothesis-on #quartz-body .left.sidebar {
     box-sizing: border-box;
     padding-right: var(--tb-annotation-gutter);
   }
@@ -7718,6 +7717,16 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
   }
   #quartz-body .page-header h1.article-title { margin-top: 0.75rem; }
   #quartz-body .page-header .breadcrumb-container { margin-top: 0.25rem; }
+}
+
+/* Below Quartz's desktop layout (1200px) nothing but the page is at the right
+   edge, where the annotation client's strip sits: the header and the text keep
+   clear of it, open or closed. (On a desktop the right rail is under it.) */
+@media (max-width: 1199px) {
+  html.tb-hypothesis-on #quartz-body .center {
+    box-sizing: border-box;
+    padding-right: var(--tb-annotation-gutter);
+  }
 }
 
 /* Print: the chapter alone, at full width, with no annotation layer, always light. */
@@ -8394,6 +8403,38 @@ var annotationBadge = `
   } catch (e) { /* badge absent */ }
 })()
 `;
+var breakpointBand = (narrowWidth) => `
+;(function () {
+  try {
+    var TO = ${JSON.stringify(narrowWidth)}
+    if (TO === "800px") return
+    var WIDTH = /((?:max|min)-width:\\s*)800px/g
+    var walk = function (parent, rules) {
+      for (var i = 0; i < rules.length; i++) {
+        var r = rules[i]
+        if (r.media && /width:\\s*800px/.test(r.media.mediaText)) {
+          var want = r.media.mediaText.replace(WIDTH, "$1" + TO)
+          r.media.mediaText = want
+          // Where the media list can't be set, the rule is put back rewritten.
+          if (r.media.mediaText !== want && parent.insertRule) {
+            var text = r.cssText.replace(WIDTH, "$1" + TO)
+            parent.deleteRule(i)
+            parent.insertRule(text, i)
+            r = parent.cssRules[i]
+          }
+        }
+        if (r.cssRules) walk(r, r.cssRules)
+      }
+    }
+    for (var s = 0; s < document.styleSheets.length; s++) {
+      var rules = null
+      // A cross-origin sheet (fonts, KaTeX) can't be read, and has no layout rules.
+      try { rules = document.styleSheets[s].cssRules } catch (e) {}
+      if (rules) walk(document.styleSheets[s], rules)
+    }
+  } catch (e) { /* Quartz's own 800px stays */ }
+})()
+`;
 var phoneMenuStartsClosed = (narrowWidth) => `
 ;(function () {
   try {
@@ -8713,7 +8754,9 @@ var EditionIntegrations = (userOpts) => {
       const head = [
         _("link", { rel: "stylesheet", href: fontHref(design) }),
         _("style", { dangerouslySetInnerHTML: { __html: designCss(design) } }),
-        // First of the scripts: the theme and the reader's settings, before paint.
+        // First of the scripts: the phone layout's width, the theme and the
+        // reader's settings, all before paint.
+        _("script", { dangerouslySetInnerHTML: { __html: breakpointBand(design.layout.narrowWidth) } }),
         _("script", { dangerouslySetInnerHTML: { __html: readerPrefs } }),
         _("script", {
           dangerouslySetInnerHTML: { __html: hypothesisConfig(opts.hypothesisGroupId) }

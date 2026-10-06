@@ -10,6 +10,7 @@ import {
   paragraphNumbers,
   readerPrefs,
   annotationsControl,
+  breakpointBand,
   tagHelper,
   targetFlash,
   trackRuntime,
@@ -674,5 +675,33 @@ describe("public annotations on and off (C)", () => {
     expect(b.querySelector(".tb-anno-count")!.textContent).toBe("2");
     expect(b.getAttribute("aria-label")).toBe("Annotate: 2 annotations");
     expect(on.document.querySelector("button.tb-anno-badge")).toBeNull();
+  });
+});
+
+describe("Quartz's phone layout from narrowWidth (A, B)", () => {
+  it("moves every 800px phone rule to the design's width, nested ones too, before paint", () => {
+    const w = page("https://book.example.org/x");
+    const style = w.document.createElement("style");
+    style.textContent = [
+      "@media all and (max-width: 800px) { .explorer { order: -1; } }",
+      "@media all and (min-width: 800px) and (max-width: 1200px) { .grid { gap: 5px; } }",
+      "@media not all and (max-width: 800px) { .search { flex: 1; } }",
+      "@supports (display: grid) { @media (max-width: 800px) { .x { color: red; } } }",
+      "@media (max-width: 768px) { .editor { padding: 0; } }",
+    ].join("\n");
+    w.document.head.appendChild(style);
+    w.eval(breakpointBand("956px"));
+    const sheet = style.sheet as unknown as CSSStyleSheet;
+    const media = (r: CSSRule) => (r as CSSMediaRule).media.mediaText;
+    expect(media(sheet.cssRules[0]!)).toContain("max-width: 956px");
+    expect(media(sheet.cssRules[1]!)).toContain("min-width: 956px");
+    expect(media(sheet.cssRules[1]!)).toContain("max-width: 1200px");
+    expect(media(sheet.cssRules[2]!)).toContain("max-width: 956px");
+    expect(media((sheet.cssRules[3] as CSSSupportsRule).cssRules[0]!)).toContain("max-width: 956px");
+    expect(media(sheet.cssRules[4]!)).toContain("max-width: 768px"); // other widths untouched
+  });
+
+  it("does nothing at Quartz's own 800px", () => {
+    expect(breakpointBand("800px")).toContain('if (TO === "800px") return');
   });
 });
