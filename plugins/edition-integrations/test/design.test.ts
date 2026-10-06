@@ -236,7 +236,7 @@ describe("editing design.yaml", () => {
     expect(declared(css, "article [id],\narticle [data-pnum]", "scroll-margin-top")).toBe(
       "calc(var(--tb-header-h) + 1rem)",
     );
-    const wide = css.slice(css.indexOf("@media (min-width: 1024px)"));
+    const wide = css.slice(css.indexOf("@media (min-width: 1280px)"));
     expect(declared(wide, ":root.tb-hypothesis-expanded body", "padding-right")).toBe(
       "var(--tb-hypothesis-width)",
     );

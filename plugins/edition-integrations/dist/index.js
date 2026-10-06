@@ -7593,11 +7593,26 @@ pre, article code { background-color: var(--tb-bg-soft); }
 article [id],
 article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
 /* The sidebar open on a wide screen: the page makes room for it, so the text and
-   the paragraph pencils stay in view. On narrower screens it overlays the page. */
-@media (min-width: 1024px) {
+   the paragraph pencils stay in view, and the right rail (graph, contents,
+   backlinks) goes under the chapter, as on Quartz's tablet layout, so the text
+   keeps its width. Narrower than this, the sidebar overlays the page. */
+@media (min-width: 1280px) {
   :root.tb-hypothesis-expanded body {
     box-sizing: border-box;
     padding-right: var(--tb-hypothesis-width);
+  }
+  :root.tb-hypothesis-expanded .page > #quartz-body {
+    grid-template-columns: 320px auto;
+    grid-template-rows: auto auto auto auto;
+    grid-template-areas:
+      "grid-sidebar-left grid-header"
+      "grid-sidebar-left grid-center"
+      "grid-sidebar-left grid-sidebar-right"
+      "grid-sidebar-left grid-footer";
+  }
+  :root.tb-hypothesis-expanded .page > #quartz-body > .sidebar.right {
+    position: static;
+    height: auto;
   }
 }
 

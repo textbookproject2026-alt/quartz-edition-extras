@@ -254,6 +254,9 @@ var EditOnGitHub = (userOpts) => {
   position: sticky;
   top: 0;
   z-index: 1;
+  /* Its own width decides icons-only: a phone, or a centre column squeezed by the
+     open annotation sidebar. */
+  container: tb-header / inline-size;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -383,10 +386,11 @@ var EditOnGitHub = (userOpts) => {
   background: var(--tb-ink, var(--dark)); color: var(--tb-bg, var(--light));
 }
 .tb-hdr-plain { margin-left: 0.75rem; color: var(--tb-muted, var(--gray)); font-weight: 600; }
-/* Phones: icons only (each keeps its name for assistive tech), the title gets the
-   rest of the row, and a menu opens the width of the screen. */
-@media (max-width: 800px) {
-  .tb-header { gap: 0.4rem; margin-bottom: 1rem; }
+/* A narrow header (a phone, or the centre column beside the open annotation
+   sidebar): icons only, each keeping its name for assistive tech; the title gets
+   the rest of the row, and a menu opens the header's full width. */
+@container tb-header (max-width: 640px) {
+  .tb-hdr-where, .tb-hdr-actions { gap: 0.3rem; }
   .tb-hdr-crumbs { display: none; }
   .tb-hdr-btn { padding: 0.3rem 0.5rem; }
   .tb-hdr-label {
@@ -394,8 +398,10 @@ var EditOnGitHub = (userOpts) => {
     clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
   }
   .tb-hdr-wrap { position: static; }
-  .tb-header { position: sticky; }
   .tb-menu, .tb-panel { left: 0; right: 0; width: auto; max-width: none; }
+}
+@media (max-width: 800px) {
+  .tb-header { gap: 0.4rem; margin-bottom: 1rem; }
 }
 .tb-dialog {
   width: min(34rem, calc(100vw - 2rem));
