@@ -274,9 +274,13 @@ var EditOnGitHub = (userOpts) => {
    menu: they stack above the header. On a phone they are static, so they get a
    position here to make that stack (else the open menu sits under the header and
    a tap on its first links hits the header). */
-#quartz-body > .sidebar { z-index: 2; }
+/* Quartz's own rules are .page > #quartz-body .sidebar.left/.right: these match
+   their weight and come later. */
+.page > #quartz-body > .sidebar.left,
+.page > #quartz-body > .sidebar.right { z-index: 2; }
 @media (max-width: 800px) {
-  #quartz-body > .sidebar { position: relative; }
+  .page > #quartz-body > .sidebar.left,
+  .page > #quartz-body > .sidebar.right { position: relative; }
 }
 /* Search lives in the header now; Quartz's own button stays, unseen, for its overlay. */
 .left.sidebar .search > .search-button { display: none; }
