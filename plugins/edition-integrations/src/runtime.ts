@@ -220,9 +220,11 @@ export const annotationsControl = `
  * root of <hypothesis-sidebar>, and tears itself down on any error.
  *
  * It sits just left of the open sidebar by the sidebar's own width,
- * --tb-hypothesis-width (hypothesisConfig's onLayoutChange), and marks <html
- * class="tb-tag-helper-on"> while shown, so the page can make room for it too
- * (design.ts).
+ * --tb-hypothesis-width (hypothesisConfig's onLayoutChange). The page also makes
+ * room for it (<html class="tb-tag-helper-room">, design.ts) only while the
+ * chapter's text column stays at least 560px wide with that room taken;
+ * otherwise it overlays the page. Checked when it shows, on resize, and when the
+ * sidebar's width changes ("tb-hypothesis-layout").
  */
 export const tagHelper = `
 ;(function () {
@@ -234,14 +236,26 @@ export const tagHelper = `
     var dismissed = false
     var arrivalObserver = null, arrivalTimer = null, probeTimer = null, probeAttempts = 0
     var stateObserver = null, attachedHost = null, sidebarOpen = false, flashTimer = null
-    var ON = "tb-tag-helper-on"
+    var ROOM = "tb-tag-helper-room"
+    var MIN_TEXT = 560
+    // Take the room, then measure: layout is read synchronously, so nothing is
+    // painted in between. Too narrow a text column: give the room back.
+    var fit = function () {
+      var root = document.documentElement
+      if (!document.getElementById(PANEL_ID)) { root.classList.remove(ROOM); return }
+      root.classList.add(ROOM)
+      var art = document.querySelector("article")
+      if (!art || art.getBoundingClientRect().width < MIN_TEXT) root.classList.remove(ROOM)
+    }
 
     var teardown = function () {
       if (arrivalObserver) { arrivalObserver.disconnect(); arrivalObserver = null }
       if (stateObserver) { stateObserver.disconnect(); stateObserver = null }
       attachedHost = null
       clearTimeout(flashTimer); clearTimeout(arrivalTimer); clearTimeout(probeTimer)
-      document.documentElement.classList.remove(ON)
+      document.documentElement.classList.remove(ROOM)
+      window.removeEventListener("resize", fit)
+      document.removeEventListener("tb-hypothesis-layout", fit)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
     }
@@ -349,12 +363,16 @@ export const tagHelper = `
       if (dismissed) return
       injectStyle()
       if (!document.getElementById(PANEL_ID)) document.body.appendChild(buildPanel())
-      document.documentElement.classList.add(ON)
+      fit()
+      window.addEventListener("resize", fit)
+      document.addEventListener("tb-hypothesis-layout", fit)
     }
     var hidePanel = function () {
-      document.documentElement.classList.remove(ON)
+      window.removeEventListener("resize", fit)
+      document.removeEventListener("tb-hypothesis-layout", fit)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
+      fit()
     }
     // aria-expanded on the toggle is the signal; the collapsed class the fallback.
     var isOpen = function (shadow) {

@@ -117,7 +117,8 @@ describe("the tag helper", () => {
     expect(w.document.getElementById("tb-tag-helper-style")!.textContent).toContain(
       "right: calc(var(--tb-hypothesis-width, 428px) + 16px)",
     );
-    expect(w.document.documentElement.classList.contains("tb-tag-helper-on")).toBe(true);
+    // happy-dom lays nothing out: a 0px text column, so no room is taken.
+    expect(w.document.documentElement.classList.contains("tb-tag-helper-room")).toBe(false);
 
     (chips[1] as unknown as HTMLElement).click();
     expect(w.plausibleCalls[1]).toEqual([
@@ -128,10 +129,37 @@ describe("the tag helper", () => {
     toggle.setAttribute("aria-expanded", "false");
     await tick();
     expect(w.document.getElementById("tb-tag-helper")).toBeNull();
-    expect(w.document.documentElement.classList.contains("tb-tag-helper-on")).toBe(false);
+    expect(w.document.documentElement.classList.contains("tb-tag-helper-room")).toBe(false);
     toggle.setAttribute("aria-expanded", "true");
     await tick();
     expect(names(w).filter((n) => n === "annotation_sidebar_opened")).toHaveLength(2);
+  });
+});
+
+describe("the tag helper's room (B)", () => {
+  it("takes room beside the sidebar only while the text column stays at least 560px", async () => {
+    const w = page("https://book.example.org/", "<article><p>Text</p></article>");
+    w.eval(trackRuntime);
+    w.eval(tagHelper);
+    const root = w.document.documentElement;
+    const art = w.document.querySelector("article")!;
+    // The column the page would leave with the room taken: 600px when wide, 520px when not.
+    let wide = true;
+    art.getBoundingClientRect = () =>
+      ({ width: root.classList.contains("tb-tag-helper-room") ? (wide ? 600 : 520) : 700 }) as DOMRect;
+    const toggle = sidebar(w, false);
+    toggle.setAttribute("aria-expanded", "true");
+    await tick();
+    expect(root.classList.contains("tb-tag-helper-room")).toBe(true);
+    wide = false;
+    w.document.dispatchEvent(new w.CustomEvent("tb-hypothesis-layout")); // the sidebar was widened
+    expect(root.classList.contains("tb-tag-helper-room")).toBe(false);
+    wide = true;
+    w.dispatchEvent(new w.Event("resize"));
+    expect(root.classList.contains("tb-tag-helper-room")).toBe(true);
+    toggle.setAttribute("aria-expanded", "false");
+    await tick();
+    expect(root.classList.contains("tb-tag-helper-room")).toBe(false);
   });
 });
 
