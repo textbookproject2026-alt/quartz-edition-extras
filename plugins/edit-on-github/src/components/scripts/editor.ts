@@ -914,8 +914,9 @@ export const openEditor = (o: EditorOptions) => {
         textarea.value = original;
         loading.remove();
         inner.append(box, foot);
-        textarea.focus();
+        // Caret first: focus scrolls to it, so the reader starts at the top.
         textarea.setSelectionRange(0, 0);
+        textarea.focus();
       })
       .catch((err: { userMessage?: string | null } | null) => {
         if (!overlay.isConnected) return;
