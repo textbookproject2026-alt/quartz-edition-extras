@@ -355,11 +355,10 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     position: static;
     height: auto;
   }
-}
-/* With room for it, the tag helper beside the open sidebar (14rem, 16px each side)
-   is kept clear of the text as well. Below this it overlays, as the sidebar does. */
-@media (min-width: 1440px) {
-  :root.tb-hypothesis-expanded.tb-tag-helper-on body {
+  /* The tag helper beside the open sidebar (14rem, 16px each side) kept off the
+     text too, when the text column stays at least 560px with that room taken
+     (tagHelper measures and sets the class); otherwise it overlays. */
+  :root.tb-hypothesis-expanded.tb-tag-helper-room body {
     padding-right: calc(var(--tb-hypothesis-width) + 14rem + 32px);
   }
 }

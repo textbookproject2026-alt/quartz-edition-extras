@@ -146,6 +146,7 @@ window.hypothesisConfig = function () {
         var w = layout && layout.expanded ? Math.round(layout.width) : 0
         document.documentElement.style.setProperty("--tb-hypothesis-width", w + "px")
         document.documentElement.classList.toggle("tb-hypothesis-expanded", w > 0)
+        document.dispatchEvent(new CustomEvent("tb-hypothesis-layout"))
       } catch (e) {}
     },
     // R1 hook — per-edition group locking. UNUSED BY DECISION: the Publisher

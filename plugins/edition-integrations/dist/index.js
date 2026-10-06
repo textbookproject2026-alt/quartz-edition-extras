@@ -7614,11 +7614,10 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     position: static;
     height: auto;
   }
-}
-/* With room for it, the tag helper beside the open sidebar (14rem, 16px each side)
-   is kept clear of the text as well. Below this it overlays, as the sidebar does. */
-@media (min-width: 1440px) {
-  :root.tb-hypothesis-expanded.tb-tag-helper-on body {
+  /* The tag helper beside the open sidebar (14rem, 16px each side) kept off the
+     text too, when the text column stays at least 560px with that room taken
+     (tagHelper measures and sets the class); otherwise it overlays. */
+  :root.tb-hypothesis-expanded.tb-tag-helper-room body {
     padding-right: calc(var(--tb-hypothesis-width) + 14rem + 32px);
   }
 }
@@ -8042,14 +8041,26 @@ var tagHelper = `
     var dismissed = false
     var arrivalObserver = null, arrivalTimer = null, probeTimer = null, probeAttempts = 0
     var stateObserver = null, attachedHost = null, sidebarOpen = false, flashTimer = null
-    var ON = "tb-tag-helper-on"
+    var ROOM = "tb-tag-helper-room"
+    var MIN_TEXT = 560
+    // Take the room, then measure: layout is read synchronously, so nothing is
+    // painted in between. Too narrow a text column: give the room back.
+    var fit = function () {
+      var root = document.documentElement
+      if (!document.getElementById(PANEL_ID)) { root.classList.remove(ROOM); return }
+      root.classList.add(ROOM)
+      var art = document.querySelector("article")
+      if (!art || art.getBoundingClientRect().width < MIN_TEXT) root.classList.remove(ROOM)
+    }
 
     var teardown = function () {
       if (arrivalObserver) { arrivalObserver.disconnect(); arrivalObserver = null }
       if (stateObserver) { stateObserver.disconnect(); stateObserver = null }
       attachedHost = null
       clearTimeout(flashTimer); clearTimeout(arrivalTimer); clearTimeout(probeTimer)
-      document.documentElement.classList.remove(ON)
+      document.documentElement.classList.remove(ROOM)
+      window.removeEventListener("resize", fit)
+      document.removeEventListener("tb-hypothesis-layout", fit)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
     }
@@ -8157,12 +8168,16 @@ var tagHelper = `
       if (dismissed) return
       injectStyle()
       if (!document.getElementById(PANEL_ID)) document.body.appendChild(buildPanel())
-      document.documentElement.classList.add(ON)
+      fit()
+      window.addEventListener("resize", fit)
+      document.addEventListener("tb-hypothesis-layout", fit)
     }
     var hidePanel = function () {
-      document.documentElement.classList.remove(ON)
+      window.removeEventListener("resize", fit)
+      document.removeEventListener("tb-hypothesis-layout", fit)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
+      fit()
     }
     // aria-expanded on the toggle is the signal; the collapsed class the fallback.
     var isOpen = function (shadow) {
@@ -8626,6 +8641,7 @@ window.hypothesisConfig = function () {
         var w = layout && layout.expanded ? Math.round(layout.width) : 0
         document.documentElement.style.setProperty("--tb-hypothesis-width", w + "px")
         document.documentElement.classList.toggle("tb-hypothesis-expanded", w > 0)
+        document.dispatchEvent(new CustomEvent("tb-hypothesis-layout"))
       } catch (e) {}
     },
     // R1 hook \u2014 per-edition group locking. UNUSED BY DECISION: the Publisher
