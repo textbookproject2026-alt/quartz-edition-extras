@@ -35,7 +35,7 @@
 // The "nav" listener lives as long as the page, not a route, and every other
 // listener sits on an element a route swap replaces, so none needs addCleanup.
 /* eslint-disable no-restricted-syntax */
-import { closeIfOpen as closeEditorIfOpen, EDIT_HASH, openEditor, PENCIL } from "./editor";
+import { closeIfOpen as closeEditorIfOpen, EDIT_HASH, EDITOR_STATE, openEditor, PENCIL } from "./editor";
 import { closeIfOpen as closeHistoryIfOpen, openHistory } from "./history";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
@@ -721,12 +721,15 @@ const wire = () => {
       if (edit && editEndpoint) {
         try {
           armEditor(edit, editEndpoint, suggest);
-          // Loaded with #edit (a reload): the entry becomes the page, and the
-          // editor pushes its own on top, so Back still lands on the page.
+          // Loaded with #edit. A reload of the editor's own entry (its state
+          // survives) opens in place: the page's entry is under it. A link or
+          // a typed #edit has none, so the entry becomes the page and the
+          // editor pushes its own on top: Back always lands on the page.
           if (EDIT_HASH.test(location.hash)) {
             const hash = location.hash;
-            window.history.replaceState(window.history.state, "", location.pathname + location.search);
-            openFromHash?.(hash, true);
+            const ours = (window.history.state as typeof EDITOR_STATE | null)?.tbEditor === true;
+            if (!ours) window.history.replaceState(window.history.state, "", location.pathname + location.search);
+            openFromHash?.(hash, !ours);
           }
         } catch {
           /* the link still goes to GitHub */

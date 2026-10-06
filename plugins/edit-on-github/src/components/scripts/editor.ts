@@ -72,6 +72,8 @@ const USER_MESSAGE_MAX = 200;
 /** The editor's history entry: #edit for the page, #edit-<¶> for one paragraph. */
 export const EDIT_HASH = /^#edit(?:-(\d+))?$/;
 export const editHash = (pnum: number) => (pnum ? `#edit-${pnum}` : "#edit");
+/** history.state on the entries the editor pushes; it survives a reload. */
+export const EDITOR_STATE = { tbEditor: true };
 export const DRAFT_NOTE = "This page has changes waiting for review; you’re editing the latest draft.";
 
 // --- small DOM helpers ----------------------------------------------------------
@@ -804,7 +806,7 @@ export const openEditor = (o: EditorOptions) => {
     if (EDIT_HASH.test(location.hash)) return;
     if (dirty) {
       // Back with unsaved text: stay, and ask first.
-      history.pushState(null, "", hash);
+      history.pushState(EDITOR_STATE, "", hash);
       return requestClose();
     }
     teardown();
@@ -839,7 +841,7 @@ export const openEditor = (o: EditorOptions) => {
   window.addEventListener("popstate", onPopState);
   // A route swap (SPA) or a second open: the URL has already moved on.
   closeCurrent = teardown;
-  if (o.push !== false) history.pushState(null, "", hash);
+  if (o.push !== false) history.pushState(EDITOR_STATE, "", hash);
 
   document.body.style.overflow = "hidden";
   document.body.append(overlay);

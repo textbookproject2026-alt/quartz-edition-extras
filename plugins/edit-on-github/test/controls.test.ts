@@ -493,6 +493,32 @@ describe("the in-site editor", () => {
     expect(w.document.getElementById("tb-editor")).not.toBeNull();
   });
 
+  it("a reload of its own entry reopens in place, with no second page entry", async () => {
+    // The page, then the editor's entry on it (what a reload of #edit-2 finds).
+    const w = new Window({ url: "https://book.example.org/chapters/chapter-03" }) as unknown as Page;
+    signedIn(w);
+    w.history.pushState({ tbEditor: true }, "", "#edit-2");
+    w.document.write(
+      `<html><head></head><body>${render(withSuggest)}<p data-pnum="1">First paragraph.</p><p data-pnum="2">Second paragraph, recieve.</p></body></html>`,
+    );
+    (w as unknown as { fetch: unknown }).fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ content: SOURCE, sha: SHA, branch: "drafts" }),
+    });
+    w.eval(script);
+    w.document.dispatchEvent(new w.CustomEvent("nav"));
+    opened.push(w);
+    await tick();
+    expect($<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text").value).toBe(
+      "Second paragraph, recieve.",
+    );
+    expect(w.history.length).toBe(2);
+    await back(w);
+    expect(w.document.getElementById("tb-editor")).toBeNull();
+    expect(w.location.href).toBe("https://book.example.org/chapters/chapter-03");
+  });
+
   it("stamps what the page was built from, and says when drafts has moved on", async () => {
     const built = { ...withSuggest, sourceCommit: "c".repeat(40), sourceBlobs: { "chapters/chapter-03.md": "b".repeat(40) } };
     const html = render(built as unknown as Record<string, string>);
