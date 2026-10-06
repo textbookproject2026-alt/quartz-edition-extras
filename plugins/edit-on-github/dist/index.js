@@ -271,8 +271,13 @@ var EditOnGitHub = (userOpts) => {
   line-height: 1.3;
 }
 /* The sidebars hold Quartz's search overlay, the graph's full view and the phone
-   menu: they stack above the header. */
+   menu: they stack above the header. On a phone they are static, so they get a
+   position here to make that stack (else the open menu sits under the header and
+   a tap on its first links hits the header). */
 #quartz-body > .sidebar { z-index: 2; }
+@media (max-width: 800px) {
+  #quartz-body > .sidebar { position: relative; }
+}
 /* Search lives in the header now; Quartz's own button stays, unseen, for its overlay. */
 .left.sidebar .search > .search-button { display: none; }
 .popover .tb-header { display: none; }

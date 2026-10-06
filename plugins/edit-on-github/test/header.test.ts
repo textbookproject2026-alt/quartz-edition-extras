@@ -99,6 +99,7 @@ describe("A. the sticky header", () => {
     expect(css).toMatch(/\.tb-header \{\s*position: sticky;\s*top: 0;/);
     expect(css).toContain(".center > .page-header > .popover-hint { display: contents; }");
     expect(css).toContain("#quartz-body > .sidebar { z-index: 2; }");
+    expect(css).toMatch(/@media \(max-width: 800px\) \{\s*#quartz-body > \.sidebar \{ position: relative; \}/);
     // Icons only when the header itself is narrow: a phone, or beside the open sidebar.
     expect(css).toContain("container: tb-header / inline-size;");
     const narrow = css.slice(css.indexOf("@container tb-header (max-width: 640px)"));
