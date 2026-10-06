@@ -252,7 +252,7 @@ describe("editing design.yaml", () => {
     const strip = parseFloat("2.5rem") * 16;
     expect(parseFloat(d.layout.narrowWidth)).toBe(320 + 5 + 32 + 560 + strip - 1);
     const css = designCss(d);
-    const tablet = css.slice(css.indexOf("@media (max-width: 1199px)"));
+    const tablet = css.slice(css.indexOf("@media (max-width: 0px)"));
     expect(declared(tablet, "html.tb-hypothesis-on #quartz-body .center", "padding-right")).toBe(
       "var(--tb-annotation-gutter)",
     );

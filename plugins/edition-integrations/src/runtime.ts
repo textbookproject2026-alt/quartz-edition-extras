@@ -613,26 +613,43 @@ export const annotationBadge = `
  * its CSS. This rewrites the 800px in every same-origin @media rule before the
  * first paint: an inline <head> script runs only once the stylesheets before it
  * have loaded. Without scripts, 801px up keeps Quartz's tablet layout.
+ *
+ * It also reads Quartz's desktop breakpoint from Quartz's own tablet grid rule,
+ * "(min-width: 800px) and (max-width: <desktop>)", and gives design.ts's strip
+ * gutter rule (the one for "html.tb-hypothesis-on #quartz-body .center") the
+ * condition (max-width: <desktop>), so the two can't drift apart, 1200px
+ * included. window.__tbLayout says what it found: { narrow, desktop }.
  */
 export const breakpointBand = (narrowWidth: string) => `
 ;(function () {
   try {
     var TO = ${JSON.stringify(narrowWidth)}
-    if (TO === "800px") return
     var WIDTH = /((?:max|min)-width:\\s*)800px/g
+    var TABLET = /min-width:\\s*800px\\)\\s*and\\s*\\(max-width:\\s*(\\d+(?:\\.\\d+)?px)/
+    var GUTTER = "tb-hypothesis-on #quartz-body .center"
+    var desktop = null, gutter = null
+    // Sets a rule's media; where the media list can't be set, the rule is put back
+    // with its text rewritten.
+    var setMedia = function (parent, i, r, from, to) {
+      var want = r.media.mediaText.replace(from, to)
+      r.media.mediaText = want
+      if (r.media.mediaText !== want && parent.insertRule) {
+        var text = r.cssText.replace(from, to)
+        parent.deleteRule(i)
+        parent.insertRule(text, i)
+        r = parent.cssRules[i]
+      }
+      return r
+    }
     var walk = function (parent, rules) {
       for (var i = 0; i < rules.length; i++) {
         var r = rules[i]
-        if (r.media && /width:\\s*800px/.test(r.media.mediaText)) {
-          var want = r.media.mediaText.replace(WIDTH, "$1" + TO)
-          r.media.mediaText = want
-          // Where the media list can't be set, the rule is put back rewritten.
-          if (r.media.mediaText !== want && parent.insertRule) {
-            var text = r.cssText.replace(WIDTH, "$1" + TO)
-            parent.deleteRule(i)
-            parent.insertRule(text, i)
-            r = parent.cssRules[i]
-          }
+        if (r.media) {
+          var tablet = TABLET.exec(r.media.mediaText)
+          if (tablet && !desktop) desktop = tablet[1]
+          if (TO !== "800px" && /width:\\s*800px/.test(r.media.mediaText)) r = setMedia(parent, i, r, WIDTH, "$1" + TO)
+          if (r.cssRules && r.cssRules[0] && String(r.cssRules[0].selectorText).indexOf(GUTTER) !== -1)
+            gutter = { parent: parent, i: i }
         }
         if (r.cssRules) walk(r, r.cssRules)
       }
@@ -643,7 +660,12 @@ export const breakpointBand = (narrowWidth: string) => `
       try { rules = document.styleSheets[s].cssRules } catch (e) {}
       if (rules) walk(document.styleSheets[s], rules)
     }
-  } catch (e) { /* Quartz's own 800px stays */ }
+    if (desktop && gutter) {
+      var g = gutter.parent.cssRules[gutter.i]
+      setMedia(gutter.parent, gutter.i, g, /\\(max-width:\\s*[^)]*\\)/, "(max-width: " + desktop + ")")
+    }
+    window.__tbLayout = { narrow: TO, desktop: desktop }
+  } catch (e) { /* Quartz's own breakpoints stay */ }
 })()
 `;
 

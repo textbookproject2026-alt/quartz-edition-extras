@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { designCss, loadDesign } from "../src/design";
 import { Window } from "happy-dom";
 import {
   analyticsLoader,
@@ -701,7 +702,26 @@ describe("Quartz's phone layout from narrowWidth (A, B)", () => {
     expect(media(sheet.cssRules[4]!)).toContain("max-width: 768px"); // other widths untouched
   });
 
-  it("does nothing at Quartz's own 800px", () => {
-    expect(breakpointBand("800px")).toContain('if (TO === "800px") return');
+  it("gives the strip gutter Quartz's own desktop breakpoint, read from Quartz's tablet grid rule", () => {
+    for (const desktop of ["1200px", "1300px"]) {
+      const w = page("https://book.example.org/x");
+      const quartz = w.document.createElement("style");
+      quartz.textContent = `@media all and (min-width: 800px) and (max-width: ${desktop}) { .page > #quartz-body { grid-template-columns: 320px auto; } }`;
+      const ours = w.document.createElement("style");
+      ours.textContent = "@media (max-width: 0px) { html.tb-hypothesis-on #quartz-body .center { padding-right: 2.5rem; } }";
+      w.document.head.append(quartz, ours);
+      w.eval(breakpointBand("956px"));
+      const media = (el: HTMLStyleElement) => ((el.sheet as unknown as CSSStyleSheet).cssRules[0] as CSSMediaRule).media.mediaText;
+      expect(media(ours)).toContain(`max-width: ${desktop}`);
+      expect(media(quartz)).toContain("min-width: 956px");
+      expect(media(quartz)).toContain(`max-width: ${desktop}`);
+      expect(w.__tbLayout).toEqual({ narrow: "956px", desktop });
+    }
+  });
+
+  it("design.ts's gutter rule is the placeholder the script finds", () => {
+    const css = designCss(loadDesign());
+    expect(css).toMatch(/@media \(max-width: 0px\) \{\s*html\.tb-hypothesis-on #quartz-body \.center \{/);
+    expect(css).not.toContain("1199px");
   });
 });
