@@ -6,8 +6,18 @@
  *   toolbar     Edit | Preview | Changes          Cancel  [Propose changes…]
  *   box         the markdown (whole page, or one paragraph with its neighbours
  *               shown faintly above and below)
- *   dialog      "Propose changes": title, description, who you are (sign in
- *               with GitHub, or name + email), what will happen, Propose
+ *   dialog      "Propose changes": title, description, who you are (signed in
+ *               with GitHub), what will happen, Propose
+ *
+ * Editing needs GitHub sign-in, asked for before the source loads: a reader who
+ * isn't signed in sees a "Sign in with GitHub" panel (a popup, so the page and the
+ * paragraph never go away) and a pointer to "Suggest an edit", which needs no
+ * account.
+ *
+ * The editor is one history entry on the page (#edit, or #edit-<¶> for a
+ * paragraph): Back, Escape, Cancel and × all close it by going back to the entry
+ * it was opened from, at the scroll position it was opened from, and a reload
+ * with #edit reopens it (controls.inline.ts).
  *
  * Proposals go to the platform function's /api/propose-edit, which opens a pull
  * request into the book's drafts branch (or files an issue if drafts moved on).
@@ -36,6 +46,12 @@ export interface EditorOptions {
   para?: HTMLElement;
   trigger: HTMLElement;
   track: Tracker;
+  /** The page's blob sha in the build (data-source-blob), to say when drafts has moved on. */
+  builtBlob?: string;
+  /** Closes the editor and opens "Suggest an edit", where the page has it. */
+  suggest?: () => void;
+  /** false when the #edit entry is already there (the reader came Forward to it). */
+  push?: boolean;
 }
 
 interface Identity {
@@ -51,8 +67,14 @@ const STYLE_ID = "tb-editor-style";
 const ID_KEY = "tb-gh-identity";
 const ID_TTL = 7.5 * 60 * 60 * 1000; // under the server's 8h
 const FETCH_TIMEOUT = 20000;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const USER_MESSAGE_MAX = 200;
+
+/** The editor's history entry: #edit for the page, #edit-<¶> for one paragraph. */
+export const EDIT_HASH = /^#edit(?:-(\d+))?$/;
+export const editHash = (pnum: number) => (pnum ? `#edit-${pnum}` : "#edit");
+/** history.state on the entries the editor pushes; it survives a reload. */
+export const EDITOR_STATE = { tbEditor: true };
+export const DRAFT_NOTE = "This page has changes waiting for review; you’re editing the latest draft.";
 
 // --- small DOM helpers ----------------------------------------------------------
 
@@ -158,6 +180,9 @@ ${O} .tb-ed-main { flex: 1; overflow: auto; padding: 1rem 1.25rem 2rem; }
 ${O} .tb-ed-inner { max-width: 60rem; margin: 0 auto; }
 ${O} .tb-ed-note { margin: 0 0 0.75rem; padding: 0.6rem 0.8rem; border: 1px solid var(--tb-border, #E6E6E6);
   border-left: 3px solid var(--tb-accent, #7C6CF0); border-radius: 6px; background: var(--tb-accent-wash, #EEEBFD); }
+${O} .tb-ed-gate { max-width: 34rem; margin: 2rem auto; }
+${O} .tb-ed-gate h2 { margin: 0 0 0.5rem; font-size: 1.15rem; font-weight: 600; }
+${O} .tb-ed-gate p { margin: 0 0 1rem; }
 ${O} .tb-ed-box { border: 1px solid var(--tb-border, #E6E6E6); border-radius: 8px; overflow: hidden; background: var(--tb-bg, #FFFFFF); }
 ${O} .tb-ed-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem;
   padding: 0.4rem 0.5rem 0; border-bottom: 1px solid var(--tb-border, #E6E6E6); background: var(--tb-bg-soft, #F7F7F5); }
@@ -222,8 +247,6 @@ ${O} .tb-ed-what svg { flex: none; margin-top: 0.2rem; }
 ${O} .tb-ed-what code, ${O} .tb-ed-note code { font-family: var(--tb-font-mono, monospace); font-size: 0.85em;
   padding: 0.05rem 0.3rem; border-radius: 4px; background: var(--tb-bg-soft, #F7F7F5); }
 ${O} .tb-ed-row { display: flex; justify-content: flex-end; gap: 0.5rem; }
-${O} .tb-ed-hp { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
-  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 ${O} .tb-ed-result:focus { outline: none; }
 ${O} .tb-ed-result p { margin: 0 0 0.75rem; }
 ${O} .tb-ed-result a { color: var(--tb-accent, #7C6CF0); font-weight: 600; }
@@ -339,7 +362,6 @@ export const openEditor = (o: EditorOptions) => {
   let source = ""; // the whole file, LF
   let baseSha = "";
   let branch = "drafts";
-  let signInOn = false;
   let block: Block | null = null;
   let original = ""; // what the textarea started with
   let identity = loadIdentity();
@@ -347,6 +369,9 @@ export const openEditor = (o: EditorOptions) => {
   let dirty = false;
   let popup: Window | null = null;
   let controller: AbortController | null = null;
+  let started = false; // the source load has begun
+  const scrollY = window.scrollY;
+  const hash = editHash(mode === "paragraph" ? pnum : 0);
 
   // --- skeleton ---
   const overlay = el("div", { id: OVERLAY_ID, role: "dialog", "aria-modal": "true", "aria-labelledby": "tb-ed-title", tabindex: -1 });
@@ -373,8 +398,10 @@ export const openEditor = (o: EditorOptions) => {
   const main = el("div", { class: "tb-ed-main" });
   const inner = el("div", { class: "tb-ed-inner" });
   const note = el("p", { class: "tb-ed-note", hidden: true });
+  const draftNote = el("p", { class: "tb-ed-note", hidden: true, text: DRAFT_NOTE });
   const loading = el("p", { class: "tb-ed-muted", role: "status", text: "Loading the page’s source…" });
-  inner.append(note, loading);
+  const gate = el("div", { class: "tb-ed-gate", hidden: true });
+  inner.append(draftNote, note, loading, gate);
   main.append(inner);
 
   overlay.append(head, discardBar, main);
@@ -491,19 +518,7 @@ export const openEditor = (o: EditorOptions) => {
   };
   const titleF = field("tb-ed-msg", "Title", el("input", { type: "text", maxlength: 200, autocomplete: "off" }));
   const descF = field("tb-ed-desc", "Extended description", el("textarea", { rows: 3, maxlength: 5000 }), true);
-  const nameF = field("tb-ed-name", "Your name", el("input", { type: "text", autocomplete: "name", "aria-describedby": "tb-ed-name-note" }), true);
-  const emailF = field("tb-ed-email", "Your email", el("input", { type: "email", autocomplete: "email" }));
-  const hp = el("input", { type: "text", name: "website", id: "tb-ed-website", tabindex: -1, autocomplete: "off", "aria-hidden": "true" });
-  const hpWrap = el("div", { class: "tb-ed-hp", "aria-hidden": "true" }, el("label", { for: "tb-ed-website", text: "Leave this field empty" }), hp);
-
   const who = el("div", { class: "tb-ed-who" });
-  const nameNote = el("p", {
-    class: "tb-ed-muted",
-    id: "tb-ed-name-note",
-    text: "The name you give is shown publicly in this page's history. Leave it blank to appear as “a reader”.",
-  });
-  nameF.wrap.insertBefore(nameNote, nameF.err);
-  const anon = el("div", {}, nameF.wrap, emailF.wrap, el("p", { class: "tb-ed-muted tb-ed-foot", text: "Your email is never published: the editors see it masked." }));
   const what = el("div", { class: "tb-ed-what" }, icon(BRANCH));
   const whatText = el("span");
   what.append(whatText);
@@ -516,8 +531,6 @@ export const openEditor = (o: EditorOptions) => {
     titleF.wrap,
     descF.wrap,
     who,
-    anon,
-    hpWrap,
     what,
     el("div", { class: "tb-ed-row" }, dlgCancel, dlgSubmit),
   );
@@ -535,19 +548,40 @@ export const openEditor = (o: EditorOptions) => {
         renderWho();
       });
       who.append(img, el("span", {}, "Signed in as ", el("strong", { text: `@${identity.login}` }), " — this edit will be credited to your GitHub account."), out);
-      who.hidden = false;
-      anon.hidden = true;
     } else {
-      anon.hidden = false;
-      if (!signInOn) {
-        who.hidden = true;
-        return;
-      }
-      const btn = el("button", { type: "button", class: "tb-ed-btn tb-ed-gh" }, icon(GITHUB), "Sign in with GitHub");
-      btn.addEventListener("click", signIn);
-      who.append(btn, el("span", { class: "tb-ed-muted", text: "to get credit on your GitHub profile — or propose without signing in below." }));
-      who.hidden = false;
+      // Signed out from here, or the sign-in expired: sign in again to send.
+      who.append(signInButton(), el("span", { class: "tb-ed-muted", text: "to send your change. What you wrote is kept." }));
     }
+  };
+
+  const signInButton = () => {
+    const btn = el("button", { type: "button", class: "tb-ed-btn tb-ed-gh" }, icon(GITHUB), "Sign in with GitHub");
+    btn.addEventListener("click", () => signIn(btn));
+    return btn;
+  };
+
+  /** Before the source loads: sign in, or go to "Suggest an edit". */
+  const renderGate = () => {
+    gate.textContent = "";
+    const btn = signInButton();
+    const other = el("p", { class: "tb-ed-muted" }, "No GitHub account? ");
+    if (o.suggest) {
+      const s = el("button", { type: "button", class: "tb-ed-link", text: "Suggest an edit" });
+      s.addEventListener("click", () => {
+        teardown();
+        o.suggest!();
+      });
+      other.append(s, " instead: it needs no account.");
+    } else other.append("Use “Suggest an edit” under the page title instead: it needs no account.");
+    gate.append(
+      el("h2", { text: "Sign in to edit" }),
+      el("p", { text: "Editing a page needs a GitHub account, so your change is credited to you. Signing in opens a GitHub window; you come straight back here." }),
+      el("p", {}, btn),
+      other,
+    );
+    loading.hidden = true;
+    gate.hidden = false;
+    btn.focus();
   };
 
   const onMessage = (e: MessageEvent) => {
@@ -562,14 +596,15 @@ export const openEditor = (o: EditorOptions) => {
     identity = { token: d.token, login: d.login, id: Number(d.id) || 0, name: d.name ?? "", at: Date.now() };
     saveIdentity(identity);
     o.track("github_signin", { outcome: "success" });
+    if (!started) return begin();
     renderWho();
-    titleF.control.focus();
+    if (!scrim.hidden) titleF.control.focus();
   };
-  const signIn = () => {
+  const signIn = (btn: HTMLElement) => {
     const url = `${authUrl}?origin=${encodeURIComponent(location.origin)}`;
     popup = window.open(url, "tb-github-signin", "popup,width=560,height=720");
-    if (!popup) {
-      who.append(el("p", { class: "tb-ed-err", role: "alert", text: "Your browser blocked the sign-in window. Allow pop-ups for this site, or add your name below." }));
+    if (!popup && !btn.parentElement?.querySelector(".tb-ed-err")) {
+      btn.after(el("p", { class: "tb-ed-err", role: "alert", text: "Your browser blocked the sign-in window. Allow pop-ups for this site, then try again." }));
     }
   };
   window.addEventListener("message", onMessage);
@@ -584,7 +619,7 @@ export const openEditor = (o: EditorOptions) => {
     f.control.removeAttribute("aria-describedby");
     f.err.textContent = "";
   };
-  for (const f of [titleF, emailF]) f.control.addEventListener("input", () => clear(f));
+  titleF.control.addEventListener("input", () => clear(titleF));
 
   const openDialog = () => {
     if (!titleF.control.value) {
@@ -632,17 +667,11 @@ export const openEditor = (o: EditorOptions) => {
     e.preventDefault();
     if (busy) return;
     let bad: HTMLElement | null = null;
-    for (const f of [titleF, emailF]) clear(f);
-    const fail = (f: typeof titleF, msg: string) => {
-      invalid(f, msg);
-      bad ??= f.control;
-    };
-    if (!titleF.control.value.trim()) fail(titleF, "Please give your change a short title.");
-    if (!identity) {
-      const em = emailF.control.value.trim();
-      if (!em) fail(emailF, "Please add your email.");
-      else if (!EMAIL_RE.test(em)) fail(emailF, "That does not look like an email address.");
-    }
+    clear(titleF);
+    if (!titleF.control.value.trim()) {
+      invalid(titleF, "Please give your change a short title.");
+      bad = titleF.control;
+    } else if (!identity) bad = who.querySelector("button");
     if (bad) {
       (bad as HTMLElement).focus();
       return;
@@ -662,13 +691,7 @@ export const openEditor = (o: EditorOptions) => {
       payload.replacement = current();
       if (pnum) payload.paragraph = pnum;
     }
-    if (identity) payload.identity = identity.token;
-    else Object.assign(payload, { name: nameF.control.value.trim(), email: emailF.control.value.trim(), website: hp.value });
-
-    if (hp.value) {
-      showResult("Thank you", "Your edit has been received.", null, false);
-      return;
-    }
+    payload.identity = identity!.token;
 
     busy = true;
     dlgSubmit.disabled = true;
@@ -772,17 +795,34 @@ export const openEditor = (o: EditorOptions) => {
     e.returnValue = "";
   };
 
+  // Closing is going Back: the #edit entry goes, and popstate tears the editor down.
   const close = (force = false): void => {
     if (!force && dirty) return requestClose();
+    dirty = false;
+    if (EDIT_HASH.test(location.hash)) history.back();
+    else teardown();
+  };
+  const onPopState = () => {
+    if (EDIT_HASH.test(location.hash)) return;
+    if (dirty) {
+      // Back with unsaved text: stay, and ask first.
+      history.pushState(EDITOR_STATE, "", hash);
+      return requestClose();
+    }
+    teardown();
+  };
+  const teardown = (): void => {
     closeCurrent = null;
     controller?.abort();
     popup?.close();
     document.removeEventListener("keydown", onKeydown, true);
     window.removeEventListener("message", onMessage);
     window.removeEventListener("beforeunload", onBeforeUnload);
+    window.removeEventListener("popstate", onPopState);
     overlay.remove();
     document.body.style.overflow = previousOverflow;
-    if (o.trigger.isConnected) o.trigger.focus();
+    if (o.trigger.isConnected) o.trigger.focus({ preventScroll: true });
+    window.scrollTo(0, scrollY);
   };
   const requestClose = (): void => {
     if (!dirty) return close(true);
@@ -798,14 +838,17 @@ export const openEditor = (o: EditorOptions) => {
   cancelBtn.addEventListener("click", requestClose);
   document.addEventListener("keydown", onKeydown, true);
   window.addEventListener("beforeunload", onBeforeUnload);
-  closeCurrent = () => close(true);
+  window.addEventListener("popstate", onPopState);
+  // A route swap (SPA) or a second open: the URL has already moved on.
+  closeCurrent = teardown;
+  if (o.push !== false) history.pushState(EDITOR_STATE, "", hash);
 
   document.body.style.overflow = "hidden";
   document.body.append(overlay);
   xBtn.focus();
   o.track("page_editor_opened", { mode });
 
-  // --- load the source ---
+  // --- load the source (signed in) ---
   const loadFailed = (message: string) => {
     loading.textContent = "";
     loading.removeAttribute("class");
@@ -815,62 +858,71 @@ export const openEditor = (o: EditorOptions) => {
     );
   };
 
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), FETCH_TIMEOUT);
-  fetch(`${o.endpoint}?path=${encodeURIComponent(o.path)}`, { signal: ctl.signal })
-    .then(async (res) => {
-      let data: unknown = null;
-      try {
-        data = await res.json();
-      } catch {
-        data = null;
-      }
-      if (!res.ok) throw Object.assign(new Error(String(res.status)), { userMessage: safeUserMessage(data) });
-      return data as { content: string; sha: string; branch: string; signIn?: boolean };
-    })
-    .then((data) => {
-      if (!overlay.isConnected) return;
-      if (typeof data?.content !== "string" || typeof data.sha !== "string") throw new Error("bad source");
-      source = data.content;
-      baseSha = data.sha;
-      branch = typeof data.branch === "string" ? data.branch : branch;
-      signInOn = data.signIn === true;
-      branchPill.lastChild!.textContent = branch;
-
-      if (mode === "paragraph") {
-        block = o.para ? findParagraph(source, o.para.textContent ?? "", pnum) : null;
-        if (!block) {
-          mode = "page";
-          paraLabel.textContent = "";
-          note.textContent = `We couldn’t find ¶${pnum} on its own in the page’s source (it may have changed since this page was published), so here is the whole page.`;
-          note.hidden = false;
+  const begin = () => {
+    if (!identity) return renderGate();
+    started = true;
+    gate.hidden = true;
+    loading.hidden = false;
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), FETCH_TIMEOUT);
+    fetch(`${o.endpoint}?path=${encodeURIComponent(o.path)}`, { signal: ctl.signal })
+      .then(async (res) => {
+        let data: unknown = null;
+        try {
+          data = await res.json();
+        } catch {
+          data = null;
         }
-      }
-      if (mode === "paragraph" && block) {
-        box.classList.add("tb-ed-para");
-        const lines = source.split("\n");
-        const n = block.text.split("\n").length;
-        const before = lines.slice(Math.max(0, block.start - 3), block.start).join("\n").trim();
-        const after = lines.slice(block.start + n, block.start + n + 3).join("\n").trim();
-        ctxBefore.textContent = before.length > 220 ? `…${before.slice(-220)}` : before;
-        ctxAfter.textContent = after.length > 220 ? `${after.slice(0, 220)}…` : after;
-        ctxBefore.hidden = !before;
-        ctxAfter.hidden = !after;
-        original = block.text;
-        foot.textContent = "You’re editing one paragraph, in Markdown. Your change is proposed to the editors, who decide whether it goes in.";
-      } else {
-        original = source;
-        foot.textContent = "This is the page’s source, in Markdown. Your change is proposed to the editors, who decide whether it goes in.";
-      }
-      textarea.value = original;
-      loading.remove();
-      inner.append(box, foot);
-      textarea.focus();
-      textarea.setSelectionRange(0, 0);
-    })
-    .catch((err: { userMessage?: string | null } | null) => {
-      if (!overlay.isConnected) return;
-      loadFailed((err && err.userMessage) || "We couldn’t load this page’s source just now.");
-    })
-    .finally(() => clearTimeout(t));
+        if (!res.ok) throw Object.assign(new Error(String(res.status)), { userMessage: safeUserMessage(data) });
+        return data as { content: string; sha: string; branch: string };
+      })
+      .then((data) => {
+        if (!overlay.isConnected) return;
+        if (typeof data?.content !== "string" || typeof data.sha !== "string") throw new Error("bad source");
+        source = data.content;
+        baseSha = data.sha;
+        branch = typeof data.branch === "string" ? data.branch : branch;
+        branchPill.lastChild!.textContent = branch;
+        // drafts isn't what this page was built from: unpublished changes are waiting.
+        draftNote.hidden = !o.builtBlob || o.builtBlob === baseSha;
+
+        if (mode === "paragraph") {
+          block = o.para ? findParagraph(source, o.para.textContent ?? "", pnum) : null;
+          if (!block) {
+            mode = "page";
+            paraLabel.textContent = "";
+            note.textContent = `We couldn’t find ¶${pnum} on its own in the page’s source (it may have changed since this page was published), so here is the whole page.`;
+            note.hidden = false;
+          }
+        }
+        if (mode === "paragraph" && block) {
+          box.classList.add("tb-ed-para");
+          const lines = source.split("\n");
+          const n = block.text.split("\n").length;
+          const before = lines.slice(Math.max(0, block.start - 3), block.start).join("\n").trim();
+          const after = lines.slice(block.start + n, block.start + n + 3).join("\n").trim();
+          ctxBefore.textContent = before.length > 220 ? `…${before.slice(-220)}` : before;
+          ctxAfter.textContent = after.length > 220 ? `${after.slice(0, 220)}…` : after;
+          ctxBefore.hidden = !before;
+          ctxAfter.hidden = !after;
+          original = block.text;
+          foot.textContent = "You’re editing one paragraph, in Markdown. Your change is proposed to the editors, who decide whether it goes in.";
+        } else {
+          original = source;
+          foot.textContent = "This is the page’s source, in Markdown. Your change is proposed to the editors, who decide whether it goes in.";
+        }
+        textarea.value = original;
+        loading.remove();
+        inner.append(box, foot);
+        // Caret first: focus scrolls to it, so the reader starts at the top.
+        textarea.setSelectionRange(0, 0);
+        textarea.focus();
+      })
+      .catch((err: { userMessage?: string | null } | null) => {
+        if (!overlay.isConnected) return;
+        loadFailed((err && err.userMessage) || "We couldn’t load this page’s source just now.");
+      })
+      .finally(() => clearTimeout(t));
+  };
+  begin();
 };

@@ -100,7 +100,9 @@
       "branch": "main",
       "contentDir": "content",
       "suggestEndpoint": "",
-      "revisionEndpoint": ""
+      "revisionEndpoint": "",
+      "sourceCommit": "",
+      "sourceBlobs": {}
     },
     "components": {
       "EditOnGitHub": {
