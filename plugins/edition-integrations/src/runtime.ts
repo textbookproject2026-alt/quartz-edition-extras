@@ -220,9 +220,11 @@ export const annotationsControl = `
  * root of <hypothesis-sidebar>, and tears itself down on any error.
  *
  * It sits just left of the open sidebar by the sidebar's own width,
- * --tb-hypothesis-width (hypothesisConfig's onLayoutChange), and marks <html
- * class="tb-tag-helper-on"> while shown, so the page can make room for it too
- * (design.ts).
+ * --tb-hypothesis-width (hypothesisConfig's onLayoutChange). The page also makes
+ * room for it (<html class="tb-tag-helper-room">, design.ts) only while the
+ * chapter's text column stays at least 560px wide with that room taken;
+ * otherwise it overlays the page. Checked when it shows, on resize, and when the
+ * sidebar's width changes ("tb-hypothesis-layout").
  */
 export const tagHelper = `
 ;(function () {
@@ -234,14 +236,26 @@ export const tagHelper = `
     var dismissed = false
     var arrivalObserver = null, arrivalTimer = null, probeTimer = null, probeAttempts = 0
     var stateObserver = null, attachedHost = null, sidebarOpen = false, flashTimer = null
-    var ON = "tb-tag-helper-on"
+    var ROOM = "tb-tag-helper-room"
+    var MIN_TEXT = 560
+    // Take the room, then measure: layout is read synchronously, so nothing is
+    // painted in between. Too narrow a text column: give the room back.
+    var fit = function () {
+      var root = document.documentElement
+      if (!document.getElementById(PANEL_ID)) { root.classList.remove(ROOM); return }
+      root.classList.add(ROOM)
+      var art = document.querySelector("article")
+      if (!art || art.getBoundingClientRect().width < MIN_TEXT) root.classList.remove(ROOM)
+    }
 
     var teardown = function () {
       if (arrivalObserver) { arrivalObserver.disconnect(); arrivalObserver = null }
       if (stateObserver) { stateObserver.disconnect(); stateObserver = null }
       attachedHost = null
       clearTimeout(flashTimer); clearTimeout(arrivalTimer); clearTimeout(probeTimer)
-      document.documentElement.classList.remove(ON)
+      document.documentElement.classList.remove(ROOM)
+      window.removeEventListener("resize", fit)
+      document.removeEventListener("tb-hypothesis-layout", fit)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
     }
@@ -349,12 +363,16 @@ export const tagHelper = `
       if (dismissed) return
       injectStyle()
       if (!document.getElementById(PANEL_ID)) document.body.appendChild(buildPanel())
-      document.documentElement.classList.add(ON)
+      fit()
+      window.addEventListener("resize", fit)
+      document.addEventListener("tb-hypothesis-layout", fit)
     }
     var hidePanel = function () {
-      document.documentElement.classList.remove(ON)
+      window.removeEventListener("resize", fit)
+      document.removeEventListener("tb-hypothesis-layout", fit)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
+      fit()
     }
     // aria-expanded on the toggle is the signal; the collapsed class the fallback.
     var isOpen = function (shadow) {
@@ -589,11 +607,79 @@ export const annotationBadge = `
 `;
 
 /**
+ * Quartz's phone layout, from `narrowWidth` down instead of 800px. Quartz's grid
+ * and its plugins (the explorer's drawer, search, the home link, the graph, the
+ * header) all say 800px in their compiled CSS, and the explorer's script follows
+ * its CSS. This rewrites the 800px in every same-origin @media rule before the
+ * first paint: an inline <head> script runs only once the stylesheets before it
+ * have loaded. Without scripts, 801px up keeps Quartz's tablet layout.
+ *
+ * It also reads Quartz's desktop breakpoint from Quartz's own tablet grid rule,
+ * "(min-width: 800px) and (max-width: <desktop>)", and gives design.ts's strip
+ * gutter rule (the one for "html.tb-hypothesis-on #quartz-body .center") the
+ * condition (max-width: <desktop>), so the two can't drift apart, 1200px
+ * included. window.__tbLayout says what it found: { narrow, desktop }.
+ */
+export const breakpointBand = (narrowWidth: string) => `
+;(function () {
+  try {
+    var TO = ${JSON.stringify(narrowWidth)}
+    var WIDTH = /((?:max|min)-width:\\s*)800px/g
+    var TABLET = /min-width:\\s*800px\\)\\s*and\\s*\\(max-width:\\s*(\\d+(?:\\.\\d+)?px)/
+    var GUTTER = "tb-hypothesis-on #quartz-body .center"
+    var desktop = null, gutter = null
+    // Sets a rule's media; where the media list can't be set, the rule is put back
+    // with its text rewritten.
+    var setMedia = function (parent, i, r, from, to) {
+      var want = r.media.mediaText.replace(from, to)
+      r.media.mediaText = want
+      if (r.media.mediaText !== want && parent.insertRule) {
+        var text = r.cssText.replace(from, to)
+        parent.deleteRule(i)
+        parent.insertRule(text, i)
+        r = parent.cssRules[i]
+      }
+      return r
+    }
+    var walk = function (parent, rules) {
+      for (var i = 0; i < rules.length; i++) {
+        var r = rules[i]
+        if (r.media) {
+          var tablet = TABLET.exec(r.media.mediaText)
+          if (tablet && !desktop) desktop = tablet[1]
+          if (TO !== "800px" && /width:\\s*800px/.test(r.media.mediaText)) r = setMedia(parent, i, r, WIDTH, "$1" + TO)
+          if (r.cssRules && r.cssRules[0] && String(r.cssRules[0].selectorText).indexOf(GUTTER) !== -1)
+            gutter = { parent: parent, i: i }
+        }
+        if (r.cssRules) walk(r, r.cssRules)
+      }
+    }
+    for (var s = 0; s < document.styleSheets.length; s++) {
+      var rules = null
+      // A cross-origin sheet (fonts, KaTeX) can't be read, and has no layout rules.
+      try { rules = document.styleSheets[s].cssRules } catch (e) {}
+      if (rules) walk(document.styleSheets[s], rules)
+    }
+    if (desktop && gutter) {
+      var g = gutter.parent.cssRules[gutter.i]
+      setMedia(gutter.parent, gutter.i, g, /\\(max-width:\\s*[^)]*\\)/, "(max-width: " + desktop + ")")
+    }
+    window.__tbLayout = { narrow: TO, desktop: desktop }
+  } catch (e) { /* Quartz's own breakpoints stay */ }
+})()
+`;
+
+/**
  * The phone menu starts closed. Quartz renders the explorer open and closes it
  * in script on phones, after checking its toggle is visible; in WebKit that
  * check can run too early, leaving the menu open over the page on load and
  * every later tap out of step. On a phone, until the reader first touches the
  * menu, close it the way Quartz would have.
+ *
+ * The same when the window narrows into phone width: the explorer, open as it
+ * always is on a wider screen, would become the full-screen phone menu over the
+ * page (blank where the explorer has nothing to list). Crossing into phone width
+ * closes it, whatever was tapped on the wider screen.
  */
 export const phoneMenuStartsClosed = (narrowWidth: string) => `
 ;(function () {
@@ -616,6 +702,9 @@ export const phoneMenuStartsClosed = (narrowWidth: string) => `
     }
     document.addEventListener("nav", function () { setTimeout(close, 0); setTimeout(close, 300) })
     window.addEventListener("load", function () { setTimeout(close, 0) })
+    var narrowed = function (e) { if (e.matches) { touched = false; close() } }
+    if (mq.addEventListener) mq.addEventListener("change", narrowed)
+    else if (mq.addListener) mq.addListener(narrowed)
   } catch (e) { /* the menu keeps Quartz's own behaviour */ }
 })()
 `;

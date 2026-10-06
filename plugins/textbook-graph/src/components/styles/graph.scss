@@ -29,6 +29,11 @@
 }
 
 .graph {
+  /* In Quartz's phone layout the right rail is one row: the graph may shrink with
+     the screen. Its canvas keeps the size it was drawn at, and .graph-outer clips
+     it, so a window narrowed after load isn't held wider than the screen. */
+  min-width: 0;
+
   & > h3 {
     font-size: 1rem;
     margin: 0;

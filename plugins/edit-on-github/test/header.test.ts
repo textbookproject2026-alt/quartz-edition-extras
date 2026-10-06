@@ -123,6 +123,24 @@ describe("A. the sticky header", () => {
     void bare.happyDOM.close();
   });
 
+  it("never clips: goes to icons whenever its contents are wider than it, and back when they fit", async () => {
+    const w = page(undefined, { explained: true });
+    const header = $(w, ".tb-header");
+    let content = 900;
+    Object.defineProperty(header, "scrollWidth", { get: () => (header.classList.contains("tb-hdr-icons") ? 500 : content) });
+    Object.defineProperty(header, "clientWidth", { get: () => 600 });
+    w.dispatchEvent(new w.Event("resize"));
+    await tick(40);
+    expect(header.classList.contains("tb-hdr-icons")).toBe(true);
+    content = 580; // the labels fit again
+    w.dispatchEvent(new w.Event("resize"));
+    await tick(40);
+    expect(header.classList.contains("tb-hdr-icons")).toBe(false);
+    const css = EditOnGitHub({}).css as string;
+    expect(css).toMatch(/\.tb-header\.tb-hdr-icons \.tb-hdr-label \{[^}]*clip-path: inset\(50%\)/);
+    expect(css).toMatch(/\.tb-hdr-crumbs \{[^}]*min-width: 0; overflow: hidden;/);
+  });
+
   it("names folders as a reader would, and finds the root from any depth", () => {
     expect(folderName("further-reading")).toBe("Further reading");
     expect(rootOf("index")).toBe("./");
@@ -261,6 +279,30 @@ describe("E. the explainer", () => {
     $<HTMLButtonElement>(w, "[data-tb-explain]").click();
     const again = $(w, "dialog.tb-dialog");
     expect(Array.from(again.querySelectorAll("button")).map((b) => b.textContent)).toEqual(["×", "Close"]);
+  });
+
+  it("says what this site has: a book's three routes, an edition's two, and the note's real masking", () => {
+    const routes = (w: Page) => {
+      $<HTMLButtonElement>(w, "[data-tb-explain]").click();
+      const d = $(w, "dialog.tb-dialog");
+      return { intro: d.querySelector("p")!.textContent, titles: [...d.querySelectorAll("h3")].map((h) => h.textContent), text: d.textContent! };
+    };
+    const book = routes(page(undefined, { explained: true }));
+    expect(book.intro).toBe("There are three ways to help with this book. They differ in who sees what you write, and in which account you need.");
+    expect(book.titles).toEqual(["Edit this page", "Note to the authors", "Public comment"]);
+    expect(book.text).toContain("Who sees it: The authors. It becomes a public issue on the book's GitHub repository, showing your name. It doesn't appear on this page.");
+    expect(book.text).toContain("Account: None. You give your name.");
+    expect(book.text).toContain("Who sees it: Anyone on the internet, with your Hypothes.is username.");
+    expect(book.text).not.toMatch(/email/i);
+    // An edition: no editor, no suggest form.
+    const edition = routes(page(render({ repo: "o/r" }), { explained: true }));
+    expect(edition.intro).toBe("There are two ways to help with this edition. They differ in who sees what you write, and in which account you need.");
+    expect(edition.titles).toEqual(["Edit on GitHub", "Public comment"]);
+    expect(edition.text).not.toContain("Note to the authors");
+    expect(edition.text).toContain("Who sees it: The edition's maintainers review it. The proposal is public on the edition's GitHub repository and shows your GitHub username.");
+    // The same on a page with no source file of its own.
+    const listing = render(BOOK, "chapters/index.md", {});
+    expect(listing).toContain('data-routes="edit note comment"');
   });
 
   it("works with no storage at all: shown once on the page", () => {

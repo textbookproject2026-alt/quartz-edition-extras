@@ -81,7 +81,6 @@ const withSuggest = { repo: "o/r", contentDir: "", suggestEndpoint: ENDPOINT };
 const fill = (w: Page, website = "") => {
   $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
   $<HTMLInputElement>(w, "#tb-sg-name").value = "A Reader";
-  $<HTMLInputElement>(w, "#tb-sg-email").value = "reader@example.org";
   $<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value = '"recieve" should be "receive"';
   $<HTMLInputElement>(w, "#tb-sg-website").value = website;
   $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
@@ -203,9 +202,10 @@ describe("Suggest an edit", () => {
     fill(w);
     await tick();
     expect(posts[0]![0]).toBe(ENDPOINT);
+    // No email is asked for or sent: the issue shows the name only.
+    expect(w.document.querySelector('#tb-suggest-overlay input[type="email"], #tb-sg-email')).toBeNull();
     expect(JSON.parse(posts[0]![1].body)).toEqual({
       name: "A Reader",
-      email: "reader@example.org",
       suggestion: '"recieve" should be "receive"',
       reasoning: "",
       path: "chapters/chapter-03.md",

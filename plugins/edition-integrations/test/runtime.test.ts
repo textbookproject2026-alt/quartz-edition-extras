@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { designCss, loadDesign } from "../src/design";
 import { Window } from "happy-dom";
 import {
   analyticsLoader,
@@ -10,6 +11,7 @@ import {
   paragraphNumbers,
   readerPrefs,
   annotationsControl,
+  breakpointBand,
   tagHelper,
   targetFlash,
   trackRuntime,
@@ -117,7 +119,8 @@ describe("the tag helper", () => {
     expect(w.document.getElementById("tb-tag-helper-style")!.textContent).toContain(
       "right: calc(var(--tb-hypothesis-width, 428px) + 16px)",
     );
-    expect(w.document.documentElement.classList.contains("tb-tag-helper-on")).toBe(true);
+    // happy-dom lays nothing out: a 0px text column, so no room is taken.
+    expect(w.document.documentElement.classList.contains("tb-tag-helper-room")).toBe(false);
 
     (chips[1] as unknown as HTMLElement).click();
     expect(w.plausibleCalls[1]).toEqual([
@@ -128,10 +131,37 @@ describe("the tag helper", () => {
     toggle.setAttribute("aria-expanded", "false");
     await tick();
     expect(w.document.getElementById("tb-tag-helper")).toBeNull();
-    expect(w.document.documentElement.classList.contains("tb-tag-helper-on")).toBe(false);
+    expect(w.document.documentElement.classList.contains("tb-tag-helper-room")).toBe(false);
     toggle.setAttribute("aria-expanded", "true");
     await tick();
     expect(names(w).filter((n) => n === "annotation_sidebar_opened")).toHaveLength(2);
+  });
+});
+
+describe("the tag helper's room (B)", () => {
+  it("takes room beside the sidebar only while the text column stays at least 560px", async () => {
+    const w = page("https://book.example.org/", "<article><p>Text</p></article>");
+    w.eval(trackRuntime);
+    w.eval(tagHelper);
+    const root = w.document.documentElement;
+    const art = w.document.querySelector("article")!;
+    // The column the page would leave with the room taken: 600px when wide, 520px when not.
+    let wide = true;
+    art.getBoundingClientRect = () =>
+      ({ width: root.classList.contains("tb-tag-helper-room") ? (wide ? 600 : 520) : 700 }) as DOMRect;
+    const toggle = sidebar(w, false);
+    toggle.setAttribute("aria-expanded", "true");
+    await tick();
+    expect(root.classList.contains("tb-tag-helper-room")).toBe(true);
+    wide = false;
+    w.document.dispatchEvent(new w.CustomEvent("tb-hypothesis-layout")); // the sidebar was widened
+    expect(root.classList.contains("tb-tag-helper-room")).toBe(false);
+    wide = true;
+    w.dispatchEvent(new w.Event("resize"));
+    expect(root.classList.contains("tb-tag-helper-room")).toBe(true);
+    toggle.setAttribute("aria-expanded", "false");
+    await tick();
+    expect(root.classList.contains("tb-tag-helper-room")).toBe(false);
   });
 });
 
@@ -312,10 +342,20 @@ describe("the phone menu starts closed", () => {
         '<div class="explorer-content"></div></div>',
     );
   const withWidth = (w: Page, narrow: boolean) => {
-    w.matchMedia = ((q: string) => ({
+    const mq = {
       matches: narrow,
-      media: q,
-    })) as unknown as typeof w.matchMedia;
+      media: "",
+      listeners: [] as ((e: { matches: boolean }) => void)[],
+      addEventListener(_t: string, f: (e: { matches: boolean }) => void) {
+        mq.listeners.push(f);
+      },
+    };
+    w.matchMedia = ((q: string) => ((mq.media = q), mq)) as unknown as typeof w.matchMedia;
+    /** The window resized across the breakpoint. */
+    return (toNarrow: boolean) => {
+      mq.matches = toNarrow;
+      for (const f of mq.listeners) f({ matches: toNarrow });
+    };
   };
 
   it("closes a menu Quartz left open on a phone", async () => {
@@ -337,6 +377,26 @@ describe("the phone menu starts closed", () => {
     w.document.dispatchEvent(new w.Event("nav"));
     await tick(20);
     expect(w.document.querySelector(".explorer")!.classList.contains("collapsed")).toBe(false);
+  });
+
+  it("closes the explorer when the window narrows into phone width, even after a tap on the wide screen", async () => {
+    const w = explorerPage();
+    const resize = withWidth(w, false);
+    w.eval(phoneMenuStartsClosed("800px"));
+    w.document.dispatchEvent(new w.Event("nav"));
+    await tick(20);
+    const ex = w.document.querySelector(".explorer")!;
+    expect(ex.classList.contains("collapsed")).toBe(false); // wide: Quartz's open explorer
+    (w.document.querySelector(".explorer-toggle") as unknown as HTMLElement).click();
+    resize(true);
+    expect(ex.classList.contains("collapsed")).toBe(true);
+    expect(ex.getAttribute("aria-expanded")).toBe("false");
+    // A phone reader's own tap afterwards is theirs again.
+    ex.classList.remove("collapsed");
+    (w.document.querySelector(".explorer-toggle") as unknown as HTMLElement).click();
+    w.document.dispatchEvent(new w.Event("nav"));
+    await tick(20);
+    expect(ex.classList.contains("collapsed")).toBe(false);
   });
 
   it("leaves wider screens alone", async () => {
@@ -616,5 +676,52 @@ describe("public annotations on and off (C)", () => {
     expect(b.querySelector(".tb-anno-count")!.textContent).toBe("2");
     expect(b.getAttribute("aria-label")).toBe("Annotate: 2 annotations");
     expect(on.document.querySelector("button.tb-anno-badge")).toBeNull();
+  });
+});
+
+describe("Quartz's phone layout from narrowWidth (A, B)", () => {
+  it("moves every 800px phone rule to the design's width, nested ones too, before paint", () => {
+    const w = page("https://book.example.org/x");
+    const style = w.document.createElement("style");
+    style.textContent = [
+      "@media all and (max-width: 800px) { .explorer { order: -1; } }",
+      "@media all and (min-width: 800px) and (max-width: 1200px) { .grid { gap: 5px; } }",
+      "@media not all and (max-width: 800px) { .search { flex: 1; } }",
+      "@supports (display: grid) { @media (max-width: 800px) { .x { color: red; } } }",
+      "@media (max-width: 768px) { .editor { padding: 0; } }",
+    ].join("\n");
+    w.document.head.appendChild(style);
+    w.eval(breakpointBand("956px"));
+    const sheet = style.sheet as unknown as CSSStyleSheet;
+    const media = (r: CSSRule) => (r as CSSMediaRule).media.mediaText;
+    expect(media(sheet.cssRules[0]!)).toContain("max-width: 956px");
+    expect(media(sheet.cssRules[1]!)).toContain("min-width: 956px");
+    expect(media(sheet.cssRules[1]!)).toContain("max-width: 1200px");
+    expect(media(sheet.cssRules[2]!)).toContain("max-width: 956px");
+    expect(media((sheet.cssRules[3] as CSSSupportsRule).cssRules[0]!)).toContain("max-width: 956px");
+    expect(media(sheet.cssRules[4]!)).toContain("max-width: 768px"); // other widths untouched
+  });
+
+  it("gives the strip gutter Quartz's own desktop breakpoint, read from Quartz's tablet grid rule", () => {
+    for (const desktop of ["1200px", "1300px"]) {
+      const w = page("https://book.example.org/x");
+      const quartz = w.document.createElement("style");
+      quartz.textContent = `@media all and (min-width: 800px) and (max-width: ${desktop}) { .page > #quartz-body { grid-template-columns: 320px auto; } }`;
+      const ours = w.document.createElement("style");
+      ours.textContent = "@media (max-width: 0px) { html.tb-hypothesis-on #quartz-body .center { padding-right: 2.5rem; } }";
+      w.document.head.append(quartz, ours);
+      w.eval(breakpointBand("956px"));
+      const media = (el: HTMLStyleElement) => ((el.sheet as unknown as CSSStyleSheet).cssRules[0] as CSSMediaRule).media.mediaText;
+      expect(media(ours)).toContain(`max-width: ${desktop}`);
+      expect(media(quartz)).toContain("min-width: 956px");
+      expect(media(quartz)).toContain(`max-width: ${desktop}`);
+      expect(w.__tbLayout).toEqual({ narrow: "956px", desktop });
+    }
+  });
+
+  it("design.ts's gutter rule is the placeholder the script finds", () => {
+    const css = designCss(loadDesign());
+    expect(css).toMatch(/@media \(max-width: 0px\) \{\s*html\.tb-hypothesis-on #quartz-body \.center \{/);
+    expect(css).not.toContain("1199px");
   });
 });

@@ -88,11 +88,14 @@ layout:
   headerHeight: 3.25rem
   rhythm: 1.5rem # paragraph spacing; headings get 2x (h2) and 1.5x (h3, h4) above
   mobileWidth: 768px
-  # Quartz's phone layout (its $mobile breakpoint): at this width and below the
-  # left sidebar becomes the header row. The compact header, the front page's
-  # single title, the tidy controls row and the tap-to-load annotation client
-  # all apply here, and nothing changes above it.
-  narrowWidth: 800px
+  # The width at and below which a page uses Quartz's phone layout: the menu as a
+  # drawer behind the menu button, the header row, the right rail under the
+  # chapter. Above it the explorer is a sidebar, so the explorer sidebar (320px)
+  # + its gap (5px) + the page gutters (2 x 16px) + a 560px text column + the
+  # annotation client's strip (40px) must fit: 957px. Quartz and its plugins say
+  # 800px; edition-integrations moves every one of their phone rules here before
+  # the first paint (runtime.ts, breakpointBand).
+  narrowWidth: 956px
 
 # The row under the title: Edit, History, Suggest, the annotation badge.
 controls:

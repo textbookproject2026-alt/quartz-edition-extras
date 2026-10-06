@@ -40,3 +40,12 @@ describe("Graph Component", () => {
     expect(typeof component.afterDOMLoaded).toBe("string");
   });
 });
+
+describe("the graph in a narrowed window", () => {
+  it("can shrink below its canvas, which its frame clips", async () => {
+    const { readFileSync } = await import("node:fs");
+    const scss = readFileSync(new URL("../src/components/styles/graph.scss", import.meta.url), "utf8");
+    expect(scss).toMatch(/\.graph \{[^}]*?min-width: 0;/);
+    expect(scss).toMatch(/& > \.graph-outer \{[^}]*overflow: hidden;/);
+  });
+});

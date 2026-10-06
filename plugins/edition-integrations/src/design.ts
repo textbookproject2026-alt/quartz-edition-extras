@@ -355,11 +355,10 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     position: static;
     height: auto;
   }
-}
-/* With room for it, the tag helper beside the open sidebar (14rem, 16px each side)
-   is kept clear of the text as well. Below this it overlays, as the sidebar does. */
-@media (min-width: 1440px) {
-  :root.tb-hypothesis-expanded.tb-tag-helper-on body {
+  /* The tag helper beside the open sidebar (14rem, 16px each side) kept off the
+     text too, when the text column stays at least 560px with that room taken
+     (tagHelper measures and sets the class); otherwise it overlays. */
+  :root.tb-hypothesis-expanded.tb-tag-helper-room body {
     padding-right: calc(var(--tb-hypothesis-width) + 14rem + 32px);
   }
 }
@@ -431,10 +430,17 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
      but keeps its place so the row doesn't jump. */
   body[data-slug="index"] #quartz-body .left.sidebar .page-title { visibility: hidden; }
 
+  /* Quartz's phone grid is one auto column, sized by its items' content: a graph
+     canvas drawn wider at load (a window narrowed afterwards) held the whole page
+     wider than the screen. Its items may be as narrow as the screen; what's
+     inside clips (the graph's frame) or wraps. */
+  .page > #quartz-body > * {
+    min-width: 0;
+  }
+
   /* The annotation client's tab and its eye and note buttons sit on the right
-     edge: the header and the text keep clear of them, open or closed. */
-  html.tb-hypothesis-on #quartz-body .left.sidebar,
-  html.tb-hypothesis-on #quartz-body .center {
+     edge: the header bar keeps clear of them, open or closed. */
+  html.tb-hypothesis-on #quartz-body .left.sidebar {
     box-sizing: border-box;
     padding-right: var(--tb-annotation-gutter);
   }
@@ -460,6 +466,20 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
   }
   #quartz-body .page-header h1.article-title { margin-top: 0.75rem; }
   #quartz-body .page-header .breadcrumb-container { margin-top: 0.25rem; }
+}
+
+/* Wherever Quartz's grid isn't its desktop one, nothing but the page is at the
+   right edge, where the annotation client's strip sits: the header and the text
+   keep clear of it, open or closed. (On a desktop the right rail is under it.)
+   The width is Quartz's own: breakpointBand (runtime.ts) reads its tablet grid
+   rule and gives this rule that rule's upper bound, before the first paint. The
+   strip exists only once a script has loaded the client, so until then this
+   placeholder matches nothing. */
+@media (max-width: 0px) {
+  html.tb-hypothesis-on #quartz-body .center {
+    box-sizing: border-box;
+    padding-right: var(--tb-annotation-gutter);
+  }
 }
 
 /* Print: the chapter alone, at full width, with no annotation layer, always light. */

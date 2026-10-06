@@ -7614,11 +7614,10 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     position: static;
     height: auto;
   }
-}
-/* With room for it, the tag helper beside the open sidebar (14rem, 16px each side)
-   is kept clear of the text as well. Below this it overlays, as the sidebar does. */
-@media (min-width: 1440px) {
-  :root.tb-hypothesis-expanded.tb-tag-helper-on body {
+  /* The tag helper beside the open sidebar (14rem, 16px each side) kept off the
+     text too, when the text column stays at least 560px with that room taken
+     (tagHelper measures and sets the class); otherwise it overlays. */
+  :root.tb-hypothesis-expanded.tb-tag-helper-room body {
     padding-right: calc(var(--tb-hypothesis-width) + 14rem + 32px);
   }
 }
@@ -7690,10 +7689,17 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
      but keeps its place so the row doesn't jump. */
   body[data-slug="index"] #quartz-body .left.sidebar .page-title { visibility: hidden; }
 
+  /* Quartz's phone grid is one auto column, sized by its items' content: a graph
+     canvas drawn wider at load (a window narrowed afterwards) held the whole page
+     wider than the screen. Its items may be as narrow as the screen; what's
+     inside clips (the graph's frame) or wraps. */
+  .page > #quartz-body > * {
+    min-width: 0;
+  }
+
   /* The annotation client's tab and its eye and note buttons sit on the right
-     edge: the header and the text keep clear of them, open or closed. */
-  html.tb-hypothesis-on #quartz-body .left.sidebar,
-  html.tb-hypothesis-on #quartz-body .center {
+     edge: the header bar keeps clear of them, open or closed. */
+  html.tb-hypothesis-on #quartz-body .left.sidebar {
     box-sizing: border-box;
     padding-right: var(--tb-annotation-gutter);
   }
@@ -7719,6 +7725,20 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
   }
   #quartz-body .page-header h1.article-title { margin-top: 0.75rem; }
   #quartz-body .page-header .breadcrumb-container { margin-top: 0.25rem; }
+}
+
+/* Wherever Quartz's grid isn't its desktop one, nothing but the page is at the
+   right edge, where the annotation client's strip sits: the header and the text
+   keep clear of it, open or closed. (On a desktop the right rail is under it.)
+   The width is Quartz's own: breakpointBand (runtime.ts) reads its tablet grid
+   rule and gives this rule that rule's upper bound, before the first paint. The
+   strip exists only once a script has loaded the client, so until then this
+   placeholder matches nothing. */
+@media (max-width: 0px) {
+  html.tb-hypothesis-on #quartz-body .center {
+    box-sizing: border-box;
+    padding-right: var(--tb-annotation-gutter);
+  }
 }
 
 /* Print: the chapter alone, at full width, with no annotation layer, always light. */
@@ -8042,14 +8062,26 @@ var tagHelper = `
     var dismissed = false
     var arrivalObserver = null, arrivalTimer = null, probeTimer = null, probeAttempts = 0
     var stateObserver = null, attachedHost = null, sidebarOpen = false, flashTimer = null
-    var ON = "tb-tag-helper-on"
+    var ROOM = "tb-tag-helper-room"
+    var MIN_TEXT = 560
+    // Take the room, then measure: layout is read synchronously, so nothing is
+    // painted in between. Too narrow a text column: give the room back.
+    var fit = function () {
+      var root = document.documentElement
+      if (!document.getElementById(PANEL_ID)) { root.classList.remove(ROOM); return }
+      root.classList.add(ROOM)
+      var art = document.querySelector("article")
+      if (!art || art.getBoundingClientRect().width < MIN_TEXT) root.classList.remove(ROOM)
+    }
 
     var teardown = function () {
       if (arrivalObserver) { arrivalObserver.disconnect(); arrivalObserver = null }
       if (stateObserver) { stateObserver.disconnect(); stateObserver = null }
       attachedHost = null
       clearTimeout(flashTimer); clearTimeout(arrivalTimer); clearTimeout(probeTimer)
-      document.documentElement.classList.remove(ON)
+      document.documentElement.classList.remove(ROOM)
+      window.removeEventListener("resize", fit)
+      document.removeEventListener("tb-hypothesis-layout", fit)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
     }
@@ -8157,12 +8189,16 @@ var tagHelper = `
       if (dismissed) return
       injectStyle()
       if (!document.getElementById(PANEL_ID)) document.body.appendChild(buildPanel())
-      document.documentElement.classList.add(ON)
+      fit()
+      window.addEventListener("resize", fit)
+      document.addEventListener("tb-hypothesis-layout", fit)
     }
     var hidePanel = function () {
-      document.documentElement.classList.remove(ON)
+      window.removeEventListener("resize", fit)
+      document.removeEventListener("tb-hypothesis-layout", fit)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
+      fit()
     }
     // aria-expanded on the toggle is the signal; the collapsed class the fallback.
     var isOpen = function (shadow) {
@@ -8379,6 +8415,54 @@ var annotationBadge = `
   } catch (e) { /* badge absent */ }
 })()
 `;
+var breakpointBand = (narrowWidth) => `
+;(function () {
+  try {
+    var TO = ${JSON.stringify(narrowWidth)}
+    var WIDTH = /((?:max|min)-width:\\s*)800px/g
+    var TABLET = /min-width:\\s*800px\\)\\s*and\\s*\\(max-width:\\s*(\\d+(?:\\.\\d+)?px)/
+    var GUTTER = "tb-hypothesis-on #quartz-body .center"
+    var desktop = null, gutter = null
+    // Sets a rule's media; where the media list can't be set, the rule is put back
+    // with its text rewritten.
+    var setMedia = function (parent, i, r, from, to) {
+      var want = r.media.mediaText.replace(from, to)
+      r.media.mediaText = want
+      if (r.media.mediaText !== want && parent.insertRule) {
+        var text = r.cssText.replace(from, to)
+        parent.deleteRule(i)
+        parent.insertRule(text, i)
+        r = parent.cssRules[i]
+      }
+      return r
+    }
+    var walk = function (parent, rules) {
+      for (var i = 0; i < rules.length; i++) {
+        var r = rules[i]
+        if (r.media) {
+          var tablet = TABLET.exec(r.media.mediaText)
+          if (tablet && !desktop) desktop = tablet[1]
+          if (TO !== "800px" && /width:\\s*800px/.test(r.media.mediaText)) r = setMedia(parent, i, r, WIDTH, "$1" + TO)
+          if (r.cssRules && r.cssRules[0] && String(r.cssRules[0].selectorText).indexOf(GUTTER) !== -1)
+            gutter = { parent: parent, i: i }
+        }
+        if (r.cssRules) walk(r, r.cssRules)
+      }
+    }
+    for (var s = 0; s < document.styleSheets.length; s++) {
+      var rules = null
+      // A cross-origin sheet (fonts, KaTeX) can't be read, and has no layout rules.
+      try { rules = document.styleSheets[s].cssRules } catch (e) {}
+      if (rules) walk(document.styleSheets[s], rules)
+    }
+    if (desktop && gutter) {
+      var g = gutter.parent.cssRules[gutter.i]
+      setMedia(gutter.parent, gutter.i, g, /\\(max-width:\\s*[^)]*\\)/, "(max-width: " + desktop + ")")
+    }
+    window.__tbLayout = { narrow: TO, desktop: desktop }
+  } catch (e) { /* Quartz's own breakpoints stay */ }
+})()
+`;
 var phoneMenuStartsClosed = (narrowWidth) => `
 ;(function () {
   try {
@@ -8400,6 +8484,9 @@ var phoneMenuStartsClosed = (narrowWidth) => `
     }
     document.addEventListener("nav", function () { setTimeout(close, 0); setTimeout(close, 300) })
     window.addEventListener("load", function () { setTimeout(close, 0) })
+    var narrowed = function (e) { if (e.matches) { touched = false; close() } }
+    if (mq.addEventListener) mq.addEventListener("change", narrowed)
+    else if (mq.addListener) mq.addListener(narrowed)
   } catch (e) { /* the menu keeps Quartz's own behaviour */ }
 })()
 `;
@@ -8626,6 +8713,7 @@ window.hypothesisConfig = function () {
         var w = layout && layout.expanded ? Math.round(layout.width) : 0
         document.documentElement.style.setProperty("--tb-hypothesis-width", w + "px")
         document.documentElement.classList.toggle("tb-hypothesis-expanded", w > 0)
+        document.dispatchEvent(new CustomEvent("tb-hypothesis-layout"))
       } catch (e) {}
     },
     // R1 hook \u2014 per-edition group locking. UNUSED BY DECISION: the Publisher
@@ -8694,7 +8782,9 @@ var EditionIntegrations = (userOpts) => {
       const head = [
         _("link", { rel: "stylesheet", href: fontHref(design) }),
         _("style", { dangerouslySetInnerHTML: { __html: designCss(design) } }),
-        // First of the scripts: the theme and the reader's settings, before paint.
+        // First of the scripts: the phone layout's width, the theme and the
+        // reader's settings, all before paint.
+        _("script", { dangerouslySetInnerHTML: { __html: breakpointBand(design.layout.narrowWidth) } }),
         _("script", { dangerouslySetInnerHTML: { __html: readerPrefs } }),
         _("script", {
           dangerouslySetInnerHTML: { __html: hypothesisConfig(opts.hypothesisGroupId) }

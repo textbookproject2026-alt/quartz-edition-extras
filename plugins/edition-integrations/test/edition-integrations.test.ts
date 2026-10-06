@@ -172,9 +172,10 @@ describe("Hypothes.is loads on page load at every width", () => {
     w.document.write("<html><head></head><body></body></html>");
     w.localStorage.setItem("tb-annotations", "off");
     const scripts = inlineScripts(headOf());
-    // The settings run first in the head, before anything that reads them.
-    expect(scripts[0]).toContain("window.tbPrefs");
-    w.eval(scripts[0]!);
+    // The phone layout's width, then the settings, first in the head.
+    expect(scripts[0]).toContain("800px");
+    expect(scripts[1]).toContain("window.tbPrefs");
+    w.eval(scripts[1]!);
     w.eval(loader(headOf()));
     expect(w.document.querySelectorAll("script[data-edition-hypothesis]")).toHaveLength(0);
     expect(w.document.documentElement.classList.contains("tb-hypothesis-on")).toBe(false);
