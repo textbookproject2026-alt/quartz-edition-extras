@@ -257,6 +257,9 @@ describe("editing design.yaml", () => {
       "var(--tb-annotation-gutter)",
     );
     expect(declared(css, ":root", "--tb-annotation-gutter")).toBe("2.5rem");
+    // Nothing inside Quartz's one phone column can hold it wider than the screen.
+    const phone = css.slice(css.indexOf("@media (max-width: 956px)"));
+    expect(declared(phone, ".page > #quartz-body > *", "min-width")).toBe("0");
   });
 
   it("says where the file should be when it is missing", () => {

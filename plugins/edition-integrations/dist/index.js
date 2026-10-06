@@ -7689,6 +7689,14 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
      but keeps its place so the row doesn't jump. */
   body[data-slug="index"] #quartz-body .left.sidebar .page-title { visibility: hidden; }
 
+  /* Quartz's phone grid is one auto column, sized by its items' content: a graph
+     canvas drawn wider at load (a window narrowed afterwards) held the whole page
+     wider than the screen. Its items may be as narrow as the screen; what's
+     inside clips (the graph's frame) or wraps. */
+  .page > #quartz-body > * {
+    min-width: 0;
+  }
+
   /* The annotation client's tab and its eye and note buttons sit on the right
      edge: the header bar keeps clear of them, open or closed. */
   html.tb-hypothesis-on #quartz-body .left.sidebar {
