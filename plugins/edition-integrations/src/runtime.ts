@@ -612,6 +612,11 @@ export const annotationBadge = `
  * check can run too early, leaving the menu open over the page on load and
  * every later tap out of step. On a phone, until the reader first touches the
  * menu, close it the way Quartz would have.
+ *
+ * The same when the window narrows into phone width: the explorer, open as it
+ * always is on a wider screen, would become the full-screen phone menu over the
+ * page (blank where the explorer has nothing to list). Crossing into phone width
+ * closes it, whatever was tapped on the wider screen.
  */
 export const phoneMenuStartsClosed = (narrowWidth: string) => `
 ;(function () {
@@ -634,6 +639,9 @@ export const phoneMenuStartsClosed = (narrowWidth: string) => `
     }
     document.addEventListener("nav", function () { setTimeout(close, 0); setTimeout(close, 300) })
     window.addEventListener("load", function () { setTimeout(close, 0) })
+    var narrowed = function (e) { if (e.matches) { touched = false; close() } }
+    if (mq.addEventListener) mq.addEventListener("change", narrowed)
+    else if (mq.addListener) mq.addListener(narrowed)
   } catch (e) { /* the menu keeps Quartz's own behaviour */ }
 })()
 `;

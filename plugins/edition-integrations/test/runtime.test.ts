@@ -340,10 +340,20 @@ describe("the phone menu starts closed", () => {
         '<div class="explorer-content"></div></div>',
     );
   const withWidth = (w: Page, narrow: boolean) => {
-    w.matchMedia = ((q: string) => ({
+    const mq = {
       matches: narrow,
-      media: q,
-    })) as unknown as typeof w.matchMedia;
+      media: "",
+      listeners: [] as ((e: { matches: boolean }) => void)[],
+      addEventListener(_t: string, f: (e: { matches: boolean }) => void) {
+        mq.listeners.push(f);
+      },
+    };
+    w.matchMedia = ((q: string) => ((mq.media = q), mq)) as unknown as typeof w.matchMedia;
+    /** The window resized across the breakpoint. */
+    return (toNarrow: boolean) => {
+      mq.matches = toNarrow;
+      for (const f of mq.listeners) f({ matches: toNarrow });
+    };
   };
 
   it("closes a menu Quartz left open on a phone", async () => {
@@ -365,6 +375,26 @@ describe("the phone menu starts closed", () => {
     w.document.dispatchEvent(new w.Event("nav"));
     await tick(20);
     expect(w.document.querySelector(".explorer")!.classList.contains("collapsed")).toBe(false);
+  });
+
+  it("closes the explorer when the window narrows into phone width, even after a tap on the wide screen", async () => {
+    const w = explorerPage();
+    const resize = withWidth(w, false);
+    w.eval(phoneMenuStartsClosed("800px"));
+    w.document.dispatchEvent(new w.Event("nav"));
+    await tick(20);
+    const ex = w.document.querySelector(".explorer")!;
+    expect(ex.classList.contains("collapsed")).toBe(false); // wide: Quartz's open explorer
+    (w.document.querySelector(".explorer-toggle") as unknown as HTMLElement).click();
+    resize(true);
+    expect(ex.classList.contains("collapsed")).toBe(true);
+    expect(ex.getAttribute("aria-expanded")).toBe("false");
+    // A phone reader's own tap afterwards is theirs again.
+    ex.classList.remove("collapsed");
+    (w.document.querySelector(".explorer-toggle") as unknown as HTMLElement).click();
+    w.document.dispatchEvent(new w.Event("nav"));
+    await tick(20);
+    expect(ex.classList.contains("collapsed")).toBe(false);
   });
 
   it("leaves wider screens alone", async () => {

@@ -8415,6 +8415,9 @@ var phoneMenuStartsClosed = (narrowWidth) => `
     }
     document.addEventListener("nav", function () { setTimeout(close, 0); setTimeout(close, 300) })
     window.addEventListener("load", function () { setTimeout(close, 0) })
+    var narrowed = function (e) { if (e.matches) { touched = false; close() } }
+    if (mq.addEventListener) mq.addEventListener("change", narrowed)
+    else if (mq.addListener) mq.addListener(narrowed)
   } catch (e) { /* the menu keeps Quartz's own behaviour */ }
 })()
 `;
