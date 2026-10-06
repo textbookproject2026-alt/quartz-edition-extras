@@ -57,7 +57,14 @@ const SCHEMA = {
     linkWeight: "number",
     mobile: { h1: "length", h2: "length", h3: "length" },
   },
-  layout: { measure: "length", rhythm: "length", mobileWidth: "length", narrowWidth: "length" },
+  layout: {
+    measure: "number",
+    wideMeasure: "number",
+    headerHeight: "length",
+    rhythm: "length",
+    mobileWidth: "length",
+    narrowWidth: "length",
+  },
   controls: { size: "length" },
   homeLink: { height: "length", iconHeight: "length" },
   print: { size: "length", lineHeight: "number", margin: "length" },
@@ -235,10 +242,15 @@ export const designCss = (d: Design): string => {
   --tb-size-h2: ${t.h2.size};
   --tb-size-h3: ${t.h3.size};
   --tb-size-h4: ${t.h4.size};
+  /* The reader's text size (Appearance panel): the chapter only, never the chrome. */
+  --tb-text-scale: 1;
+  --tb-header-h: ${layout.headerHeight};
+  /* The open Hypothes.is sidebar's width, from hypothesisConfig's onLayoutChange. */
+  --tb-hypothesis-width: 0px;
   --tb-size-controls: ${d.controls.size};
   --tb-home-link-height: ${d.homeLink.height};
   --tb-home-link-icon-height: ${d.homeLink.iconHeight};
-  --tb-measure: ${layout.measure};
+  --tb-measure-em: ${layout.measure};
   --tb-rhythm: ${layout.rhythm};
   /* The width of the annotation client's collapsed tab and buttons, reserved on phones. */
   --tb-annotation-gutter: 2.5rem;
@@ -268,29 +280,34 @@ article h6,
 .article-title {
   font-family: var(--tb-font-ui);
 }
-/* The reading column, on the article itself: Quartz's grid track runs wider. */
+/* The reader's settings (readerPrefs, applied in <head> before first paint). */
+:root[data-tb-text="small"] { --tb-text-scale: 0.9; }
+:root[data-tb-text="large"] { --tb-text-scale: 1.15; }
+:root[data-tb-width="wide"] { --tb-measure-em: ${layout.wideMeasure}; }
+/* The reading column, on the article itself: Quartz's grid track runs wider. In
+   ems of body text, so it keeps its characters a line at every text size. */
 article {
-  max-width: var(--tb-measure);
+  max-width: calc(var(--tb-measure-em) * var(--tb-size-body) * var(--tb-text-scale));
   margin-left: auto;
   margin-right: auto;
 }
 article p,
 article li {
-  font-size: var(--tb-size-body);
+  font-size: calc(var(--tb-size-body) * var(--tb-text-scale));
   line-height: var(--tb-lh-body) !important; /* base.scss sets ~1.42 */
 }
 article p { margin: var(--tb-rhythm) 0; }
 /* The paragraph right after a chapter's title (transforms.ts marks it). */
 article p.tb-lead {
-  font-size: var(--tb-size-lead);
+  font-size: calc(var(--tb-size-lead) * var(--tb-text-scale));
   line-height: var(--tb-lh-lead) !important;
 }
-article h1 { font-size: var(--tb-size-h1); font-weight: ${t.h1.weight}; line-height: ${t.h1.lineHeight}; }
-article h2 { font-size: var(--tb-size-h2); font-weight: ${t.h2.weight}; line-height: ${t.h2.lineHeight}; }
-article h3 { font-size: var(--tb-size-h3); font-weight: ${t.h3.weight}; line-height: ${t.h3.lineHeight}; }
+article h1 { font-size: calc(var(--tb-size-h1) * var(--tb-text-scale)); font-weight: ${t.h1.weight}; line-height: ${t.h1.lineHeight}; }
+article h2 { font-size: calc(var(--tb-size-h2) * var(--tb-text-scale)); font-weight: ${t.h2.weight}; line-height: ${t.h2.lineHeight}; }
+article h3 { font-size: calc(var(--tb-size-h3) * var(--tb-text-scale)); font-weight: ${t.h3.weight}; line-height: ${t.h3.lineHeight}; }
 /* The "keycap" h4: a real heading, tracked capitals in CSS only. */
 article h4 {
-  font-size: var(--tb-size-h4);
+  font-size: calc(var(--tb-size-h4) * var(--tb-text-scale));
   font-weight: ${t.h4.weight};
   line-height: ${t.h4.lineHeight};
   letter-spacing: ${t.h4.letterSpacing};
@@ -307,6 +324,23 @@ pre, article code { background-color: var(--tb-bg-soft); }
 .hypothesis-highlight { background-color: var(--tb-annotation); }
 .hypothesis-highlight.hypothesis-highlight-focused,
 .hypothesis-highlight:focus { background-color: var(--tb-annotation-focused); }
+/* Public annotations turned off with the client already loaded: its highlights
+   go now; the client itself goes at the next page load (it has no unload). */
+:root.tb-annotations-off .hypothesis-highlight,
+:root.tb-annotations-off .hypothesis-highlight.hypothesis-highlight-focused {
+  background-color: transparent;
+}
+/* Anchored headings and paragraphs stop below the sticky header. */
+article [id],
+article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
+/* The sidebar open on a wide screen: the page makes room for it, so the text and
+   the paragraph pencils stay in view. On narrower screens it overlays the page. */
+@media (min-width: 1024px) {
+  :root.tb-hypothesis-expanded body {
+    box-sizing: border-box;
+    padding-right: var(--tb-hypothesis-width);
+  }
+}
 
 @media (max-width: ${layout.mobileWidth}) {
   :root {
@@ -375,32 +409,6 @@ pre, article code { background-color: var(--tb-bg-soft); }
      but keeps its place so the row doesn't jump. */
   body[data-slug="index"] #quartz-body .left.sidebar .page-title { visibility: hidden; }
 
-  /* The controls row: one tidy group of equal chips that wraps evenly and
-     stays inside the column. */
-  body .tb-page-controls {
-    gap: 0.4rem;
-    align-items: center;
-    max-width: 100%;
-  }
-  body .tb-page-controls > a.edit-on-github,
-  body .tb-page-controls > a.tb-history-link,
-  body .tb-page-controls > button.tb-suggest-btn,
-  body .tb-page-controls > button.tb-anno-badge,
-  body .tb-page-controls > button.tb-pnum-toggle {
-    display: inline-flex;
-    align-items: center;
-    min-height: 2rem;
-    margin: 0;
-    padding: 0.2rem 0.7rem;
-    border: 1px solid var(--tb-border);
-    border-radius: 999px;
-    background: var(--tb-bg-soft);
-    font-size: var(--tb-size-controls);
-    font-weight: 600;
-    line-height: 1.3;
-    white-space: nowrap;
-  }
-
   /* The annotation client's tab and its eye and note buttons sit on the right
      edge: the header and the text keep clear of them, open or closed. */
   html.tb-hypothesis-on #quartz-body .left.sidebar,
@@ -443,6 +451,8 @@ pre, article code { background-color: var(--tb-bg-soft); }
   .center > hr,
   .page-footer,
   .tb-page-controls,
+  .tb-header,
+  .tb-dialog,
   .tb-anno-badge-row,
   #tb-tag-helper,
   #tb-suggest-overlay,

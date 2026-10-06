@@ -162,6 +162,39 @@ describe("Hypothes.is loads on page load at every width", () => {
     expect((w.hypothesisConfig as () => { openSidebar: boolean })().openSidebar).toBe(false);
     expect(w.document.documentElement.classList.contains("tb-hypothesis-on")).toBe(true);
   });
+
+  it("loads no client at all for a reader who turned public annotations off (C)", () => {
+    const w = new Window({
+      url: "https://book.example.org/x",
+      settings: { disableJavaScriptFileLoading: true, disableIframePageLoading: true },
+    }) as unknown as Win;
+    wins.push(w);
+    w.document.write("<html><head></head><body></body></html>");
+    w.localStorage.setItem("tb-annotations", "off");
+    const scripts = inlineScripts(headOf());
+    // The settings run first in the head, before anything that reads them.
+    expect(scripts[0]).toContain("window.tbPrefs");
+    w.eval(scripts[0]!);
+    w.eval(loader(headOf()));
+    expect(w.document.querySelectorAll("script[data-edition-hypothesis]")).toHaveLength(0);
+    expect(w.document.documentElement.classList.contains("tb-hypothesis-on")).toBe(false);
+    expect(typeof w.tbLoadHypothesis).toBe("function");
+  });
+
+  it("reports the open sidebar's width as --tb-hypothesis-width (B)", () => {
+    const w = new Window({ url: "https://book.example.org/x" }) as unknown as Win;
+    wins.push(w);
+    w.document.write("<html><head></head><body></body></html>");
+    w.eval(inlineScripts(headOf()).find((html) => html.includes("window.hypothesisConfig"))!);
+    const cfg = (w.hypothesisConfig as () => { onLayoutChange: (l: object) => void })();
+    cfg.onLayoutChange({ expanded: true, width: 428.4, height: 900 });
+    const root = w.document.documentElement;
+    expect(root.style.getPropertyValue("--tb-hypothesis-width")).toBe("428px");
+    expect(root.classList.contains("tb-hypothesis-expanded")).toBe(true);
+    cfg.onLayoutChange({ expanded: false, width: 33, height: 900 });
+    expect(root.style.getPropertyValue("--tb-hypothesis-width")).toBe("0px");
+    expect(root.classList.contains("tb-hypothesis-expanded")).toBe(false);
+  });
 });
 
 describe("the explorer's order", () => {

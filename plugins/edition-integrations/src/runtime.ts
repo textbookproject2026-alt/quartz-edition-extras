@@ -8,7 +8,9 @@
  *   - trackRuntime:    window.tbTrack(), the one door for custom events
  *   - tagHelper:       the "Tag your annotation" panel beside the sidebar
  *   - annotationBadge: the per-page annotation count, which opens the sidebar
- *   - paragraphNumbers: the ¶ numbers' style, click-to-link, and the toggle
+ *   - paragraphNumbers: the ¶ numbers' style and click-to-link
+ *   - readerPrefs:     the Appearance settings, applied before first paint
+ *   - annotationsControl: turning public annotations on and off, opening the sidebar
  *
  * Event names are Plausible's history for book one and must not change:
  * annotation_tag_copied {tag}, annotation_sidebar_opened, annotation_badge_clicked.
@@ -59,6 +61,150 @@ window.tbTrack = window.tbTrack || function (name, props) {
 /** tbTrack() for a site with no analytics configured. */
 export const noTracking = `
 window.tbTrack = window.tbTrack || function () {}
+`;
+
+/**
+ * The reader's settings (the header's Appearance panel), applied in <head>
+ * before the body paints, so nothing flashes. Each is one localStorage key,
+ * absent for its default; every read and write is in try/catch, and without
+ * storage every page renders with the defaults.
+ *
+ *   theme        "theme"           auto | light | dark   Quartz's darkmode key and
+ *                                                        values; auto follows the system
+ *   text         "tb-text"         standard | small | large   the chapter only
+ *   width        "tb-width"        standard | wide
+ *   numbers      "tb-pnum"         on | off           the old ¶ toggle's key
+ *   annotations  "tb-annotations"  on | off           off: embed.js is never loaded
+ *
+ * It sets <html saved-theme data-tb-text data-tb-width>, and the classes
+ * tb-pnum-off and tb-annotations-off, which design.ts reads. A theme change
+ * dispatches Quartz's "themechange" (the graph redraws on it). window.tbPrefs
+ * { get, values, set } is what the panel calls.
+ */
+export const readerPrefs = `
+;(function () {
+  try {
+    var root = document.documentElement
+    var PREFS = {
+      theme: { key: "theme", values: ["auto", "light", "dark"] },
+      text: { key: "tb-text", values: ["standard", "small", "large"] },
+      width: { key: "tb-width", values: ["standard", "wide"] },
+      numbers: { key: "tb-pnum", values: ["on", "off"] },
+      annotations: { key: "tb-annotations", values: ["on", "off"] },
+    }
+    var read = function (k) { try { return localStorage.getItem(k) } catch (e) { return null } }
+    var write = function (k, v) {
+      try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v) } catch (e) {}
+    }
+    // In memory too, so a change holds for this page where storage is refused.
+    var memory = {}
+    var get = function (name) {
+      var p = PREFS[name]
+      if (!p) return null
+      var v = name in memory ? memory[name] : read(p.key)
+      return p.values.indexOf(v) > 0 ? v : p.values[0]
+    }
+    var system = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null
+    var theme = function () {
+      var t = get("theme")
+      return t === "auto" ? (system && system.matches ? "dark" : "light") : t
+    }
+    var bodyTheme = function () {
+      if (!document.body) return
+      document.body.classList.remove("theme-dark", "theme-light")
+      document.body.classList.add("theme-" + theme())
+    }
+    var apply = function () {
+      root.setAttribute("saved-theme", theme())
+      root.setAttribute("data-tb-text", get("text"))
+      root.setAttribute("data-tb-width", get("width"))
+      root.classList.toggle("tb-pnum-off", get("numbers") === "off")
+      root.classList.toggle("tb-annotations-off", get("annotations") === "off")
+      bodyTheme()
+    }
+    var themeChanged = function () {
+      try { document.dispatchEvent(new CustomEvent("themechange", { detail: { theme: theme() } })) } catch (e) {}
+    }
+    apply()
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bodyTheme)
+    if (system) {
+      var follow = function () { if (get("theme") === "auto") { apply(); themeChanged() } }
+      if (system.addEventListener) system.addEventListener("change", follow)
+      else if (system.addListener) system.addListener(follow)
+    }
+    window.tbPrefs = {
+      get: get,
+      values: function (name) { return PREFS[name] ? PREFS[name].values.slice() : [] },
+      set: function (name, v) {
+        var p = PREFS[name]
+        if (!p || p.values.indexOf(v) < 0) return
+        memory[name] = v
+        write(p.key, v === p.values[0] ? null : v)
+        apply()
+        if (name === "theme") themeChanged()
+      },
+    }
+  } catch (e) { /* Quartz's defaults: light theme, standard text */ }
+})()
+`;
+
+/**
+ * Public annotations on and off, and opening the sidebar (the header's Annotate
+ * and Public comment, and the Appearance panel). window.tbAnnotations:
+ *
+ *   open()    turns annotations on if they were off, loads the client if it isn't
+ *             loaded, then opens the sidebar with the client's own toggle once it
+ *             is there. Resolves true when it opened, false if the client never
+ *             came (blocked, offline) within 15 s.
+ *   enable()  on, and the client loaded, sidebar left closed.
+ *   disable() off for every later page. Hypothes.is has no unload: on this page
+ *             the highlights are hidden (design.ts) and the sidebar is collapsed,
+ *             and the client's tab stays until the next load. Returns
+ *             { reload: true } when a client was loaded, so the panel can say so.
+ *
+ * Only ever reads the client's state and clicks its own toggle.
+ */
+export const annotationsControl = `
+;(function () {
+  try {
+    var toggle = function () {
+      var host = document.querySelector("hypothesis-sidebar")
+      return host && host.shadowRoot ? host.shadowRoot.querySelector("button[aria-expanded]") : null
+    }
+    // The loader's own tag says whether a client was loaded on this page.
+    var loaded = function () { return !!document.querySelector("script[data-edition-hypothesis]") }
+    var load = function () { if (typeof window.tbLoadHypothesis === "function") window.tbLoadHypothesis() }
+    window.tbAnnotations = {
+      on: function () { return !(window.tbPrefs && window.tbPrefs.get("annotations") === "off") },
+      enable: function () {
+        if (window.tbPrefs) window.tbPrefs.set("annotations", "on")
+        load()
+      },
+      disable: function () {
+        if (window.tbPrefs) window.tbPrefs.set("annotations", "off")
+        var t = toggle()
+        if (t && t.getAttribute("aria-expanded") === "true") t.click()
+        return { reload: loaded() }
+      },
+      open: function () {
+        window.tbAnnotations.enable()
+        return new Promise(function (resolve) {
+          var start = Date.now()
+          var tryOpen = function () {
+            var t = toggle()
+            if (t) {
+              if (t.getAttribute("aria-expanded") !== "true") t.click()
+              return resolve(true)
+            }
+            if (Date.now() - start > 15000) return resolve(false)
+            setTimeout(tryOpen, 200)
+          }
+          tryOpen()
+        })
+      },
+    }
+  } catch (e) { /* Annotate stays hidden */ }
+})()
 `;
 
 /**
@@ -373,6 +519,15 @@ export const annotationBadge = `
     }
 
     var place = function (count) {
+      // The header's Annotate button (edit-on-github) carries the count itself.
+      var annotate = document.querySelector("[data-tb-annotate]")
+      if (annotate) {
+        var slot = annotate.querySelector(".tb-anno-count")
+        if (slot) slot.textContent = count > 0 ? String(count) : ""
+        annotate.setAttribute("aria-label", count === 0 ? "Annotate this page"
+          : count === 1 ? "Annotate: 1 annotation" : "Annotate: " + count + " annotations")
+        return
+      }
       var anchor = document.querySelector(".tb-page-controls") ||
         document.querySelector("a.edit-on-github") ||
         document.querySelector("h1.article-title")
@@ -417,6 +572,8 @@ export const annotationBadge = `
     }
 
     var run = function () {
+      // Annotations turned off: no request to Hypothes.is at all.
+      if (window.tbPrefs && window.tbPrefs.get("annotations") === "off") return Promise.resolve(null)
       var cached = cacheGet()
       if (cached !== null) { place(cached); return Promise.resolve(cached) }
       return fetchCount().then(function (n) { cachePut(n); place(n); return n })
@@ -467,27 +624,21 @@ export const phoneMenuStartsClosed = (narrowWidth: string) => `
 `;
 
 /**
- * Paragraph numbers: the style that draws them, and the toggle.
+ * Paragraph numbers: the style that draws them, and click-to-link.
  *
  * The transform (transforms.ts, numberParagraphs) marks each body paragraph
  * `data-pnum="n"`; this draws the number in the left margin with ::before, so
- * it is never part of the page's text and Hypothes.is anchors don't move. A
- * reader's choice is kept in localStorage ("tb-pnum": "off") and applied here,
- * in the head, before the body paints, so the numbers never flash on and off.
+ * it is never part of the page's text and Hypothes.is anchors don't move. On or
+ * off is a reader setting ("tb-pnum"), applied by readerPrefs before the body
+ * paints and changed in the header's Appearance panel.
  *
- * Clicking a number puts the paragraph's link in the address bar and copies
- * it. The toggle goes in the controls row, beside the annotation badge; on a
- * page without numbered paragraphs there is no toggle.
+ * Clicking a number puts the paragraph's link in the address bar and copies it.
  */
 export const paragraphNumbers = `
 ;(function () {
   try {
-    var KEY = "tb-pnum"
     var OFF = "tb-pnum-off"
     var root = document.documentElement
-    var stored = function () { try { return localStorage.getItem(KEY) } catch (e) { return null } }
-    var store = function (on) { try { on ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, "off") } catch (e) {} }
-    if (stored() === "off") root.classList.add(OFF)
 
     var style = document.createElement("style")
     style.id = "tb-pnum-style"
@@ -506,16 +657,10 @@ export const paragraphNumbers = `
       // Other pages' paragraphs shown in a popover keep their own numbers to themselves.
       ".popover [data-pnum]::before { content: none; }",
       "@media (max-width: 800px) { [data-pnum]::before { left: -1.9rem; width: 1.6rem; font-size: 0.65rem; } }",
-      "button.tb-pnum-toggle { font-family: var(--tb-font-ui, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
-      "  line-height: 1.4; padding: 0.15rem 0.7rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 999px;",
-      "  background: var(--tb-bg-soft, #F7F7F5); color: var(--tb-muted, #6E6E73); cursor: pointer; }",
-      "button.tb-pnum-toggle:hover { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0); }",
-      "button.tb-pnum-toggle[aria-pressed=\\"true\\"] { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0);",
-      "  background: var(--tb-accent-wash, #EEEBFD); }",
       ".tb-pnum-flash { position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%); z-index: 9999;",
       "  padding: 0.4rem 0.9rem; border-radius: 999px; background: var(--tb-ink, #2B2B2B); color: var(--tb-bg, #FFFFFF);",
       "  font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; }",
-      "@media print { button.tb-pnum-toggle, .tb-pnum-flash { display: none !important; }",
+      "@media print { .tb-pnum-flash { display: none !important; }",
       "  [data-pnum]:target { background: none; box-shadow: none; } }",
     ].join("\\n")
     document.head.appendChild(style)
@@ -554,29 +699,6 @@ export const paragraphNumbers = `
           window.tbTrack("paragraph_link_copied")
         } catch (e) {}
       })
-
-      var anchor = document.querySelector(".tb-page-controls") || document.querySelector("h1.article-title")
-      if (!anchor || !anchor.parentNode) return
-      var b = document.createElement("button")
-      b.type = "button"
-      b.className = "tb-pnum-toggle"
-      b.textContent = "\\u00b6 Numbers"
-      b.title = "Show or hide paragraph numbers"
-      var sync = function () { b.setAttribute("aria-pressed", String(!root.classList.contains(OFF))) }
-      sync()
-      b.addEventListener("click", function () {
-        var on = root.classList.toggle(OFF) === false
-        store(on)
-        sync()
-        window.tbTrack("paragraph_numbers_toggled", { to: on ? "on" : "off" })
-      })
-      if (anchor.classList.contains("tb-page-controls")) anchor.appendChild(b)
-      else {
-        var row = document.createElement("p")
-        row.className = "tb-pnum-row"
-        row.appendChild(b)
-        anchor.insertAdjacentElement("afterend", row)
-      }
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arm)
     else arm()
@@ -678,7 +800,6 @@ export const targetFlash = `
     var style = document.createElement("style")
     style.id = "tb-flash-style"
     style.textContent = [
-      "article [id] { scroll-margin-top: 3.75rem; }",
       "@keyframes tb-flash { 0%, 75% { background-color: var(--tb-mark, #FDF2B3);",
       "  box-shadow: 0 0 0 0.35rem var(--tb-mark, #FDF2B3); }",
       "  100% { background-color: transparent; box-shadow: 0 0 0 0.35rem transparent; } }",

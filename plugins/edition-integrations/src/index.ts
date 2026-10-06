@@ -12,8 +12,10 @@
  *   4. window.tbTrack() for custom events, the annotation tag helper and the
  *      annotation badge, ported from book one's publish.js (src/runtime.ts)
  *
- *   5. Paragraph numbers' style and toggle
- *      (src/runtime.ts)
+ *   5. Paragraph numbers' style and click-to-link (src/runtime.ts)
+ *   6. The reader's Appearance settings, applied before first paint, and the
+ *      public-annotations switch (readerPrefs, annotationsControl in src/runtime.ts);
+ *      the header that changes them is edit-on-github's
  *
  * and applies four HTML transforms to every page (src/transforms.ts):
  *   - same-page citations `#^id` point at the reference they name
@@ -51,11 +53,13 @@ import type { HastNode, PageData } from "./transforms";
 import {
   analyticsLoader,
   annotationBadge,
+  annotationsControl,
   explorerFollowsContents,
   explorerKeepsPageStill,
   noTracking,
   phoneMenuStartsClosed,
   paragraphNumbers,
+  readerPrefs,
   tagHelper,
   targetFlash,
   trackRuntime,
@@ -135,6 +139,15 @@ window.hypothesisConfig = function () {
     // canonical site's publish.js.
     openSidebar: false,
     showHighlights: 'always',
+    // The open sidebar's width as a CSS variable, so the page makes room for it
+    // on wide screens (design.ts) instead of sitting under it.
+    onLayoutChange: function (layout) {
+      try {
+        var w = layout && layout.expanded ? Math.round(layout.width) : 0
+        document.documentElement.style.setProperty("--tb-hypothesis-width", w + "px")
+        document.documentElement.classList.toggle("tb-hypothesis-expanded", w > 0)
+      } catch (e) {}
+    },
     // R1 hook — per-edition group locking. UNUSED BY DECISION: the Publisher
     // tier will not be bought, so this is a record of the shape the swap would
     // have taken, not a step waiting to be taken. It needs Publisher-tier /
@@ -191,21 +204,30 @@ window.plausible.init()
 // It marks <html class="tb-hypothesis-on">: on a phone the design reserves room
 // at the right of the header and the text for the client's tab and buttons, so
 // they never sit over either (design.ts, layout.narrowWidth).
+//
+// A reader who turned public annotations off (Appearance panel, "tb-annotations")
+// gets no client at all. window.tbLoadHypothesis is the same load, for turning
+// them back on later in the page (annotationsControl).
 const hypothesisLoader = `
 ;(function () {
-  // Run-once guard: exactly one embed.js per page load. A second client's
-  // connection is refused by the host frame ("Ignoring second request from
-  // Hypothesis sidebar to connect to host frame"), leaving a present-but-dead
-  // sidebar — so guard even though nothing should evaluate this twice.
-  if (window.__editionIntegrations) return
-  window.__editionIntegrations = true
-  document.documentElement.classList.add("tb-hypothesis-on")
+  window.tbLoadHypothesis = function () {
+    // Run-once guard: exactly one embed.js per page load. A second client's
+    // connection is refused by the host frame ("Ignoring second request from
+    // Hypothesis sidebar to connect to host frame"), leaving a present-but-dead
+    // sidebar — so guard even though nothing should evaluate this twice.
+    if (window.__editionIntegrations) return
+    window.__editionIntegrations = true
+    document.documentElement.classList.add("tb-hypothesis-on")
 
-  var s = document.createElement("script")
-  s.async = true
-  s.src = "https://hypothes.is/embed.js"
-  s.setAttribute("data-edition-hypothesis", "")
-  document.head.appendChild(s)
+    var s = document.createElement("script")
+    s.async = true
+    s.src = "https://hypothes.is/embed.js"
+    s.setAttribute("data-edition-hypothesis", "")
+    document.head.appendChild(s)
+  }
+  var off = false
+  try { off = !!window.tbPrefs && window.tbPrefs.get("annotations") === "off" } catch (e) {}
+  if (!off) window.tbLoadHypothesis()
 })()
 `;
 
@@ -234,6 +256,8 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       const head: VNode[] = [
         h("link", { rel: "stylesheet", href: fontHref(design) }) as VNode,
         h("style", { dangerouslySetInnerHTML: { __html: designCss(design) } }) as VNode,
+        // First of the scripts: the theme and the reader's settings, before paint.
+        h("script", { dangerouslySetInnerHTML: { __html: readerPrefs } }) as VNode,
         h("script", {
           dangerouslySetInnerHTML: { __html: hypothesisConfig(opts.hypothesisGroupId) },
         }) as VNode,
@@ -260,6 +284,7 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       // Always: it completes fixBlockRefLinks, which is not optional either.
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
+      head.push(script(annotationsControl));
       // Last, so window.hypothesisConfig above is already set when embed.js boots.
       head.push(h("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }) as VNode);
       return { additionalHead: head };
