@@ -800,7 +800,45 @@ const explained = () => {
 };
 
 /**
- * The explainer: the three ways to contribute, who sees each and which account
+ * What the explainer says about each way to contribute: what it is, who sees it,
+ * which account it needs. A book has the editor and the suggest form; an edition
+ * has the GitHub link and no form (the header's data-routes says which).
+ */
+const ROUTES = {
+  edit: {
+    title: "Edit this page",
+    what: "Change the wording yourself. Your change goes to the authors as a proposal, and nothing in the book changes until they accept it.",
+    who: "The authors review it. The proposal is public on the book's GitHub repository, and once it's accepted your GitHub name appears in the page's history.",
+    account: "A free GitHub account.",
+    link: ["Create a GitHub account ↗", "https://github.com/signup"],
+  },
+  github: {
+    title: "Edit on GitHub",
+    what: "Change the wording on GitHub. Your change goes to the edition's maintainers as a proposal, and nothing in the edition changes until they accept it.",
+    who: "The edition's maintainers review it. The proposal is public on the edition's GitHub repository.",
+    account: "A free GitHub account.",
+    link: ["Create a GitHub account ↗", "https://github.com/signup"],
+  },
+  // What suggest-edit puts on the issue: the note, the name, and the email masked
+  // to its first letter and its domain (lib/common.mjs maskEmail).
+  note: {
+    title: "Note to the authors",
+    what: "Tell the authors about a mistake or an idea, in a short form.",
+    who: "The authors, and anyone else: your note becomes an issue on the book's GitHub repository, showing your name and your email address masked to its first letter and its domain (like a***@example.org). It doesn't appear on this page.",
+    account: "None. You give your name and an email address.",
+  },
+  comment: {
+    title: "Public comment",
+    what: "Write in the margin with Hypothes.is: highlight a passage and comment on it, or reply to someone else's comment.",
+    who: "Everyone reading this page, with your Hypothes.is username.",
+    account: "A free Hypothes.is account.",
+    link: ["Create a Hypothes.is account ↗", "https://hypothes.is/signup"],
+  },
+} as const;
+const NUMBER = ["no", "one", "two", "three"];
+
+/**
+ * The explainer: this site's ways to contribute, who sees each and which account
  * it needs. With `then`, it ends with a button that carries on to what the
  * reader clicked.
  */
@@ -811,7 +849,7 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
   } catch {
     /* shown again on another page, then: harmless */
   }
-  const route = (title: string, what: string, who: string, account: string, link?: [string, string]) =>
+  const route = ({ title, what, who, account, link }: { title: string; what: string; who: string; account: string; link?: readonly [string, string] }) =>
     el(
       "section",
       { class: "tb-route" },
@@ -828,33 +866,17 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
       ),
     );
   const actions = el("div", { class: "tb-dialog-row" });
+  const header = document.querySelector<HTMLElement>(".tb-header");
+  const names = (header?.dataset.routes ?? "comment").split(" ").filter((r): r is keyof typeof ROUTES => r in ROUTES);
+  const what = names.includes("edit") || names.includes("note") ? "book" : "edition";
   const box = dialog(
     "How contributing works",
     trigger,
     el("h2", { text: "How contributing works" }),
     el("p", {
-      text: "There are three ways to help with this book. They differ in who sees what you write, and in which account you need.",
+      text: `There ${names.length === 1 ? "is one way" : `are ${NUMBER[names.length] ?? names.length} ways`} to help with this ${what}. They differ in who sees what you write, and in which account you need.`,
     }),
-    route(
-      "Edit this page",
-      "Change the wording yourself. Your change goes to the authors as a proposal, and nothing in the book changes until they accept it.",
-      "The authors review it. The proposal is public on the book's GitHub repository, and once it's accepted your GitHub name appears in the page's history.",
-      "A free GitHub account.",
-      ["Create a GitHub account ↗", "https://github.com/signup"],
-    ),
-    route(
-      "Note to the authors",
-      "Tell the authors about a mistake or an idea, in a short form.",
-      "The authors. It becomes an issue on the book's GitHub repository: anyone can read it there, but it doesn't appear on this page.",
-      "None. You give a name and an email address; the email is never published.",
-    ),
-    route(
-      "Public comment",
-      "Write in the margin with Hypothes.is: highlight a passage and comment on it, or reply to someone else's comment.",
-      "Everyone reading the book, with your Hypothes.is username.",
-      "A free Hypothes.is account.",
-      ["Create a Hypothes.is account ↗", "https://hypothes.is/signup"],
-    ),
+    ...names.map((n) => route(ROUTES[n])),
     el("p", {}, el("a", { href: howTo, text: "More about commenting and contributing" })),
     actions,
   );

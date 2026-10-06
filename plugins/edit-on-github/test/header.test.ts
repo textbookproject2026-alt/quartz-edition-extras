@@ -281,6 +281,27 @@ describe("E. the explainer", () => {
     expect(Array.from(again.querySelectorAll("button")).map((b) => b.textContent)).toEqual(["×", "Close"]);
   });
 
+  it("says what this site has: a book's three routes, an edition's two, and the note's real masking", () => {
+    const routes = (w: Page) => {
+      $<HTMLButtonElement>(w, "[data-tb-explain]").click();
+      const d = $(w, "dialog.tb-dialog");
+      return { intro: d.querySelector("p")!.textContent, titles: [...d.querySelectorAll("h3")].map((h) => h.textContent), text: d.textContent! };
+    };
+    const book = routes(page(undefined, { explained: true }));
+    expect(book.intro).toBe("There are three ways to help with this book. They differ in who sees what you write, and in which account you need.");
+    expect(book.titles).toEqual(["Edit this page", "Note to the authors", "Public comment"]);
+    expect(book.text).toContain("showing your name and your email address masked to its first letter and its domain (like a***@example.org)");
+    expect(book.text).not.toContain("never published");
+    // An edition: no editor, no suggest form.
+    const edition = routes(page(render({ repo: "o/r" }), { explained: true }));
+    expect(edition.intro).toBe("There are two ways to help with this edition. They differ in who sees what you write, and in which account you need.");
+    expect(edition.titles).toEqual(["Edit on GitHub", "Public comment"]);
+    expect(edition.text).not.toContain("Note to the authors");
+    // The same on a page with no source file of its own.
+    const listing = render(BOOK, "chapters/index.md", {});
+    expect(listing).toContain('data-routes="edit note comment"');
+  });
+
   it("works with no storage at all: shown once on the page", () => {
     const w = page(undefined, { storage: false });
     const btn = $<HTMLButtonElement>(w, "[data-tb-contribute]");

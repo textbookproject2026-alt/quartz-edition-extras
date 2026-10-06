@@ -288,6 +288,15 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
         "data-authors": opts.authors,
         "data-licence": opts.licence,
         "data-how-to": root + opts.howTo,
+        // The ways to contribute this site has, for the explainer on every page:
+        // a book's editor and suggest form, or an edition's GitHub link.
+        "data-routes": [
+          opts.repo ? (opts.editor && opts.suggestEndpoint ? "edit" : "github") : null,
+          opts.suggestEndpoint ? "note" : null,
+          "comment",
+        ]
+          .filter(Boolean)
+          .join(" "),
         ...(hasSource ? { "data-source-path": path } : {}),
         ...(hasSource && opts.sourceCommit ? { "data-source-commit": opts.sourceCommit } : {}),
         ...(blob ? { "data-source-blob": blob } : {}),
