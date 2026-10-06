@@ -7832,10 +7832,19 @@ var markLeadParagraph = (tree) => {
   props.className = classes;
   return true;
 };
+var REFERENCE_HEADING = /^(?:[\d.]+\s+)?(?:references|reference list|bibliography|works cited|literature cited)\s*:?$/i;
 var numberParagraphs = (tree) => {
   let n2 = 0;
+  let refsRank = 0;
   for (const node of tree.children ?? []) {
-    if (!isElement(node) || node.tagName !== "p") continue;
+    if (!isElement(node)) continue;
+    const rank = /^h[1-6]$/.test(node.tagName ?? "") ? Number(node.tagName[1]) : 0;
+    if (rank) {
+      if (refsRank && rank <= refsRank) refsRank = 0;
+      if (REFERENCE_HEADING.test(textOf(node).replace(/\s+/g, " ").trim())) refsRank = rank;
+      continue;
+    }
+    if (node.tagName !== "p" || refsRank) continue;
     if (!textOf(node).trim()) continue;
     n2++;
     const props = node.properties ??= {};
