@@ -7988,17 +7988,22 @@ var annotationsControl = `
       open: function () {
         window.tbAnnotations.enable()
         return new Promise(function (resolve) {
-          var start = Date.now()
-          var tryOpen = function () {
+          var start = Date.now(), clicks = 0, last = 0
+          var step = function () {
             var t = toggle()
-            if (t) {
-              if (t.getAttribute("aria-expanded") !== "true") t.click()
-              return resolve(true)
+            if (t && t.getAttribute("aria-expanded") === "true") return resolve(true)
+            if (Date.now() - start > 15000 || clicks >= 3) return resolve(false)
+            // Hypothes.is closes its sidebar on a pointer press in the page, so an
+            // open made in answer to a mouse click doesn't hold: when one hasn't,
+            // ask again once the press is over. It only ever clicks a closed toggle.
+            if (t && Date.now() - last > 400) {
+              clicks++
+              last = Date.now()
+              t.click()
             }
-            if (Date.now() - start > 15000) return resolve(false)
-            setTimeout(tryOpen, 200)
+            setTimeout(step, 150)
           }
-          tryOpen()
+          step()
         })
       },
     }

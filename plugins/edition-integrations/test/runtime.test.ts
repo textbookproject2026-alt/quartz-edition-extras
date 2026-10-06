@@ -548,9 +548,30 @@ describe("public annotations on and off (C)", () => {
     expect(w.document.querySelectorAll("script[data-edition-hypothesis]")).toHaveLength(1);
     const toggle = sidebar(w, false);
     let clicks = 0;
-    toggle.onclick = () => clicks++;
+    toggle.onclick = () => {
+      clicks++;
+      toggle.setAttribute("aria-expanded", "true");
+    };
     expect(await opened).toBe(true);
     expect(clicks).toBe(1);
+  });
+
+  it("asks again when an open doesn't hold (a mouse press closes the sidebar), and never toggles it shut", async () => {
+    const w = page("https://book.example.org/x");
+    w.eval(readerPrefs);
+    w.eval(annotationsControl);
+    loaderStub(w);
+    const toggle = sidebar(w, false);
+    let clicks = 0;
+    // The first open is undone by the page's own press; the second holds.
+    toggle.onclick = () => {
+      clicks++;
+      if (clicks === 2) toggle.setAttribute("aria-expanded", "true");
+    };
+    expect(await (w.tbAnnotations as Annotations).open()).toBe(true);
+    expect(clicks).toBe(2);
+    expect(await (w.tbAnnotations as Annotations).open()).toBe(true);
+    expect(clicks).toBe(2); // already open: not clicked again
   });
 
   it("turning them off mid-page hides highlights, collapses the sidebar, and says a reload finishes it", () => {
