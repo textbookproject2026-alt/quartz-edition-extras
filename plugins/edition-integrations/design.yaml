@@ -76,7 +76,16 @@ type:
   mobile: { h1: 1.875rem, h2: 1.5rem, h3: 1.25rem }
 
 layout:
-  measure: 720px # the reading column
+  # The reading column, in ems of body text, so it holds about the same number
+  # of characters a line at every text size (the Appearance panel's Small,
+  # Standard, Large). 36em of Source Serif 4 is about 70 characters; the Wide
+  # option's 48em about 95. A column can't grow past the room Quartz's centre
+  # track has, so Wide shows only on screens with that room.
+  measure: 36
+  wideMeasure: 48
+  # The sticky header (edit-on-github), and how far below it a linked heading
+  # or paragraph stops.
+  headerHeight: 3.25rem
   rhythm: 1.5rem # paragraph spacing; headings get 2x (h2) and 1.5x (h3, h4) above
   mobileWidth: 768px
   # Quartz's phone layout (its $mobile breakpoint): at this width and below the

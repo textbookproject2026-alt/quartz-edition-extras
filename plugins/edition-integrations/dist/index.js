@@ -7351,7 +7351,14 @@ var SCHEMA = {
     linkWeight: "number",
     mobile: { h1: "length", h2: "length", h3: "length" }
   },
-  layout: { measure: "length", rhythm: "length", mobileWidth: "length", narrowWidth: "length" },
+  layout: {
+    measure: "number",
+    wideMeasure: "number",
+    headerHeight: "length",
+    rhythm: "length",
+    mobileWidth: "length",
+    narrowWidth: "length"
+  },
   controls: { size: "length" },
   homeLink: { height: "length", iconHeight: "length" },
   print: { size: "length", lineHeight: "number", margin: "length" }
@@ -7494,10 +7501,15 @@ var designCss = (d2) => {
   --tb-size-h2: ${t2.h2.size};
   --tb-size-h3: ${t2.h3.size};
   --tb-size-h4: ${t2.h4.size};
+  /* The reader's text size (Appearance panel): the chapter only, never the chrome. */
+  --tb-text-scale: 1;
+  --tb-header-h: ${layout.headerHeight};
+  /* The open Hypothes.is sidebar's width, from hypothesisConfig's onLayoutChange. */
+  --tb-hypothesis-width: 0px;
   --tb-size-controls: ${d2.controls.size};
   --tb-home-link-height: ${d2.homeLink.height};
   --tb-home-link-icon-height: ${d2.homeLink.iconHeight};
-  --tb-measure: ${layout.measure};
+  --tb-measure-em: ${layout.measure};
   --tb-rhythm: ${layout.rhythm};
   /* The width of the annotation client's collapsed tab and buttons, reserved on phones. */
   --tb-annotation-gutter: 2.5rem;
@@ -7527,29 +7539,34 @@ article h6,
 .article-title {
   font-family: var(--tb-font-ui);
 }
-/* The reading column, on the article itself: Quartz's grid track runs wider. */
+/* The reader's settings (readerPrefs, applied in <head> before first paint). */
+:root[data-tb-text="small"] { --tb-text-scale: 0.9; }
+:root[data-tb-text="large"] { --tb-text-scale: 1.15; }
+:root[data-tb-width="wide"] { --tb-measure-em: ${layout.wideMeasure}; }
+/* The reading column, on the article itself: Quartz's grid track runs wider. In
+   ems of body text, so it keeps its characters a line at every text size. */
 article {
-  max-width: var(--tb-measure);
+  max-width: calc(var(--tb-measure-em) * var(--tb-size-body) * var(--tb-text-scale));
   margin-left: auto;
   margin-right: auto;
 }
 article p,
 article li {
-  font-size: var(--tb-size-body);
+  font-size: calc(var(--tb-size-body) * var(--tb-text-scale));
   line-height: var(--tb-lh-body) !important; /* base.scss sets ~1.42 */
 }
 article p { margin: var(--tb-rhythm) 0; }
 /* The paragraph right after a chapter's title (transforms.ts marks it). */
 article p.tb-lead {
-  font-size: var(--tb-size-lead);
+  font-size: calc(var(--tb-size-lead) * var(--tb-text-scale));
   line-height: var(--tb-lh-lead) !important;
 }
-article h1 { font-size: var(--tb-size-h1); font-weight: ${t2.h1.weight}; line-height: ${t2.h1.lineHeight}; }
-article h2 { font-size: var(--tb-size-h2); font-weight: ${t2.h2.weight}; line-height: ${t2.h2.lineHeight}; }
-article h3 { font-size: var(--tb-size-h3); font-weight: ${t2.h3.weight}; line-height: ${t2.h3.lineHeight}; }
+article h1 { font-size: calc(var(--tb-size-h1) * var(--tb-text-scale)); font-weight: ${t2.h1.weight}; line-height: ${t2.h1.lineHeight}; }
+article h2 { font-size: calc(var(--tb-size-h2) * var(--tb-text-scale)); font-weight: ${t2.h2.weight}; line-height: ${t2.h2.lineHeight}; }
+article h3 { font-size: calc(var(--tb-size-h3) * var(--tb-text-scale)); font-weight: ${t2.h3.weight}; line-height: ${t2.h3.lineHeight}; }
 /* The "keycap" h4: a real heading, tracked capitals in CSS only. */
 article h4 {
-  font-size: var(--tb-size-h4);
+  font-size: calc(var(--tb-size-h4) * var(--tb-text-scale));
   font-weight: ${t2.h4.weight};
   line-height: ${t2.h4.lineHeight};
   letter-spacing: ${t2.h4.letterSpacing};
@@ -7566,6 +7583,45 @@ pre, article code { background-color: var(--tb-bg-soft); }
 .hypothesis-highlight { background-color: var(--tb-annotation); }
 .hypothesis-highlight.hypothesis-highlight-focused,
 .hypothesis-highlight:focus { background-color: var(--tb-annotation-focused); }
+/* Public annotations turned off with the client already loaded: its highlights
+   go now; the client itself goes at the next page load (it has no unload). */
+:root.tb-annotations-off .hypothesis-highlight,
+:root.tb-annotations-off .hypothesis-highlight.hypothesis-highlight-focused {
+  background-color: transparent;
+}
+/* Anchored headings and paragraphs stop below the sticky header. */
+article [id],
+article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
+/* The sidebar open on a wide screen: the page makes room for it, so the text and
+   the paragraph pencils stay in view, and the right rail (graph, contents,
+   backlinks) goes under the chapter, as on Quartz's tablet layout, so the text
+   keeps its width. Narrower than this, the sidebar overlays the page. */
+@media (min-width: 1280px) {
+  :root.tb-hypothesis-expanded body {
+    box-sizing: border-box;
+    padding-right: var(--tb-hypothesis-width);
+  }
+  :root.tb-hypothesis-expanded .page > #quartz-body {
+    grid-template-columns: 320px auto;
+    grid-template-rows: auto auto auto auto;
+    grid-template-areas:
+      "grid-sidebar-left grid-header"
+      "grid-sidebar-left grid-center"
+      "grid-sidebar-left grid-sidebar-right"
+      "grid-sidebar-left grid-footer";
+  }
+  :root.tb-hypothesis-expanded .page > #quartz-body > .sidebar.right {
+    position: static;
+    height: auto;
+  }
+}
+/* With room for it, the tag helper beside the open sidebar (14rem, 16px each side)
+   is kept clear of the text as well. Below this it overlays, as the sidebar does. */
+@media (min-width: 1440px) {
+  :root.tb-hypothesis-expanded.tb-tag-helper-on body {
+    padding-right: calc(var(--tb-hypothesis-width) + 14rem + 32px);
+  }
+}
 
 @media (max-width: ${layout.mobileWidth}) {
   :root {
@@ -7634,32 +7690,6 @@ pre, article code { background-color: var(--tb-bg-soft); }
      but keeps its place so the row doesn't jump. */
   body[data-slug="index"] #quartz-body .left.sidebar .page-title { visibility: hidden; }
 
-  /* The controls row: one tidy group of equal chips that wraps evenly and
-     stays inside the column. */
-  body .tb-page-controls {
-    gap: 0.4rem;
-    align-items: center;
-    max-width: 100%;
-  }
-  body .tb-page-controls > a.edit-on-github,
-  body .tb-page-controls > a.tb-history-link,
-  body .tb-page-controls > button.tb-suggest-btn,
-  body .tb-page-controls > button.tb-anno-badge,
-  body .tb-page-controls > button.tb-pnum-toggle {
-    display: inline-flex;
-    align-items: center;
-    min-height: 2rem;
-    margin: 0;
-    padding: 0.2rem 0.7rem;
-    border: 1px solid var(--tb-border);
-    border-radius: 999px;
-    background: var(--tb-bg-soft);
-    font-size: var(--tb-size-controls);
-    font-weight: 600;
-    line-height: 1.3;
-    white-space: nowrap;
-  }
-
   /* The annotation client's tab and its eye and note buttons sit on the right
      edge: the header and the text keep clear of them, open or closed. */
   html.tb-hypothesis-on #quartz-body .left.sidebar,
@@ -7702,6 +7732,8 @@ pre, article code { background-color: var(--tb-bg-soft); }
   .center > hr,
   .page-footer,
   .tb-page-controls,
+  .tb-header,
+  .tb-dialog,
   .tb-anno-badge-row,
   #tb-tag-helper,
   #tb-suggest-overlay,
@@ -7887,6 +7919,119 @@ window.tbTrack = window.tbTrack || function (name, props) {
 var noTracking = `
 window.tbTrack = window.tbTrack || function () {}
 `;
+var readerPrefs = `
+;(function () {
+  try {
+    var root = document.documentElement
+    var PREFS = {
+      theme: { key: "theme", values: ["auto", "light", "dark"] },
+      text: { key: "tb-text", values: ["standard", "small", "large"] },
+      width: { key: "tb-width", values: ["standard", "wide"] },
+      numbers: { key: "tb-pnum", values: ["on", "off"] },
+      annotations: { key: "tb-annotations", values: ["on", "off"] },
+    }
+    var read = function (k) { try { return localStorage.getItem(k) } catch (e) { return null } }
+    var write = function (k, v) {
+      try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v) } catch (e) {}
+    }
+    // In memory too, so a change holds for this page where storage is refused.
+    var memory = {}
+    var get = function (name) {
+      var p = PREFS[name]
+      if (!p) return null
+      var v = name in memory ? memory[name] : read(p.key)
+      return p.values.indexOf(v) > 0 ? v : p.values[0]
+    }
+    var system = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null
+    var theme = function () {
+      var t = get("theme")
+      return t === "auto" ? (system && system.matches ? "dark" : "light") : t
+    }
+    var bodyTheme = function () {
+      if (!document.body) return
+      document.body.classList.remove("theme-dark", "theme-light")
+      document.body.classList.add("theme-" + theme())
+    }
+    var apply = function () {
+      root.setAttribute("saved-theme", theme())
+      root.setAttribute("data-tb-text", get("text"))
+      root.setAttribute("data-tb-width", get("width"))
+      root.classList.toggle("tb-pnum-off", get("numbers") === "off")
+      root.classList.toggle("tb-annotations-off", get("annotations") === "off")
+      bodyTheme()
+    }
+    var themeChanged = function () {
+      try { document.dispatchEvent(new CustomEvent("themechange", { detail: { theme: theme() } })) } catch (e) {}
+    }
+    apply()
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bodyTheme)
+    if (system) {
+      var follow = function () { if (get("theme") === "auto") { apply(); themeChanged() } }
+      if (system.addEventListener) system.addEventListener("change", follow)
+      else if (system.addListener) system.addListener(follow)
+    }
+    window.tbPrefs = {
+      get: get,
+      values: function (name) { return PREFS[name] ? PREFS[name].values.slice() : [] },
+      set: function (name, v) {
+        var p = PREFS[name]
+        if (!p || p.values.indexOf(v) < 0) return
+        memory[name] = v
+        write(p.key, v === p.values[0] ? null : v)
+        apply()
+        if (name === "theme") themeChanged()
+      },
+    }
+  } catch (e) { /* Quartz's defaults: light theme, standard text */ }
+})()
+`;
+var annotationsControl = `
+;(function () {
+  try {
+    var toggle = function () {
+      var host = document.querySelector("hypothesis-sidebar")
+      return host && host.shadowRoot ? host.shadowRoot.querySelector("button[aria-expanded]") : null
+    }
+    // The loader's own tag says whether a client was loaded on this page.
+    var loaded = function () { return !!document.querySelector("script[data-edition-hypothesis]") }
+    var load = function () { if (typeof window.tbLoadHypothesis === "function") window.tbLoadHypothesis() }
+    window.tbAnnotations = {
+      on: function () { return !(window.tbPrefs && window.tbPrefs.get("annotations") === "off") },
+      enable: function () {
+        if (window.tbPrefs) window.tbPrefs.set("annotations", "on")
+        load()
+      },
+      disable: function () {
+        if (window.tbPrefs) window.tbPrefs.set("annotations", "off")
+        var t = toggle()
+        if (t && t.getAttribute("aria-expanded") === "true") t.click()
+        return { reload: loaded() }
+      },
+      open: function () {
+        window.tbAnnotations.enable()
+        return new Promise(function (resolve) {
+          var start = Date.now(), clicks = 0, last = 0
+          var step = function () {
+            var t = toggle()
+            if (t && t.getAttribute("aria-expanded") === "true") return resolve(true)
+            if (Date.now() - start > 15000 || clicks >= 3) return resolve(false)
+            // Hypothes.is closes its sidebar on a pointer press in the page, so an
+            // open made in answer to a mouse click doesn't hold: when one hasn't,
+            // ask again once the press is over. It only ever clicks a closed toggle.
+            if (t && Date.now() - last > 400) {
+              clicks++
+              last = Date.now()
+              t.click()
+            }
+            setTimeout(step, 150)
+          }
+          step()
+        })
+      },
+    }
+  } catch (e) { /* Annotate stays hidden */ }
+})()
+`;
 var tagHelper = `
 ;(function () {
   try {
@@ -7897,14 +8042,14 @@ var tagHelper = `
     var dismissed = false
     var arrivalObserver = null, arrivalTimer = null, probeTimer = null, probeAttempts = 0
     var stateObserver = null, attachedHost = null, sidebarOpen = false, flashTimer = null
-    var onResize = null
+    var ON = "tb-tag-helper-on"
 
     var teardown = function () {
       if (arrivalObserver) { arrivalObserver.disconnect(); arrivalObserver = null }
       if (stateObserver) { stateObserver.disconnect(); stateObserver = null }
       attachedHost = null
       clearTimeout(flashTimer); clearTimeout(arrivalTimer); clearTimeout(probeTimer)
-      if (onResize) window.removeEventListener("resize", onResize)
+      document.documentElement.classList.remove(ON)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
     }
@@ -7917,8 +8062,9 @@ var tagHelper = `
       var style = document.createElement("style")
       style.id = STYLE_ID
       style.textContent = [
-        "#" + PANEL_ID + " { position: fixed; top: 6rem; right: var(--tb-tag-right, 444px); z-index: 9999;",
-        "  max-width: 15rem; padding: 0.75rem 0.85rem; border: 1px solid var(--tb-border, #E6E6E6);",
+        // Clear of the open sidebar by its own width; 428px is the client's default width.
+        "#" + PANEL_ID + " { position: fixed; top: 6rem; right: calc(var(--tb-hypothesis-width, 428px) + 16px); z-index: 9999;",
+        "  box-sizing: border-box; width: 14rem; padding: 0.75rem 0.85rem; border: 1px solid var(--tb-border, #E6E6E6);",
         "  border-radius: 10px; background: var(--tb-bg, #FFFFFF); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);",
         "  font-family: var(--tb-font-ui, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
         "  line-height: 1.4; color: var(--tb-ink, #2B2B2B); }",
@@ -7926,7 +8072,7 @@ var tagHelper = `
         "#" + PANEL_ID + " .tb-tag-title { font-weight: 600; margin: 0 1.25rem 0.5rem 0; }",
         "#" + PANEL_ID + " .tb-tag-chips { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }",
         "#" + PANEL_ID + " button.tb-tag-chip { font-family: var(--tb-font-mono, monospace); font-size: 0.8rem;",
-        "  padding: 0.15rem 0.6rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 999px;",
+        "  padding: 0.15rem 0.5rem; white-space: nowrap; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 999px;",
         "  background: var(--tb-bg-soft, #F7F7F5); color: var(--tb-ink, #2B2B2B); cursor: pointer; }",
         "#" + PANEL_ID + " button.tb-tag-chip:hover { border-color: var(--tb-accent, #7C6CF0);",
         "  color: var(--tb-accent, #7C6CF0); background: var(--tb-accent-wash, #EEEBFD); }",
@@ -7935,7 +8081,7 @@ var tagHelper = `
         "#" + PANEL_ID + " button.tb-tag-close { position: absolute; top: 0.3rem; right: 0.45rem; font: inherit;",
         "  line-height: 1; padding: 0.1rem 0.25rem; border: 0; background: none; color: var(--tb-faint, #9B9BA1); cursor: pointer; }",
         "#" + PANEL_ID + " button.tb-tag-close:hover { color: var(--tb-ink, #2B2B2B); }",
-        "@media (max-width: 768px) { #" + PANEL_ID + " { top: auto; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; max-width: none; } }",
+        "@media (max-width: 768px) { #" + PANEL_ID + " { top: auto; bottom: 0.75rem; left: 0.75rem; right: 0.75rem; width: auto; } }",
         "@media print { #" + PANEL_ID + " { display: none !important; } }",
       ].join("\\n")
       document.head.appendChild(style)
@@ -8007,26 +8153,14 @@ var tagHelper = `
       return panel
     }
 
-    // Just left of the sidebar; the bounding rect is what's real.
-    var positionPanel = function (host) {
-      var panel = document.getElementById(PANEL_ID)
-      if (!panel) return
-      var rect = host.getBoundingClientRect()
-      var fromRight = window.innerWidth - rect.left
-      var usable = fromRight > 0 && fromRight < window.innerWidth
-      panel.style.setProperty("--tb-tag-right", (usable ? fromRight + 16 : 444) + "px")
-    }
-    onResize = safely(function () {
-      var host = document.querySelector("hypothesis-sidebar")
-      if (sidebarOpen && host) positionPanel(host)
-    })
-    var showPanel = function (host) {
+    var showPanel = function () {
       if (dismissed) return
       injectStyle()
       if (!document.getElementById(PANEL_ID)) document.body.appendChild(buildPanel())
-      positionPanel(host)
+      document.documentElement.classList.add(ON)
     }
     var hidePanel = function () {
+      document.documentElement.classList.remove(ON)
       var p = document.getElementById(PANEL_ID)
       if (p) p.remove()
     }
@@ -8046,11 +8180,9 @@ var tagHelper = `
       sidebarOpen = open
       if (open) {
         window.tbTrack("annotation_sidebar_opened") // once per closed->open transition
-        showPanel(host)
-        window.addEventListener("resize", onResize)
+        showPanel()
       } else {
         hidePanel()
-        window.removeEventListener("resize", onResize)
         // The reader may have just annotated: this page's cached count is stale.
         if (window.__tbInvalidateAnnoCount) window.__tbInvalidateAnnoCount()
       }
@@ -8176,6 +8308,15 @@ var annotationBadge = `
     }
 
     var place = function (count) {
+      // The header's Annotate button (edit-on-github) carries the count itself.
+      var annotate = document.querySelector("[data-tb-annotate]")
+      if (annotate) {
+        var slot = annotate.querySelector(".tb-anno-count")
+        if (slot) slot.textContent = count > 0 ? String(count) : ""
+        annotate.setAttribute("aria-label", count === 0 ? "Annotate this page"
+          : count === 1 ? "Annotate: 1 annotation" : "Annotate: " + count + " annotations")
+        return
+      }
       var anchor = document.querySelector(".tb-page-controls") ||
         document.querySelector("a.edit-on-github") ||
         document.querySelector("h1.article-title")
@@ -8220,6 +8361,8 @@ var annotationBadge = `
     }
 
     var run = function () {
+      // Annotations turned off: no request to Hypothes.is at all.
+      if (window.tbPrefs && window.tbPrefs.get("annotations") === "off") return Promise.resolve(null)
       var cached = cacheGet()
       if (cached !== null) { place(cached); return Promise.resolve(cached) }
       return fetchCount().then(function (n) { cachePut(n); place(n); return n })
@@ -8263,12 +8406,8 @@ var phoneMenuStartsClosed = (narrowWidth) => `
 var paragraphNumbers = `
 ;(function () {
   try {
-    var KEY = "tb-pnum"
     var OFF = "tb-pnum-off"
     var root = document.documentElement
-    var stored = function () { try { return localStorage.getItem(KEY) } catch (e) { return null } }
-    var store = function (on) { try { on ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, "off") } catch (e) {} }
-    if (stored() === "off") root.classList.add(OFF)
 
     var style = document.createElement("style")
     style.id = "tb-pnum-style"
@@ -8287,16 +8426,10 @@ var paragraphNumbers = `
       // Other pages' paragraphs shown in a popover keep their own numbers to themselves.
       ".popover [data-pnum]::before { content: none; }",
       "@media (max-width: 800px) { [data-pnum]::before { left: -1.9rem; width: 1.6rem; font-size: 0.65rem; } }",
-      "button.tb-pnum-toggle { font-family: var(--tb-font-ui, sans-serif); font-size: var(--tb-size-controls, 0.85rem);",
-      "  line-height: 1.4; padding: 0.15rem 0.7rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 999px;",
-      "  background: var(--tb-bg-soft, #F7F7F5); color: var(--tb-muted, #6E6E73); cursor: pointer; }",
-      "button.tb-pnum-toggle:hover { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0); }",
-      "button.tb-pnum-toggle[aria-pressed=\\"true\\"] { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0);",
-      "  background: var(--tb-accent-wash, #EEEBFD); }",
       ".tb-pnum-flash { position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%); z-index: 9999;",
       "  padding: 0.4rem 0.9rem; border-radius: 999px; background: var(--tb-ink, #2B2B2B); color: var(--tb-bg, #FFFFFF);",
       "  font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; }",
-      "@media print { button.tb-pnum-toggle, .tb-pnum-flash { display: none !important; }",
+      "@media print { .tb-pnum-flash { display: none !important; }",
       "  [data-pnum]:target { background: none; box-shadow: none; } }",
     ].join("\\n")
     document.head.appendChild(style)
@@ -8335,29 +8468,6 @@ var paragraphNumbers = `
           window.tbTrack("paragraph_link_copied")
         } catch (e) {}
       })
-
-      var anchor = document.querySelector(".tb-page-controls") || document.querySelector("h1.article-title")
-      if (!anchor || !anchor.parentNode) return
-      var b = document.createElement("button")
-      b.type = "button"
-      b.className = "tb-pnum-toggle"
-      b.textContent = "\\u00b6 Numbers"
-      b.title = "Show or hide paragraph numbers"
-      var sync = function () { b.setAttribute("aria-pressed", String(!root.classList.contains(OFF))) }
-      sync()
-      b.addEventListener("click", function () {
-        var on = root.classList.toggle(OFF) === false
-        store(on)
-        sync()
-        window.tbTrack("paragraph_numbers_toggled", { to: on ? "on" : "off" })
-      })
-      if (anchor.classList.contains("tb-page-controls")) anchor.appendChild(b)
-      else {
-        var row = document.createElement("p")
-        row.className = "tb-pnum-row"
-        row.appendChild(b)
-        anchor.insertAdjacentElement("afterend", row)
-      }
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arm)
     else arm()
@@ -8415,7 +8525,6 @@ var targetFlash = `
     var style = document.createElement("style")
     style.id = "tb-flash-style"
     style.textContent = [
-      "article [id] { scroll-margin-top: 3.75rem; }",
       "@keyframes tb-flash { 0%, 75% { background-color: var(--tb-mark, #FDF2B3);",
       "  box-shadow: 0 0 0 0.35rem var(--tb-mark, #FDF2B3); }",
       "  100% { background-color: transparent; box-shadow: 0 0 0 0.35rem transparent; } }",
@@ -8510,6 +8619,15 @@ window.hypothesisConfig = function () {
     // canonical site's publish.js.
     openSidebar: false,
     showHighlights: 'always',
+    // The open sidebar's width as a CSS variable, so the page makes room for it
+    // on wide screens (design.ts) instead of sitting under it.
+    onLayoutChange: function (layout) {
+      try {
+        var w = layout && layout.expanded ? Math.round(layout.width) : 0
+        document.documentElement.style.setProperty("--tb-hypothesis-width", w + "px")
+        document.documentElement.classList.toggle("tb-hypothesis-expanded", w > 0)
+      } catch (e) {}
+    },
     // R1 hook \u2014 per-edition group locking. UNUSED BY DECISION: the Publisher
     // tier will not be bought, so this is a record of the shape the swap would
     // have taken, not a step waiting to be taken. It needs Publisher-tier /
@@ -8533,19 +8651,24 @@ window.plausible.init()
 `;
 var hypothesisLoader = `
 ;(function () {
-  // Run-once guard: exactly one embed.js per page load. A second client's
-  // connection is refused by the host frame ("Ignoring second request from
-  // Hypothesis sidebar to connect to host frame"), leaving a present-but-dead
-  // sidebar \u2014 so guard even though nothing should evaluate this twice.
-  if (window.__editionIntegrations) return
-  window.__editionIntegrations = true
-  document.documentElement.classList.add("tb-hypothesis-on")
+  window.tbLoadHypothesis = function () {
+    // Run-once guard: exactly one embed.js per page load. A second client's
+    // connection is refused by the host frame ("Ignoring second request from
+    // Hypothesis sidebar to connect to host frame"), leaving a present-but-dead
+    // sidebar \u2014 so guard even though nothing should evaluate this twice.
+    if (window.__editionIntegrations) return
+    window.__editionIntegrations = true
+    document.documentElement.classList.add("tb-hypothesis-on")
 
-  var s = document.createElement("script")
-  s.async = true
-  s.src = "https://hypothes.is/embed.js"
-  s.setAttribute("data-edition-hypothesis", "")
-  document.head.appendChild(s)
+    var s = document.createElement("script")
+    s.async = true
+    s.src = "https://hypothes.is/embed.js"
+    s.setAttribute("data-edition-hypothesis", "")
+    document.head.appendChild(s)
+  }
+  var off = false
+  try { off = !!window.tbPrefs && window.tbPrefs.get("annotations") === "off" } catch (e) {}
+  if (!off) window.tbLoadHypothesis()
 })()
 `;
 var EditionIntegrations = (userOpts) => {
@@ -8571,6 +8694,8 @@ var EditionIntegrations = (userOpts) => {
       const head = [
         _("link", { rel: "stylesheet", href: fontHref(design) }),
         _("style", { dangerouslySetInnerHTML: { __html: designCss(design) } }),
+        // First of the scripts: the theme and the reader's settings, before paint.
+        _("script", { dangerouslySetInnerHTML: { __html: readerPrefs } }),
         _("script", {
           dangerouslySetInnerHTML: { __html: hypothesisConfig(opts.hypothesisGroupId) }
         })
@@ -8592,6 +8717,7 @@ var EditionIntegrations = (userOpts) => {
       if (opts.explorerOrder.length) head.push(script(explorerFollowsContents(opts.explorerOrder)));
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
+      head.push(script(annotationsControl));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
       return { additionalHead: head };
     }

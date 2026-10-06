@@ -37,6 +37,8 @@
 /* eslint-disable no-restricted-syntax */
 import { closeIfOpen as closeEditorIfOpen, EDIT_HASH, EDITOR_STATE, openEditor, PENCIL } from "./editor";
 import { closeIfOpen as closeHistoryIfOpen, openHistory } from "./history";
+import { apa, attribution, licenceName, plain } from "./cite";
+import type { Run } from "./cite";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
 
@@ -631,13 +633,348 @@ const pencil = () => {
   return b;
 };
 
+// --- the header's menus and panels -------------------------------------------------
+
+/**
+ * A button that opens a menu or a panel under it: aria-expanded on the button,
+ * one open at a time, a click elsewhere closes it. In a menu, the arrow keys,
+ * Home and End move between items and Tab leaves (closing it); Escape closes
+ * either and gives focus back to the button. `gate` runs before the first
+ * open (the explainer, E).
+ */
+type Disclosure = { open: () => void; close: (focusButton?: boolean) => void };
+const openNow = new Set<{ d: Disclosure; button: HTMLElement; panel: HTMLElement }>();
+document.addEventListener("click", (e) => {
+  const t = e.target as Element | null;
+  // A click in a dialog (the explainer's Continue opens a menu) isn't "elsewhere".
+  if (!t || !t.isConnected || t.closest?.("dialog")) return;
+  for (const o of Array.from(openNow))
+    if (t && !o.panel.contains(t) && !o.button.contains(t)) o.d.close(false);
+});
+
+const disclosure = (
+  button: HTMLButtonElement,
+  panel: HTMLElement,
+  isMenu: boolean,
+  gate?: (open: () => void) => void,
+): Disclosure => {
+  const items = () =>
+    Array.from(
+      panel.querySelectorAll<HTMLElement>(isMenu ? '[role="menuitem"]' : "input, button, a[href]"),
+    ).filter((el) => !el.hidden && !el.closest("[hidden]"));
+  const entry = { d: null as unknown as Disclosure, button, panel };
+  const d: Disclosure = {
+    open() {
+      for (const o of Array.from(openNow)) if (o !== entry) o.d.close(false);
+      panel.hidden = false;
+      button.setAttribute("aria-expanded", "true");
+      openNow.add(entry);
+      const first = isMenu ? items()[0] : (panel.querySelector<HTMLElement>("input:checked") ?? items()[0]);
+      first?.focus();
+    },
+    close(focusButton = true) {
+      if (panel.hidden) return;
+      panel.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+      openNow.delete(entry);
+      if (focusButton) button.focus();
+    },
+  };
+  entry.d = d;
+  button.addEventListener("click", () => {
+    if (!panel.hidden) return d.close();
+    if (gate) gate(d.open);
+    else d.open();
+  });
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && !panel.hidden) {
+      e.preventDefault();
+      e.stopPropagation();
+      d.close(true);
+      return;
+    }
+    if (!isMenu || panel.hidden || !panel.contains(e.target as Node)) return;
+    const list = items();
+    const i = list.indexOf(document.activeElement as HTMLElement);
+    const go = (n: number) => {
+      e.preventDefault();
+      list[(n + list.length) % list.length]?.focus();
+    };
+    if (e.key === "ArrowDown") go(i + 1);
+    else if (e.key === "ArrowUp") go(i - 1);
+    else if (e.key === "Home") go(0);
+    else if (e.key === "End") go(list.length - 1);
+    else if (e.key === "Tab") d.close(false);
+  };
+  panel.addEventListener("keydown", onKey);
+  button.addEventListener("keydown", onKey);
+  // A chosen item closes the menu; the action it starts takes focus from there.
+  if (isMenu)
+    panel.addEventListener("click", (e) => {
+      const it = (e.target as HTMLElement).closest<HTMLElement>('[role="menuitem"]');
+      if (!it) return;
+      if (it.getAttribute("aria-disabled") === "true") {
+        e.preventDefault();
+        return;
+      }
+      d.close(false);
+    });
+  return d;
+};
+
+const el = <K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  props: Record<string, string> = {},
+  ...children: (Node | string | null)[]
+): HTMLElementTagNameMap[K] => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "text") n.textContent = v;
+    else if (k === "class") n.className = v;
+    else n.setAttribute(k, v);
+  }
+  for (const c of children) if (c !== null) n.append(c);
+  return n;
+};
+
+/** A modal <dialog>: Escape and Close shut it, and focus goes back to `trigger`. */
+const dialog = (label: string, trigger: HTMLElement, ...body: Node[]) => {
+  const d = el("dialog", { class: "tb-dialog", "aria-label": label });
+  const x = el("button", { type: "button", class: "tb-dialog-x", "aria-label": "Close", text: "×" });
+  x.addEventListener("click", () => d.close());
+  d.append(x, ...body);
+  let after: (() => void) | null = null;
+  d.addEventListener("close", () => {
+    d.remove();
+    if (after) after();
+    else if (trigger.isConnected) trigger.focus();
+  });
+  document.body.append(d);
+  if (typeof d.showModal === "function") d.showModal();
+  else d.setAttribute("open", "");
+  return { d, closeThen: (fn: () => void) => ((after = fn), d.close()) };
+};
+
+const status = (text: string) => {
+  const s = document.querySelector<HTMLElement>(".tb-hdr-status");
+  if (!s) return;
+  s.textContent = text;
+  setTimeout(() => {
+    if (s.textContent === text) s.textContent = "";
+  }, 4000);
+};
+
+const copy = (text: string, done: () => void, failed: () => void) => {
+  const legacy = () => {
+    const ta = el("textarea", { readonly: "" });
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.append(ta);
+    ta.select();
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
+    ta.remove();
+    return ok;
+  };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, () => (legacy() ? done() : failed()));
+  else if (legacy()) done();
+  else failed();
+};
+
+// --- E: how contributing works -----------------------------------------------------
+
+const EXPLAINED = "tb-contribute-explained";
+let explainedHere = false;
+const explained = () => {
+  if (explainedHere) return true;
+  try {
+    return localStorage.getItem(EXPLAINED) === "1";
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * The explainer: the three ways to contribute, who sees each and which account
+ * it needs. With `then`, it ends with a button that carries on to what the
+ * reader clicked.
+ */
+const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; run: () => void }) => {
+  explainedHere = true;
+  try {
+    localStorage.setItem(EXPLAINED, "1");
+  } catch {
+    /* shown again on another page, then: harmless */
+  }
+  const route = (title: string, what: string, who: string, account: string, link?: [string, string]) =>
+    el(
+      "section",
+      { class: "tb-route" },
+      el("h3", { text: title }),
+      el("p", { text: what }),
+      el("p", {}, el("strong", { text: "Who sees it: " }), who),
+      el(
+        "p",
+        {},
+        el("strong", { text: "Account: " }),
+        account,
+        link ? " " : null,
+        link ? el("a", { href: link[1], target: "_blank", rel: "noopener noreferrer", text: link[0] }) : null,
+      ),
+    );
+  const actions = el("div", { class: "tb-dialog-row" });
+  const box = dialog(
+    "How contributing works",
+    trigger,
+    el("h2", { text: "How contributing works" }),
+    el("p", {
+      text: "There are three ways to help with this book. They differ in who sees what you write, and in which account you need.",
+    }),
+    route(
+      "Edit this page",
+      "Change the wording yourself. Your change goes to the authors as a proposal, and nothing in the book changes until they accept it.",
+      "The authors review it. The proposal is public on the book's GitHub repository, and once it's accepted your GitHub name appears in the page's history.",
+      "A free GitHub account.",
+      ["Create a GitHub account ↗", "https://github.com/signup"],
+    ),
+    route(
+      "Note to the authors",
+      "Tell the authors about a mistake or an idea, in a short form.",
+      "The authors. It becomes an issue on the book's GitHub repository: anyone can read it there, but it doesn't appear on this page.",
+      "None. You give a name and an email address; the email is never published.",
+    ),
+    route(
+      "Public comment",
+      "Write in the margin with Hypothes.is: highlight a passage and comment on it, or reply to someone else's comment.",
+      "Everyone reading the book, with your Hypothes.is username.",
+      "A free Hypothes.is account.",
+      ["Create a Hypothes.is account ↗", "https://hypothes.is/signup"],
+    ),
+    el("p", {}, el("a", { href: howTo, text: "More about commenting and contributing" })),
+    actions,
+  );
+  const close = el("button", { type: "button", class: "tb-btn", text: "Close" });
+  close.addEventListener("click", () => box.d.close());
+  if (then) {
+    const go = el("button", { type: "button", class: "tb-btn tb-btn-primary", text: then.label });
+    go.addEventListener("click", () => box.closeThen(then.run));
+    actions.append(close, go);
+    go.focus();
+  } else {
+    actions.append(close);
+    close.focus();
+  }
+};
+
+/** The first Contribute, pencil or Annotate on this site shows the explainer first. */
+const firstTime = (trigger: HTMLElement, howTo: string, label: string, run: () => void) =>
+  explained() ? run() : explain(trigger, howTo, { label, run });
+
+// --- F: cite --------------------------------------------------------------------
+
+const pageUrl = () => {
+  let path = location.pathname.replace(/\.html$/, "");
+  if (path === "/index" || /\/index$/.test(path)) path = path.slice(0, -"index".length);
+  return location.origin + path;
+};
+
+const cite = (header: HTMLElement, trigger: HTMLElement) => {
+  const input = {
+    authors: header.dataset.authors ?? "",
+    bookTitle: header.dataset.bookTitle ?? "",
+    pageTitle: header.dataset.pageTitle ?? "",
+    licence: header.dataset.licence ?? "",
+    url: pageUrl(),
+    accessed: new Date(),
+  };
+  const runs = (rs: Run[]) => {
+    const p = el("p", { class: "tb-cite-text" });
+    for (const r of rs) p.append(r.italic ? el("i", { text: r.text }) : r.text);
+    return p;
+  };
+  const block = (title: string, rs: Run[]) => {
+    const said = el("span", { class: "tb-cite-said", role: "status" });
+    const b = el("button", { type: "button", class: "tb-btn", text: "Copy" });
+    b.addEventListener("click", () =>
+      copy(plain(rs), () => (said.textContent = "Copied"), () => (said.textContent = "Couldn't copy: select the text instead")),
+    );
+    return el("section", {}, el("h3", { text: title }), runs(rs), el("div", { class: "tb-dialog-row" }, said, b));
+  };
+  const lic = licenceName(input.licence);
+  dialog(
+    "Cite this page",
+    trigger,
+    el("h2", { text: "Cite this page" }),
+    block("APA 7", apa(input)),
+    block(lic ? `Attribution (${lic})` : "Attribution", attribution(input)),
+  );
+};
+
+// --- C: the Appearance panel ------------------------------------------------------
+
+type Prefs = { get: (n: string) => string; set: (n: string, v: string) => void };
+type Annotations = { open: () => Promise<boolean>; enable: () => void; disable: () => { reload: boolean } };
+
+const appearance = (panel: HTMLElement, prefs: Prefs, annotations: Annotations | undefined) => {
+  const groups: [string, string, [string, string][]][] = [
+    ["text", "Text size", [["small", "Small"], ["standard", "Standard"], ["large", "Large"]]],
+    ["width", "Width", [["standard", "Standard"], ["wide", "Wide"]]],
+    ["theme", "Theme", [["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]]],
+    ["numbers", "Paragraph numbers", [["on", "On"], ["off", "Off"]]],
+  ];
+  if (annotations) groups.push(["annotations", "Public annotations", [["on", "On"], ["off", "Off"]]]);
+  const note = el("p", { class: "tb-panel-note", role: "status" });
+  for (const [name, legend, options] of groups) {
+    const seg = el("div", { class: "tb-seg" });
+    for (const [value, label] of options) {
+      const input = el("input", { type: "radio", name: `tb-pref-${name}`, value });
+      input.checked = prefs.get(name) === value;
+      input.addEventListener("change", () => {
+        if (name === "annotations" && annotations) {
+          note.textContent = "";
+          if (value === "on") annotations.enable();
+          else if (annotations.disable().reload) {
+            const reload = el("button", { type: "button", class: "tb-btn", text: "Reload" });
+            reload.addEventListener("click", () => location.reload());
+            note.append("Highlights hidden. The annotation tab goes away when the page reloads.", reload);
+          }
+          return;
+        }
+        prefs.set(name, value);
+        if (name === "numbers") track("paragraph_numbers_toggled", { to: value });
+      });
+      seg.append(el("label", {}, input, label));
+    }
+    const fs = el("fieldset", {}, el("legend", { text: legend }), seg);
+    if (name === "annotations") fs.append(note);
+    panel.append(fs);
+  }
+};
+
+// --- wiring --------------------------------------------------------------------------
+
 /** Opens the editor the given #edit names; set by armEditor for this page. */
 let openFromHash: ((hash: string, push: boolean) => void) | null = null;
 // Forward onto an #edit entry, or #edit typed into the address bar.
 window.addEventListener("popstate", () => openFromHash?.(location.hash, false));
 
-/** The editor on the Edit link and, where there are numbered paragraphs, on each. */
-const armEditor = (edit: HTMLAnchorElement, endpoint: string, suggest?: () => void) => {
+/**
+ * The editor on the Edit item and, where there are numbered paragraphs, on each.
+ * `back` is where focus returns when the editor closes: the Contribute button,
+ * since the item itself is in a closed menu by then.
+ */
+const armEditor = (
+  edit: HTMLAnchorElement,
+  endpoint: string,
+  back: HTMLElement,
+  howTo: string,
+  suggest?: () => void,
+) => {
   const base = {
     endpoint,
     path: edit.dataset.path ?? "",
@@ -654,7 +991,7 @@ const armEditor = (edit: HTMLAnchorElement, endpoint: string, suggest?: () => vo
       return;
     }
     e.preventDefault();
-    openEditor({ ...base, mode: "page", trigger: edit });
+    openEditor({ ...base, mode: "page", trigger: back });
   });
   const pencils = new Map<string, { p: HTMLElement; b: HTMLButtonElement }>();
   const paras = Array.from(document.querySelectorAll<HTMLElement>("[data-pnum]")).filter(
@@ -665,7 +1002,9 @@ const armEditor = (edit: HTMLAnchorElement, endpoint: string, suggest?: () => vo
     const b = pencil();
     b.addEventListener("click", (e) => {
       e.stopPropagation();
-      openEditor({ ...base, mode: "paragraph", para: p, trigger: b });
+      firstTime(b, howTo, `Continue: edit ¶${p.dataset.pnum}`, () =>
+        openEditor({ ...base, mode: "paragraph", para: p, trigger: b }),
+      );
     });
     p.append(b);
     pencils.set(p.dataset.pnum ?? "", { p, b });
@@ -677,13 +1016,13 @@ const armEditor = (edit: HTMLAnchorElement, endpoint: string, suggest?: () => vo
     openEditor(
       at
         ? { ...base, mode: "paragraph", para: at.p, trigger: at.b, push }
-        : { ...base, mode: "page", trigger: edit, push },
+        : { ...base, mode: "page", trigger: back, push },
     );
   };
 };
 
-/** The History panel on the History link, when the builder gave it an endpoint. */
-const armHistory = (link: HTMLAnchorElement, endpoint: string) => {
+/** The History panel on the Page history item, when the builder gave it an endpoint. */
+const armHistory = (link: HTMLAnchorElement, endpoint: string, back: HTMLElement) => {
   link.addEventListener("click", (e) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
@@ -694,62 +1033,160 @@ const armHistory = (link: HTMLAnchorElement, endpoint: string) => {
       repo: link.dataset.repo ?? "",
       branch: link.dataset.branch ?? "",
       githubHref: link.href,
-      trigger: link,
+      trigger: back,
       track,
     });
   });
 };
 
-// Wires every row on the page once. "nav" fires after each full load, and
-// after each route swap on a site with SPA on.
+const armHeader = (header: HTMLElement) => {
+  const $ = <T extends HTMLElement = HTMLElement>(sel: string) => header.querySelector<T>(sel);
+  const howTo = header.dataset.howTo ?? "/how-to-comment";
+  const w = window as unknown as { tbPrefs?: Prefs; tbAnnotations?: Annotations };
+  const contribute = $<HTMLButtonElement>("[data-tb-contribute]");
+  const more = $<HTMLButtonElement>("[data-tb-more]");
+  const each = (fn: () => void) => {
+    try {
+      fn();
+    } catch {
+      /* that control stays hidden; the rest of the header works */
+    }
+  };
+
+  // A: Search opens Quartz's own search (Cmd/Ctrl-K is its own binding).
+  each(() => {
+    const search = $<HTMLButtonElement>("[data-tb-search]");
+    const quartz = document.querySelector<HTMLButtonElement>(".search .search-button");
+    if (!search || !quartz) return;
+    search.addEventListener("click", () => quartz.click());
+    search.hidden = false;
+  });
+
+  // A, D: Annotate, and Public comment in the Contribute menu.
+  const openAnnotations = () => {
+    track("annotation_badge_clicked");
+    void w.tbAnnotations!.open().then((ok) => {
+      if (!ok) status("Hypothes.is didn't load. A browser extension or the network may be blocking it.");
+    });
+  };
+  each(() => {
+    if (!w.tbAnnotations) return;
+    const annotate = $<HTMLButtonElement>("[data-tb-annotate]");
+    if (annotate) {
+      annotate.addEventListener("click", () =>
+        firstTime(annotate, howTo, "Continue: open annotations", openAnnotations),
+      );
+      if (!annotate.querySelector(".tb-anno-count")) annotate.append(el("span", { class: "tb-anno-count" }));
+      annotate.hidden = false;
+    }
+    const comment = $<HTMLButtonElement>("[data-tb-comment]");
+    if (comment) {
+      comment.addEventListener("click", openAnnotations);
+      comment.hidden = false;
+    }
+  });
+
+  // D: Contribute.
+  each(() => {
+    const menu = $("#tb-contribute-menu");
+    if (!contribute || !menu) return;
+    disclosure(contribute, menu, true, (open) =>
+      firstTime(contribute, howTo, "Continue to Contribute", open),
+    );
+    $("[data-tb-explain]")?.addEventListener("click", () => explain(contribute, howTo));
+    const suggestBtn = $<HTMLButtonElement>("button.tb-suggest-btn");
+    const endpoint = suggestBtn?.dataset.endpoint;
+    const suggest =
+      suggestBtn && endpoint && openSuggestModal
+        ? () => openSuggestModal(endpoint, suggestBtn.dataset.path ?? "", contribute)
+        : undefined;
+    const edit = $<HTMLAnchorElement>("a.edit-on-github");
+    const editEndpoint = edit?.dataset.editEndpoint;
+    if (edit && editEndpoint) {
+      armEditor(edit, editEndpoint, contribute, howTo, suggest);
+      // Loaded with #edit. A reload of the editor's own entry (its state
+      // survives) opens in place: the page's entry is under it. A link or a
+      // typed #edit has none, so the entry becomes the page and the editor
+      // pushes its own on top: Back always lands on the page.
+      if (EDIT_HASH.test(location.hash)) {
+        const hash = location.hash;
+        const ours = (window.history.state as typeof EDITOR_STATE | null)?.tbEditor === true;
+        if (!ours) window.history.replaceState(window.history.state, "", location.pathname + location.search);
+        openFromHash?.(hash, !ours);
+      }
+    } else edit?.addEventListener("click", () => track("edit_on_github_clicked"));
+    if (suggestBtn && suggest) {
+      suggestBtn.addEventListener("click", suggest);
+      suggestBtn.hidden = false;
+    }
+    contribute.hidden = false;
+  });
+
+  // C: Appearance.
+  each(() => {
+    const aa = $<HTMLButtonElement>("[data-tb-appearance]");
+    const panel = $("#tb-appearance");
+    if (!aa || !panel || !w.tbPrefs) return;
+    appearance(panel, w.tbPrefs, w.tbAnnotations);
+    disclosure(aa, panel, false);
+    aa.hidden = false;
+  });
+
+  // F: ⋯
+  each(() => {
+    const menu = $("#tb-more-menu");
+    if (!more || !menu) return;
+    disclosure(more, menu, true);
+    $("[data-tb-cite]")?.addEventListener("click", () => cite(header, more));
+    $("[data-tb-print]")?.addEventListener("click", () => window.print());
+    const history = $<HTMLAnchorElement>("a.tb-history-link");
+    if (history?.dataset.revisionEndpoint) armHistory(history, history.dataset.revisionEndpoint, more);
+    const backlinks = $<HTMLButtonElement>("[data-tb-backlinks]");
+    const box = document.querySelector<HTMLElement>(".backlinks");
+    if (backlinks) {
+      if (!box || !box.querySelector("a.internal")) {
+        backlinks.setAttribute("aria-disabled", "true");
+        backlinks.append(el("span", { class: "tb-mi-s", text: "No other page links here" }));
+      } else
+        backlinks.addEventListener("click", () => {
+          const h = box.querySelector<HTMLElement>("h3") ?? box;
+          h.tabIndex = -1;
+          box.scrollIntoView({ block: "start" });
+          h.focus({ preventScroll: true });
+        });
+    }
+    const download = $<HTMLButtonElement>("[data-tb-download]");
+    download?.addEventListener("click", () => {
+      fetch(download.dataset.tbDownload!)
+        .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+        .then((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = el("a", { href: url, download: download.dataset.file ?? "page.md" });
+          document.body.append(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        })
+        .catch(() => status("That didn't download just now. View source has the same file."));
+    });
+    more.hidden = false;
+  });
+};
+
+// Wires the header once per page. "nav" fires after each full load, and after
+// each route swap on a site with SPA on.
 const wire = () => {
   try {
     openSuggestModal?.closeIfOpen();
     closeEditorIfOpen();
     closeHistoryIfOpen();
-    for (const row of Array.from(document.querySelectorAll<HTMLElement>(".tb-page-controls"))) {
-      if (row.dataset.tbWired) continue;
-      row.dataset.tbWired = "1";
-      const btn = row.querySelector<HTMLButtonElement>("button.tb-suggest-btn");
-      const endpoint = btn?.dataset.endpoint;
-      const suggest =
-        btn && endpoint && openSuggestModal
-          ? () => openSuggestModal(endpoint, btn.dataset.path ?? "", btn)
-          : undefined;
-      const edit = row.querySelector<HTMLAnchorElement>("a.edit-on-github");
-      const editEndpoint = edit?.dataset.editEndpoint;
-      if (edit && editEndpoint) {
-        try {
-          armEditor(edit, editEndpoint, suggest);
-          // Loaded with #edit. A reload of the editor's own entry (its state
-          // survives) opens in place: the page's entry is under it. A link or
-          // a typed #edit has none, so the entry becomes the page and the
-          // editor pushes its own on top: Back always lands on the page.
-          if (EDIT_HASH.test(location.hash)) {
-            const hash = location.hash;
-            const ours = (window.history.state as typeof EDITOR_STATE | null)?.tbEditor === true;
-            if (!ours) window.history.replaceState(window.history.state, "", location.pathname + location.search);
-            openFromHash?.(hash, !ours);
-          }
-        } catch {
-          /* the link still goes to GitHub */
-        }
-      } else edit?.addEventListener("click", () => track("edit_on_github_clicked"));
-      const history = row.querySelector<HTMLAnchorElement>("a.tb-history-link");
-      const revisionEndpoint = history?.dataset.revisionEndpoint;
-      if (history && revisionEndpoint) {
-        try {
-          armHistory(history, revisionEndpoint);
-        } catch {
-          /* the link still goes to GitHub */
-        }
-      }
-      if (!btn || !suggest) continue;
-      btn.addEventListener("click", suggest);
-      btn.hidden = false;
+    for (const header of Array.from(document.querySelectorAll<HTMLElement>(".tb-page-controls"))) {
+      if (header.dataset.tbWired) continue;
+      header.dataset.tbWired = "1";
+      armHeader(header);
     }
   } catch {
-    /* controls stay as rendered: Edit and History are plain links */
+    /* the header stays as rendered: its links still go to GitHub */
   }
 };
 document.addEventListener("nav", wire);

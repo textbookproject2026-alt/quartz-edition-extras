@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Reader settings, applied in <head> before first paint (`readerPrefs`,
+  `window.tbPrefs`): theme Auto/Light/Dark on Quartz's `theme` key, text size
+  Small/Standard/Large (the chapter only), width Standard/Wide, paragraph numbers
+  (`tb-pnum`, the old toggle's key; its button moved to edit-on-github's
+  Appearance panel) and public annotations (`tb-annotations`: off loads no
+  embed.js). `window.tbAnnotations` opens the sidebar, turning annotations on
+  first, or turns them off mid-page (highlights hidden, sidebar collapsed, the
+  client's tab goes on reload). `onLayoutChange` sets `--tb-hypothesis-width`, and
+  the page makes room for the open sidebar at 1024px and up. design.yaml's
+  `layout.measure` is now ems of body text (36, about 70 characters; `wideMeasure`
+  48), with `layout.headerHeight` for the sticky header. The annotation badge
+  counts on the header's Annotate.
+
 ### Added
 
 - `explorerOrder`: the book's reading order, as slugs (the builder reads the links under

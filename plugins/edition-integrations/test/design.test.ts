@@ -118,7 +118,9 @@ describe("design.yaml as shipped", () => {
       "--tb-size-controls": "0.85rem",
       "--tb-home-link-height": "32px",
       "--tb-home-link-icon-height": "28px",
-      "--tb-measure": "720px",
+      "--tb-measure-em": "36",
+      "--tb-header-h": "3.25rem",
+      "--tb-text-scale": "1",
       "--tb-rhythm": "1.5rem",
     })) {
       expect(declared(css, ":root", prop), prop).toBe(value);
@@ -141,7 +143,9 @@ describe("design.yaml as shipped", () => {
   });
 
   it("has the lead paragraph, the h4 capitals and the annotation highlight", () => {
-    expect(declared(css, "article p.tb-lead", "font-size")).toBe("var(--tb-size-lead)");
+    expect(declared(css, "article p.tb-lead", "font-size")).toBe(
+      "calc(var(--tb-size-lead) * var(--tb-text-scale))",
+    );
     expect(declared(css, "article h4", "text-transform")).toBe("uppercase");
     expect(declared(css, "article h4", "letter-spacing")).toBe("0.04em");
     expect(declared(css, ".hypothesis-highlight", "background-color")).toBe("var(--tb-annotation)");
@@ -201,7 +205,7 @@ describe("editing design.yaml", () => {
   it("names a missing value, an unknown one and a typo'd kind", () => {
     const edited = shipped
       .replace("  margin: 2cm\n", "  margins: 2cm\n")
-      .replace("measure: 720px", "measure: 720");
+      .replace("headerHeight: 3.25rem", "headerHeight: 52");
     let message = "";
     try {
       parseDesign(edited);
@@ -210,7 +214,37 @@ describe("editing design.yaml", () => {
     }
     expect(message).toContain("print.margins: not a design value");
     expect(message).toContain("print.margin: missing");
-    expect(message).toContain("layout.measure: 720 is not a size with a unit");
+    expect(message).toContain("layout.headerHeight: 52 is not a size with a unit");
+  });
+
+  it("scales the chapter, never the chrome, and keeps the measure in ems of body text (C)", () => {
+    const css = designCss(loadDesign());
+    expect(declared(css, ':root[data-tb-text="small"]', "--tb-text-scale")).toBe("0.9");
+    expect(declared(css, ':root[data-tb-text="large"]', "--tb-text-scale")).toBe("1.15");
+    expect(declared(css, ':root[data-tb-width="wide"]', "--tb-measure-em")).toBe("48");
+    expect(declared(css, "article", "max-width")).toBe(
+      "calc(var(--tb-measure-em) * var(--tb-size-body) * var(--tb-text-scale))",
+    );
+    for (const sel of ["article p,\narticle li", "article h1", "article h2", "article h3", "article h4"])
+      expect(declared(css, sel, "font-size"), sel).toContain("var(--tb-text-scale)");
+    // The interface keeps its own size.
+    expect(declared(css, "body", "font-size")).toBeUndefined();
+  });
+
+  it("stops anchors below the sticky header, and makes room for the open sidebar on wide screens (A, B)", () => {
+    const css = designCss(loadDesign());
+    expect(declared(css, "article [id],\narticle [data-pnum]", "scroll-margin-top")).toBe(
+      "calc(var(--tb-header-h) + 1rem)",
+    );
+    const wide = css.slice(css.indexOf("@media (min-width: 1280px)"));
+    expect(declared(wide, ":root.tb-hypothesis-expanded body", "padding-right")).toBe(
+      "var(--tb-hypothesis-width)",
+    );
+    const wider = css.slice(css.indexOf("@media (min-width: 1440px)"));
+    expect(declared(wider, ":root.tb-hypothesis-expanded.tb-tag-helper-on body", "padding-right")).toBe(
+      "calc(var(--tb-hypothesis-width) + 14rem + 32px)",
+    );
+    expect(declared(css, ":root.tb-annotations-off .hypothesis-highlight,\n:root.tb-annotations-off .hypothesis-highlight.hypothesis-highlight-focused", "background-color")).toBe("transparent");
   });
 
   it("says where the file should be when it is missing", () => {

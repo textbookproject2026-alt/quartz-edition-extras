@@ -8,6 +8,8 @@ import {
   phoneMenuStartsClosed,
   noTracking,
   paragraphNumbers,
+  readerPrefs,
+  annotationsControl,
   tagHelper,
   targetFlash,
   trackRuntime,
@@ -111,6 +113,11 @@ describe("the tag helper", () => {
     expect(names(w)).toEqual(["annotation_sidebar_opened"]);
     const chips = [...w.document.querySelectorAll("#tb-tag-helper button.tb-tag-chip")];
     expect(chips.map((c) => c.textContent)).toEqual(["copy-edit", "discussion"]);
+    // Placed by the sidebar's own width, and the page told it's there.
+    expect(w.document.getElementById("tb-tag-helper-style")!.textContent).toContain(
+      "right: calc(var(--tb-hypothesis-width, 428px) + 16px)",
+    );
+    expect(w.document.documentElement.classList.contains("tb-tag-helper-on")).toBe(true);
 
     (chips[1] as unknown as HTMLElement).click();
     expect(w.plausibleCalls[1]).toEqual([
@@ -121,6 +128,7 @@ describe("the tag helper", () => {
     toggle.setAttribute("aria-expanded", "false");
     await tick();
     expect(w.document.getElementById("tb-tag-helper")).toBeNull();
+    expect(w.document.documentElement.classList.contains("tb-tag-helper-on")).toBe(false);
     toggle.setAttribute("aria-expanded", "true");
     await tick();
     expect(names(w).filter((n) => n === "annotation_sidebar_opened")).toHaveLength(2);
@@ -222,32 +230,8 @@ describe("paragraph numbers", () => {
     '<h1 class="article-title">T</h1><div class="tb-page-controls"><a class="edit-on-github" href="#">Edit</a></div>' +
     '<article><p data-pnum="1" id="p1">One.</p><p data-pnum="2" id="p2">Two.</p></article>';
 
-  it("adds the toggle to the controls row, pressed, and it turns the numbers off and back", () => {
+  it("adds no toggle of its own: the Appearance panel has it", () => {
     const w = page("https://book.example.org/chapters/chapter-03", body);
-    w.eval(noTracking);
-    w.eval(paragraphNumbers);
-    const b = w.document.querySelector("button.tb-pnum-toggle") as unknown as HTMLButtonElement;
-    expect(b.parentElement!.className).toBe("tb-page-controls");
-    expect(b.getAttribute("aria-pressed")).toBe("true");
-    b.click();
-    expect(w.document.documentElement.classList.contains("tb-pnum-off")).toBe(true);
-    expect(b.getAttribute("aria-pressed")).toBe("false");
-    expect(w.localStorage.getItem("tb-pnum")).toBe("off");
-    b.click();
-    expect(w.document.documentElement.classList.contains("tb-pnum-off")).toBe(false);
-    expect(w.localStorage.getItem("tb-pnum")).toBeNull();
-  });
-
-  it("a reader's 'off' is applied before the body is drawn", () => {
-    const w = page("https://book.example.org/chapters/chapter-03", body);
-    w.localStorage.setItem("tb-pnum", "off");
-    w.eval(noTracking);
-    w.eval(paragraphNumbers);
-    expect(w.document.documentElement.classList.contains("tb-pnum-off")).toBe(true);
-  });
-
-  it("a page with no numbered paragraphs gets no toggle", () => {
-    const w = page("https://book.example.org/", '<h1 class="article-title">T</h1><p>Home.</p>');
     w.eval(noTracking);
     w.eval(paragraphNumbers);
     expect(w.document.querySelector("button.tb-pnum-toggle")).toBeNull();
@@ -315,7 +299,8 @@ describe("target flash", () => {
     w.eval(targetFlash);
     const css = w.document.getElementById("tb-flash-style")!.textContent!;
     expect(css).toContain("var(--tb-mark, #FDF2B3)");
-    expect(css).toContain("scroll-margin-top: 3.75rem");
+    // The stop below the sticky header is design.ts's, in --tb-header-h.
+    expect(css).not.toContain("scroll-margin-top");
   });
 });
 
@@ -484,5 +469,152 @@ describe("the explorer follows the Contents", () => {
 
   it("can't be closed early by a slug", () => {
     expect(explorerFollowsContents(["a</script><script>alert(1)"])).not.toContain("</");
+  });
+});
+
+describe("the reader's settings (C)", () => {
+  type Prefs = { get: (n: string) => string; set: (n: string, v: string) => void };
+  const root = (w: Page) => w.document.documentElement;
+
+  it("applies every stored setting to <html> before the body is drawn", () => {
+    const w = page("https://book.example.org/x");
+    for (const [k, v] of [["theme", "dark"], ["tb-text", "large"], ["tb-width", "wide"], ["tb-pnum", "off"], ["tb-annotations", "off"]])
+      w.localStorage.setItem(k!, v!);
+    w.eval(readerPrefs);
+    expect(root(w).getAttribute("saved-theme")).toBe("dark");
+    expect(root(w).getAttribute("data-tb-text")).toBe("large");
+    expect(root(w).getAttribute("data-tb-width")).toBe("wide");
+    expect(root(w).classList.contains("tb-pnum-off")).toBe(true);
+    expect(root(w).classList.contains("tb-annotations-off")).toBe(true);
+  });
+
+  it("defaults: theme follows the system, standard text and width, numbers and annotations on", () => {
+    const w = page("https://book.example.org/x");
+    w.eval(readerPrefs);
+    const prefs = w.tbPrefs as Prefs;
+    expect(["auto", "standard", "standard", "on", "on"]).toEqual(
+      ["theme", "text", "width", "numbers", "annotations"].map((n) => prefs.get(n)),
+    );
+    expect(["light", "dark"]).toContain(root(w).getAttribute("saved-theme"));
+    expect(root(w).getAttribute("data-tb-text")).toBe("standard");
+  });
+
+  it("keeps Quartz's theme key and values, stores defaults as absence, and ignores junk", () => {
+    const w = page("https://book.example.org/x");
+    w.localStorage.setItem("tb-text", "enormous");
+    w.eval(readerPrefs);
+    const prefs = w.tbPrefs as Prefs;
+    expect(prefs.get("text")).toBe("standard");
+    let changed = "";
+    w.document.addEventListener("themechange", ((e: CustomEvent) => (changed = e.detail.theme)) as never);
+    prefs.set("theme", "dark");
+    expect(w.localStorage.getItem("theme")).toBe("dark");
+    expect(changed).toBe("dark");
+    prefs.set("theme", "auto");
+    expect(w.localStorage.getItem("theme")).toBeNull();
+    prefs.set("numbers", "off");
+    expect(w.localStorage.getItem("tb-pnum")).toBe("off");
+    prefs.set("numbers", "on");
+    expect(w.localStorage.getItem("tb-pnum")).toBeNull();
+    prefs.set("width", "huge");
+    expect(w.localStorage.getItem("tb-width")).toBeNull();
+  });
+
+  it("renders with the defaults, and still changes for this page, when storage throws", () => {
+    const w = page("https://book.example.org/x");
+    Object.defineProperty(w, "localStorage", { get: () => { throw new Error("denied") } });
+    w.eval(readerPrefs);
+    const prefs = w.tbPrefs as Prefs;
+    expect(root(w).getAttribute("data-tb-text")).toBe("standard");
+    prefs.set("text", "small");
+    expect(root(w).getAttribute("data-tb-text")).toBe("small");
+  });
+});
+
+describe("public annotations on and off (C)", () => {
+  type Annotations = { open: () => Promise<boolean>; disable: () => { reload: boolean }; on: () => boolean };
+  const loaderStub = (w: Page) =>
+    w.eval(`window.tbLoadHypothesis = function () {
+      if (window.__editionIntegrations) return
+      window.__editionIntegrations = true
+      var s = document.createElement("script"); s.setAttribute("data-edition-hypothesis", ""); document.head.appendChild(s)
+    }`);
+
+  it("Annotate with annotations off turns them on, loads the client, and opens the sidebar", async () => {
+    const w = page("https://book.example.org/x");
+    w.localStorage.setItem("tb-annotations", "off");
+    w.eval(readerPrefs);
+    w.eval(annotationsControl);
+    loaderStub(w);
+    const a = w.tbAnnotations as Annotations;
+    expect(a.on()).toBe(false);
+    const opened = a.open();
+    expect(w.localStorage.getItem("tb-annotations")).toBeNull();
+    expect(w.document.documentElement.classList.contains("tb-annotations-off")).toBe(false);
+    expect(w.document.querySelectorAll("script[data-edition-hypothesis]")).toHaveLength(1);
+    const toggle = sidebar(w, false);
+    let clicks = 0;
+    toggle.onclick = () => {
+      clicks++;
+      toggle.setAttribute("aria-expanded", "true");
+    };
+    expect(await opened).toBe(true);
+    expect(clicks).toBe(1);
+  });
+
+  it("asks again when an open doesn't hold (a mouse press closes the sidebar), and never toggles it shut", async () => {
+    const w = page("https://book.example.org/x");
+    w.eval(readerPrefs);
+    w.eval(annotationsControl);
+    loaderStub(w);
+    const toggle = sidebar(w, false);
+    let clicks = 0;
+    // The first open is undone by the page's own press; the second holds.
+    toggle.onclick = () => {
+      clicks++;
+      if (clicks === 2) toggle.setAttribute("aria-expanded", "true");
+    };
+    expect(await (w.tbAnnotations as Annotations).open()).toBe(true);
+    expect(clicks).toBe(2);
+    expect(await (w.tbAnnotations as Annotations).open()).toBe(true);
+    expect(clicks).toBe(2); // already open: not clicked again
+  });
+
+  it("turning them off mid-page hides highlights, collapses the sidebar, and says a reload finishes it", () => {
+    const w = page("https://book.example.org/x");
+    w.eval(readerPrefs);
+    w.eval(annotationsControl);
+    loaderStub(w);
+    (w.tbLoadHypothesis as () => void)();
+    const toggle = sidebar(w, true);
+    let clicks = 0;
+    toggle.onclick = () => clicks++;
+    expect((w.tbAnnotations as Annotations).disable()).toEqual({ reload: true });
+    expect(clicks).toBe(1);
+    expect(w.document.documentElement.classList.contains("tb-annotations-off")).toBe(true);
+    expect(w.localStorage.getItem("tb-annotations")).toBe("off");
+  });
+
+  it("the badge asks Hypothes.is nothing while annotations are off, and counts on the header's Annotate", async () => {
+    const off = page("https://book.example.org/x", '<button data-tb-annotate><span class="tb-anno-count"></span></button>');
+    off.localStorage.setItem("tb-annotations", "off");
+    let asked = 0;
+    (off as unknown as { fetch: unknown }).fetch = async () => (asked++, { ok: true, json: async () => ({ total: 2 }) });
+    off.eval(readerPrefs);
+    off.eval(trackRuntime);
+    off.eval(annotationBadge);
+    await (off.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
+    expect(asked).toBe(0);
+
+    const on = page("https://book.example.org/x", '<button data-tb-annotate><span class="tb-anno-count"></span></button>');
+    (on as unknown as { fetch: unknown }).fetch = async () => ({ ok: true, json: async () => ({ total: 2 }) });
+    on.eval(readerPrefs);
+    on.eval(trackRuntime);
+    on.eval(annotationBadge);
+    await (on.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
+    const b = on.document.querySelector("[data-tb-annotate]")!;
+    expect(b.querySelector(".tb-anno-count")!.textContent).toBe("2");
+    expect(b.getAttribute("aria-label")).toBe("Annotate: 2 annotations");
+    expect(on.document.querySelector("button.tb-anno-badge")).toBeNull();
   });
 });
