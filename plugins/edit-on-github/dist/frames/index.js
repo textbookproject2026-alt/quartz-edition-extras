@@ -31,13 +31,14 @@ n = v.slice, l = { __e: function(n2, l2, u2, t2) {
 
 // src/frames/BookFrame.tsx
 var isHeader = (c2) => c2.tbHeader === true;
+var isLead = (c2) => c2.tbHeaderLead === true;
 var BookFrame = {
   name: "book",
   css: `
 .page[data-frame="book"] > #quartz-body > .tb-header-slot {
   grid-area: grid-header;
   position: sticky;
-  top: var(--tb-sticky-top, 0px);
+  top: 0;
   z-index: 2;
   min-width: 0;
 }
@@ -55,11 +56,12 @@ var BookFrame = {
     const draw = (C2) => _(C2, componentData);
     const each = (list) => list.map(draw);
     const top = beforeBody.filter(isHeader);
+    const lead = top.length ? left.filter(isLead) : [];
     return _(
       k,
       null,
-      _("div", { class: "left sidebar" }, ...each(left)),
-      top.length ? _("div", { class: "tb-header-slot" }, ...each(top)) : null,
+      _("div", { class: "left sidebar" }, ...each(left.filter((c2) => !lead.includes(c2)))),
+      top.length ? _("div", { class: "tb-header-slot" }, ...each(lead), ...each(top)) : null,
       _(
         "div",
         { class: "center" },

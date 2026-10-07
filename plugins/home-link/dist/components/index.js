@@ -109,6 +109,7 @@ var HomeLink_default = ((userOpts) => {
     /* @__PURE__ */ u2(Logo, { logo: logoIcon, className: "home-link-icon" })
   ] }) });
   HomeLink.css = css;
+  HomeLink.tbHeaderLead = true;
   return HomeLink;
 });
 
