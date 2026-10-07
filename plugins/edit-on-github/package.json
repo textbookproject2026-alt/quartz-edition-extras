@@ -30,6 +30,10 @@
       "types": "./dist/components/index.d.ts",
       "import": "./dist/components/index.js"
     },
+    "./frames": {
+      "types": "./dist/frames/index.d.ts",
+      "import": "./dist/frames/index.js"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.js",
@@ -112,6 +116,11 @@
         "displayName": "Edit on GitHub",
         "defaultPosition": "beforeBody",
         "defaultPriority": 25
+      }
+    },
+    "frames": {
+      "BookFrame": {
+        "exportName": "BookFrame"
       }
     }
   },

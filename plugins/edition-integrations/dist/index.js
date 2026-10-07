@@ -7599,7 +7599,7 @@ pre, article code { background-color: var(--tb-bg-soft); }
 }
 /* Anchored headings and paragraphs stop below the sticky header. */
 article [id],
-article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
+article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + var(--tb-sticky-top, 0px) + 1rem); }
 /* The sidebar open on a wide screen: the page makes room for it, so the text and
    the paragraph pencils stay in view, and the right rail (graph, contents,
    backlinks) goes under the chapter, as on Quartz's tablet layout, so the text

@@ -41,7 +41,7 @@ afterEach(async () => {
 /** A page with the header, Quartz's search and backlinks, optional prefs/annotations stubs. */
 const page = (
   html = render(),
-  { prefs = true, explained = false, backlinks = 1, storage = true } = {},
+  { prefs = true, explained = false, backlinks = 1, storage = true, popover = false } = {},
 ) => {
   const w = new Window({ url: "https://book.example.org/chapters/chapter-03" }) as unknown as Page;
   if (!storage) Object.defineProperty(w, "localStorage", { get: () => { throw new Error("denied") } });
@@ -65,6 +65,11 @@ const page = (
         enable: function () { window.annoCalls.push("enable") },
         disable: function () { window.annoCalls.push("disable"); return { reload: true } },
       }`);
+  // happy-dom has no Popover API: a stand-in that records the top layer.
+  if (popover)
+    w.eval(`window.topLayer = []
+      HTMLElement.prototype.showPopover = function () { window.topLayer.push(this) }
+      HTMLElement.prototype.hidePopover = function () { window.topLayer.splice(window.topLayer.indexOf(this), 1) }`);
   w.eval(script);
   w.document.dispatchEvent(new w.CustomEvent("nav"));
   opened.push(w);
@@ -96,9 +101,10 @@ describe("A. the sticky header", () => {
 
   it("is sticky, keeps Quartz's overlays above it, and shows only icons on a phone", () => {
     const css = EditOnGitHub({}).css as string;
-    expect(css).toMatch(/\.tb-header \{\s*position: sticky;\s*top: 0;/);
+    expect(css).toMatch(/\.tb-header \{\s*position: sticky;\s*top: var\(--tb-sticky-top, 0px\);\s*z-index: 2;/);
     expect(css).toContain(".center > .page-header > .popover-hint { display: contents; }");
-    expect(css).toContain(".page > #quartz-body > .sidebar.right { z-index: 2; }");
+    expect(css).toContain(".page > #quartz-body > .sidebar.right { z-index: 1; }");
+    expect(css).toMatch(/\.sidebar:has\(\.search-container\.active, \.global-graph-outer\.active\),\s*html\.mobile-no-scroll [^{]*\{ z-index: 3; \}/);
     expect(css).toMatch(/@media \(max-width: 800px\) \{[^}]*\.sidebar\.right \{ position: relative; \}/);
     // Icons only when the header itself is narrow: a phone, or beside the open sidebar.
     expect(css).toContain("container: tb-header / inline-size;");
@@ -170,6 +176,21 @@ describe("C. Appearance", () => {
     expect($(w, "#tb-appearance").hidden).toBe(true);
     expect(aa.getAttribute("aria-expanded")).toBe("false");
     expect(w.document.activeElement).toBe(aa);
+  });
+
+  it("opens in the top layer where there is one, placed under its button, and leaves it on close", () => {
+    const w = page(undefined, { explained: true, popover: true });
+    const aa = $<HTMLButtonElement>(w, "[data-tb-appearance]");
+    const panel = $(w, "#tb-appearance");
+    aa.click();
+    expect(panel.getAttribute("popover")).toBe("manual");
+    expect(w.topLayer).toEqual([panel]);
+    expect(panel.style.top).toMatch(/px$/);
+    $<HTMLButtonElement>(w, "[data-tb-more]").click();
+    expect(w.topLayer).toEqual([$(w, "#tb-more-menu")]);
+    key(w, "Escape", $(w, "#tb-more-menu"));
+    expect(w.topLayer).toEqual([]);
+    expect($(w, "#tb-more-menu").hidden).toBe(true);
   });
 
   it("annotations off mid-page says a reload finishes it, and offers one", () => {
