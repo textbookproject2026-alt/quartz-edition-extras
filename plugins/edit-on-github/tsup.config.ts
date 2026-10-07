@@ -94,6 +94,8 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     "components/index": "src/components/index.ts",
+    // The "book" page frame (src/frames): the header as its own page-grid cell.
+    "frames/index": "src/frames/index.ts",
   },
   format: ["esm"],
   dts: true,

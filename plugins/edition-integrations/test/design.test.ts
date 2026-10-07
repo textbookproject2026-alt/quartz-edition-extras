@@ -234,7 +234,7 @@ describe("editing design.yaml", () => {
   it("stops anchors below the sticky header, and makes room for the open sidebar on wide screens (A, B)", () => {
     const css = designCss(loadDesign());
     expect(declared(css, "article [id],\narticle [data-pnum]", "scroll-margin-top")).toBe(
-      "calc(var(--tb-header-h) + 1rem)",
+      "calc(var(--tb-header-h) + var(--tb-sticky-top, 0px) + 1rem)",
     );
     const wide = css.slice(css.indexOf("@media (min-width: 1280px)"));
     expect(declared(wide, ":root.tb-hypothesis-expanded body", "padding-right")).toBe(
@@ -253,7 +253,8 @@ describe("editing design.yaml", () => {
     expect(parseFloat(d.layout.narrowWidth)).toBe(320 + 5 + 32 + 560 + strip - 1);
     const css = designCss(d);
     const tablet = css.slice(css.indexOf("@media (max-width: 0px)"));
-    expect(declared(tablet, "html.tb-hypothesis-on #quartz-body .center", "padding-right")).toBe(
+    // The header's own grid cell (the "book" frame) shares the rule with the centre column.
+    expect(declared(tablet, "html.tb-hypothesis-on #quartz-body > .tb-header-slot", "padding-right")).toBe(
       "var(--tb-annotation-gutter)",
     );
     expect(declared(css, ":root", "--tb-annotation-gutter")).toBe("2.5rem");

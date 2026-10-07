@@ -7599,7 +7599,7 @@ pre, article code { background-color: var(--tb-bg-soft); }
 }
 /* Anchored headings and paragraphs stop below the sticky header. */
 article [id],
-article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
+article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + var(--tb-sticky-top, 0px) + 1rem); }
 /* The sidebar open on a wide screen: the page makes room for it, so the text and
    the paragraph pencils stay in view, and the right rail (graph, contents,
    backlinks) goes under the chapter, as on Quartz's tablet layout, so the text
@@ -7736,14 +7736,16 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
 }
 
 /* Wherever Quartz's grid isn't its desktop one, nothing but the page is at the
-   right edge, where the annotation client's strip sits: the header and the text
-   keep clear of it, open or closed. (On a desktop the right rail is under it.)
+   right edge, where the annotation client's strip sits: the header (in the
+   centre column, or its own grid cell in the "book" frame) and the text keep
+   clear of it, open or closed. (On a desktop the right rail is under it.)
    The width is Quartz's own: breakpointBand (runtime.ts) reads its tablet grid
    rule and gives this rule that rule's upper bound, before the first paint. The
    strip exists only once a script has loaded the client, so until then this
    placeholder matches nothing. */
 @media (max-width: 0px) {
-  html.tb-hypothesis-on #quartz-body .center {
+  html.tb-hypothesis-on #quartz-body .center,
+  html.tb-hypothesis-on #quartz-body > .tb-header-slot {
     box-sizing: border-box;
     padding-right: var(--tb-annotation-gutter);
   }

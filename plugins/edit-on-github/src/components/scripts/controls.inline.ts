@@ -637,6 +637,55 @@ document.addEventListener("click", (e) => {
     if (t && !o.panel.contains(t) && !o.button.contains(t)) o.d.close(false);
 });
 
+/**
+ * Where the Popover API exists (every current browser), an open menu, panel or
+ * status line goes in the top layer, above everything on the page whatever its
+ * stacking (the sidebars, the footer's Backlinks), and is placed under its
+ * button in viewport coordinates: under the header's right-hand end, or across
+ * the whole header when it's narrow (icons only). Elsewhere it stays an
+ * absolutely placed child of the header, as before.
+ */
+const topLayer = (p: HTMLElement) => typeof p.showPopover === "function";
+const placed = new Set<{ button: HTMLElement; panel: HTMLElement }>();
+const place = (button: HTMLElement, panel: HTMLElement) => {
+  const hdr = button.closest<HTMLElement>(".tb-header") ?? button;
+  const h = hdr.getBoundingClientRect();
+  const b = button.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth;
+  const s = panel.style;
+  s.top = `${Math.max(h.bottom, 0) + 6}px`;
+  s.maxHeight = `${Math.max(window.innerHeight - Math.max(h.bottom, 0) - 12, 120)}px`;
+  if (hdr.classList.contains("tb-hdr-icons") || h.width <= 640) {
+    s.left = `${h.left}px`;
+    s.right = "auto";
+    s.width = `${h.width}px`;
+  } else {
+    s.left = "auto";
+    s.right = `${Math.max(vw - b.right, 0)}px`;
+    s.width = "";
+  }
+};
+const replace = () => {
+  for (const o of Array.from(placed)) place(o.button, o.panel);
+};
+window.addEventListener("resize", replace);
+window.addEventListener("scroll", replace, { passive: true });
+const show = (button: HTMLElement, panel: HTMLElement) => {
+  panel.hidden = false;
+  if (!topLayer(panel)) return;
+  panel.popover = "manual";
+  if (!panel.dataset.tbTop) panel.showPopover();
+  panel.dataset.tbTop = "1";
+  placed.add({ button, panel });
+  place(button, panel);
+};
+const hide = (panel: HTMLElement) => {
+  for (const o of Array.from(placed)) if (o.panel === panel) placed.delete(o);
+  if (panel.dataset.tbTop) panel.hidePopover();
+  delete panel.dataset.tbTop;
+  panel.hidden = true;
+};
+
 const disclosure = (
   button: HTMLButtonElement,
   panel: HTMLElement,
@@ -651,7 +700,7 @@ const disclosure = (
   const d: Disclosure = {
     open() {
       for (const o of Array.from(openNow)) if (o !== entry) o.d.close(false);
-      panel.hidden = false;
+      show(button, panel);
       button.setAttribute("aria-expanded", "true");
       openNow.add(entry);
       const first = isMenu ? items()[0] : (panel.querySelector<HTMLElement>("input:checked") ?? items()[0]);
@@ -659,7 +708,7 @@ const disclosure = (
     },
     close(focusButton = true) {
       if (panel.hidden) return;
-      panel.hidden = true;
+      hide(panel);
       button.setAttribute("aria-expanded", "false");
       openNow.delete(entry);
       if (focusButton) button.focus();
@@ -744,8 +793,12 @@ const status = (text: string) => {
   const s = document.querySelector<HTMLElement>(".tb-hdr-status");
   if (!s) return;
   s.textContent = text;
+  show(s.closest<HTMLElement>(".tb-header") ?? s, s);
   setTimeout(() => {
-    if (s.textContent === text) s.textContent = "";
+    if (s.textContent !== text) return;
+    s.textContent = "";
+    hide(s);
+    s.hidden = false;
   }, 4000);
 };
 
@@ -1056,6 +1109,7 @@ const fitHeader = (header: HTMLElement) => {
   const fit = () => {
     header.classList.remove("tb-hdr-icons");
     if (header.scrollWidth > header.clientWidth + 1) header.classList.add("tb-hdr-icons");
+    replace();
   };
   fit();
   // The window (and zoom); the header's own width (the page padded for the open
@@ -1069,6 +1123,32 @@ const fitHeader = (header: HTMLElement) => {
     if (actions) ro.observe(actions);
   }
   return fit;
+};
+
+/**
+ * On a phone, Quartz's explorer bar (the left sidebar) is itself sticky at the
+ * top of the window, above the header. The header sticks just under it rather
+ * than behind it: --tb-sticky-top is the bar's height while the bar sits over the
+ * header's column and is sticky, and 0 otherwise (a desktop sidebar beside it).
+ * An open drawer (the bar the height of the window) keeps the last value.
+ */
+const stickyTop = (header: HTMLElement) => {
+  const bar = document.querySelector<HTMLElement>(".page > #quartz-body > .sidebar.left");
+  if (!bar) return;
+  let top = 0;
+  const set = () => {
+    const b = bar.getBoundingClientRect();
+    const h = header.getBoundingClientRect();
+    const over =
+      getComputedStyle(bar).position === "sticky" && b.left < h.right && b.right > h.left;
+    if (!over) top = 0;
+    else if (b.height < window.innerHeight / 2) top = b.height;
+    document.documentElement.style.setProperty("--tb-sticky-top", `${top}px`);
+    replace();
+  };
+  set();
+  window.addEventListener("resize", set);
+  if (typeof ResizeObserver === "function") new ResizeObserver(set).observe(bar);
 };
 
 const armHeader = (header: HTMLElement) => {
@@ -1206,6 +1286,7 @@ const armHeader = (header: HTMLElement) => {
 
   // Last: the armed controls are all shown now, so the fit is measured on them.
   each(() => void fitHeader(header));
+  each(() => stickyTop(header));
 };
 
 // Wires the header once per page. "nav" fires after each full load, and after

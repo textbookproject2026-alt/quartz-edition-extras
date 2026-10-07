@@ -389,10 +389,12 @@ ${scope} .tb-menu, ${scope} .tb-panel { left: 0; right: 0; width: auto; max-widt
    so its containing block is .center, not the short .page-header. */
 .center > .page-header,
 .center > .page-header > .popover-hint { display: contents; }
+/* In the "book" frame (src/frames) the header's grid cell is what sticks; on a
+   page in another frame the header sticks by itself, inside the centre column. */
 .tb-header {
   position: sticky;
-  top: 0;
-  z-index: 1;
+  top: var(--tb-sticky-top, 0px);
+  z-index: 2;
   /* Its own width decides icons-only: a phone, or a centre column squeezed by the
      open annotation sidebar. */
   container: tb-header / inline-size;
@@ -409,14 +411,16 @@ ${scope} .tb-menu, ${scope} .tb-panel { left: 0; right: 0; width: auto; max-widt
   font-size: var(--tb-size-controls, 0.85rem);
   line-height: 1.3;
 }
-/* The sidebars hold Quartz's search overlay, the graph's full view and the phone
-   menu: they stack above the header. On a phone they are static, so they get a
-   position here to make that stack (else the open menu sits under the header and
-   a tap on its first links hits the header). */
-/* Quartz's own rules are .page > #quartz-body .sidebar.left/.right: these match
+/* Stacking: the sidebars' content (the explorer, Backlinks, the graph) goes under
+   the sticky header (z-index 2); while one of Quartz's overlays they hold is open
+   (search, the graph's full view, the phone menu) that sidebar goes above it. On a
+   phone the sidebars are static, so they get a position here to make that stack.
+   Quartz's own rules are .page > #quartz-body .sidebar.left/.right: these match
    their weight and come later. */
 .page > #quartz-body > .sidebar.left,
-.page > #quartz-body > .sidebar.right { z-index: 2; }
+.page > #quartz-body > .sidebar.right { z-index: 1; }
+.page > #quartz-body > .sidebar:has(.search-container.active, .global-graph-outer.active),
+html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
 @media (max-width: 800px) {
   .page > #quartz-body > .sidebar.left,
   .page > #quartz-body > .sidebar.right { position: relative; }
@@ -487,6 +491,16 @@ ${scope} .tb-menu, ${scope} .tb-panel { left: 0; right: 0; width: auto; max-widt
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
 }
 .tb-menu[hidden], .tb-panel[hidden] { display: none; }
+/* Open, the menus, the Appearance panel and the status line are in the browser's
+   top layer (the page script uses the Popover API where there is one): nothing on
+   the page can be drawn over them, whatever its stacking. The script places them
+   under their button, and sets these as fixed coordinates. */
+.tb-menu:popover-open,
+.tb-panel:popover-open,
+.tb-hdr-status:popover-open { position: fixed; inset: auto; margin: 0; }
+.tb-menu:popover-open, .tb-panel:popover-open { overflow: auto; color: var(--tb-ink, var(--dark)); }
+.tb-hdr-status:popover-open { border: 0; }
+.tb-header-slot > .tb-header { position: static; }
 .tb-mi {
   display: flex;
   flex-direction: column;
@@ -540,6 +554,7 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
   .tb-header { gap: 0.4rem; margin-bottom: 1rem; }
 }
 .tb-dialog {
+  box-sizing: border-box;
   width: min(34rem, calc(100vw - 2rem));
   max-height: calc(100vh - 4rem);
   padding: 1.25rem 1.4rem;
@@ -575,6 +590,8 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
 @media print { .tb-header, .tb-dialog { display: none !important; } }
 `;
   Component.afterDOMLoaded = controlsScript;
+  // The "book" frame draws this in the page grid's header row (src/frames).
+  (Component as typeof Component & { tbHeader: boolean }).tbHeader = true;
 
   return Component;
 };
