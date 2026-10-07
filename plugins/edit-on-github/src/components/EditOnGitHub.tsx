@@ -554,6 +554,7 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
   .tb-header { gap: 0.4rem; margin-bottom: 1rem; }
 }
 .tb-dialog {
+  box-sizing: border-box;
   width: min(34rem, calc(100vw - 2rem));
   max-height: calc(100vh - 4rem);
   padding: 1.25rem 1.4rem;
