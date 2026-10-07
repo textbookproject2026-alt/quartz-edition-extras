@@ -529,8 +529,21 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
 }
 .tb-header-slot > .home-link { flex: 0 0 auto; }
 @media (max-width: 800px) { .tb-header-slot { gap: 0.5rem; } }
-.tb-header-slot > .home-link .home-link-full { display: none; }
-.tb-header-slot > .home-link .home-link-icon { display: block; }
+/* The full wordmark where the row has room, the icon otherwise: the page script
+   decides, in the header's fit (tb-logo-full / tb-logo-icon). Until it has,
+   home-link's own guess by window width. */
+.tb-header-slot.tb-logo-full > .home-link .home-link-full { display: block; }
+.tb-header-slot.tb-logo-full > .home-link .home-link-icon { display: none; }
+.tb-header-slot.tb-logo-icon > .home-link .home-link-full { display: none; }
+.tb-header-slot.tb-logo-icon > .home-link .home-link-icon { display: block; }
+/* Where the explorer is a sidebar, the left column starts at the top, level with
+   the header row: no empty space where the logo was. Quartz's toolbar row there
+   holds only its hidden Search (whose overlay is fixed) and the hidden reader
+   mode, so it leaves the flow rather than taking a row and a gap. */
+@media not all and (max-width: 800px) {
+  .page[data-frame="book"] > #quartz-body > .sidebar.left { padding-top: 1rem; }
+  .page[data-frame="book"] > #quartz-body > .sidebar.left > .flex-component:has(.search) { position: absolute; }
+}
 .tb-header-slot > .tb-header {
   position: static;
   flex: 1 1 auto;
