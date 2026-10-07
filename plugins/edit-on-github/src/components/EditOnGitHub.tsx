@@ -610,6 +610,8 @@ html.mobile-no-scroll .page > #quartz-body .explorer .mobile-explorer:not(.hide-
 @container tb-header (max-width: 640px) {${iconsOnly("")}
 }
 ${iconsOnly(".tb-header.tb-hdr-icons")}
+.tb-header.tb-hdr-tight .tb-hdr-btn { padding-left: 0.2rem; padding-right: 0.2rem; }
+.tb-header.tb-hdr-tight .tb-hdr-where { min-width: 2rem; }
 @media (max-width: 800px) {
   .tb-header { gap: 0.4rem; margin-bottom: 1rem; }
 }

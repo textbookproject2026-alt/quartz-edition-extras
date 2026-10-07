@@ -1102,7 +1102,8 @@ const armHistory = (link: HTMLAnchorElement, endpoint: string, back: HTMLElement
 /**
  * Header items never clip: when the header's contents are wider than the header
  * (labels, a long title, an annotation count, a larger font), it goes to icons;
- * if the icons still don't fit, Reader mode moves into ⋯. Measured with the
+ * if the icons still don't fit, it goes tight: Reader mode moves into ⋯ and the
+ * icons' side padding narrows (each stays at least 24px wide). Measured with the
  * labels and Reader mode shown, on every change of the header's or its
  * controls' size.
  */
@@ -1112,15 +1113,18 @@ const fitHeader = (header: HTMLElement) => {
   const over = () => header.scrollWidth > header.clientWidth + 1;
   const fit = () => {
     const hasReader = !!reader && !!readerItem && header.dataset.tbHasReader === "1";
-    header.classList.remove("tb-hdr-icons");
+    header.classList.remove("tb-hdr-icons", "tb-hdr-tight");
     if (hasReader) {
       reader.hidden = false;
       readerItem.hidden = true;
     }
     if (over()) header.classList.add("tb-hdr-icons");
-    if (hasReader && over()) {
-      reader.hidden = true;
-      readerItem.hidden = false;
+    if (over()) {
+      header.classList.add("tb-hdr-tight");
+      if (hasReader) {
+        reader.hidden = true;
+        readerItem.hidden = false;
+      }
     }
     replace();
   };
