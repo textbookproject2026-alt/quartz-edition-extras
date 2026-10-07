@@ -7516,6 +7516,14 @@ var designCss = (d2) => {
 }
 :root[saved-theme="dark"] {${colours(dark)}
 }
+/* Quartz sets html { overflow-x: hidden } so nothing scrolls sideways. iOS
+   Safari then stops keeping position: sticky elements (the header) stuck: they
+   scroll away with the page. overflow-x: clip cuts off the same overflow without
+   making a scroll container, so the header stays put and the page still can't
+   scroll sideways. Browsers without clip keep Quartz's hidden. */
+@supports (overflow-x: clip) {
+  html { overflow-x: clip; }
+}
 /* Interface text (nav, explorer, search, controls, headings) in the ui face;
    the chapter's own paragraphs, lists, quotes, tables and captions in the text face. */
 body {
