@@ -262,6 +262,14 @@ describe("editing design.yaml", () => {
     expect(declared(phone, ".page > #quartz-body > *", "min-width")).toBe("0");
   });
 
+  it("clips sideways overflow at the root without breaking the sticky header (iOS Safari)", () => {
+    const css = designCss(loadDesign());
+    const supports = css.slice(css.indexOf("@supports (overflow-x: clip)"));
+    expect(declared(supports, "html", "overflow-x")).toBe("clip");
+    // Quartz's rule is in its own stylesheet, earlier in <head>: this one, later, wins.
+    expect(css.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(/html \{[^}]*overflow-x: hidden/);
+  });
+
   it("says where the file should be when it is missing", () => {
     expect(() => loadDesign("/nowhere/design.yaml")).toThrow(/missing\. It ships beside dist\//);
   });
