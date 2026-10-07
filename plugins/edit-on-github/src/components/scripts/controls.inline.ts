@@ -1109,8 +1109,8 @@ const armHistory = (link: HTMLAnchorElement, endpoint: string, back: HTMLElement
  *
  * The logo before it in the "book" frame's row is the full wordmark only where
  * the row has room for it, and it gives way first: the fit is made with the
- * icon, then the wordmark is kept only if, with it, the header still fits with
- * every label shown and the title and breadcrumb uncut.
+ * icon, then the wordmark is kept only if it changes nothing else: no overflow,
+ * the labels shown (or hidden) as they were, the title and breadcrumb uncut.
  */
 const fitHeader = (header: HTMLElement) => {
   const reader = header.querySelector<HTMLElement>("[data-tb-reader]");
@@ -1122,9 +1122,9 @@ const fitHeader = (header: HTMLElement) => {
   const labelsShown = () => !!label && getComputedStyle(label).position !== "absolute";
   const where = header.querySelector<HTMLElement>(".tb-hdr-where");
   const cut = (el: Element | null) => !!el && el.scrollWidth > el.clientWidth + 1;
-  const roomy = () =>
+  const roomy = (labels: boolean) =>
     !over() &&
-    labelsShown() &&
+    labelsShown() === labels &&
     !cut(where) &&
     !Array.from(where?.querySelectorAll(".tb-hdr-title, .tb-hdr-crumbs a") ?? []).some(cut);
   const setLogo = (full: boolean) => {
@@ -1147,9 +1147,10 @@ const fitHeader = (header: HTMLElement) => {
         readerItem.hidden = false;
       }
     }
-    if (logo && roomy()) {
+    const labels = labelsShown();
+    if (logo && roomy(labels)) {
       setLogo(true);
-      if (!roomy()) setLogo(false);
+      if (!roomy(labels)) setLogo(false);
     }
     replace();
   };
