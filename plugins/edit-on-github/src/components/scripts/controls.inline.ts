@@ -874,11 +874,14 @@ const ROUTES = {
   // A book without Hypothes.is's public layer (edition-integrations'
   // publicAnnotations: false): comments live in groups only.
   groupComment: {
-    title: "Margin comment",
+    title: "Comment in the margin",
     what: "Write in the margin with Hypothes.is, in a group such as your class's: highlight a passage and comment on it, or reply to someone else's comment.",
     who: "Only the members of the Hypothes.is group you post in, with your Hypothes.is username. Public comments are switched off on this book.",
     account: "A free Hypothes.is account, and membership of the group.",
     link: ["Create a Hypothes.is account ↗", "https://hypothes.is/signup"],
+    // Hypothes.is keeps you signed in on its own site: logging out in the
+    // sidebar alone signs the same person straight back in.
+    switchNote: "Signed in as someone else? Use Switch account first: logging out in the sidebar alone keeps you signed in.",
   },
   comment: {
     title: "Public comment",
@@ -886,9 +889,14 @@ const ROUTES = {
     who: "Anyone on the internet, with your Hypothes.is username.",
     account: "A free Hypothes.is account.",
     link: ["Create a Hypothes.is account ↗", "https://hypothes.is/signup"],
+    // Hypothes.is keeps you signed in on its own site: logging out in the
+    // sidebar alone signs the same person straight back in.
+    switchNote: "Signed in as someone else? Use Switch account first: logging out in the sidebar alone keeps you signed in.",
   },
 } as const;
 const NUMBER = ["no", "one", "two", "three"];
+/** Ends the hypothes.is session (a plain GET), so the sidebar's next Log in asks who you are. */
+const SWITCH_ACCOUNT = "https://hypothes.is/logout";
 
 /**
  * The explainer: this site's ways to contribute, who sees each and which account
@@ -902,7 +910,7 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
   } catch {
     /* shown again on another page, then: harmless */
   }
-  const route = ({ title, what, who, account, link }: { title: string; what: string; who: string; account: string; link?: readonly [string, string] }) =>
+  const route = ({ title, what, who, account, link, switchNote }: { title: string; what: string; who: string; account: string; link?: readonly [string, string]; switchNote?: string }) =>
     el(
       "section",
       { class: "tb-route" },
@@ -917,6 +925,14 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
         link ? " " : null,
         link ? el("a", { href: link[1], target: "_blank", rel: "noopener noreferrer", text: link[0] }) : null,
       ),
+      switchNote
+        ? el(
+            "p",
+            {},
+            `${switchNote} `,
+            el("a", { href: SWITCH_ACCOUNT, target: "_blank", rel: "noopener noreferrer", text: "Switch account ↗" }),
+          )
+        : null,
     );
   const actions = el("div", { class: "tb-dialog-row" });
   const header = document.querySelector<HTMLElement>(".tb-header");
@@ -1345,7 +1361,21 @@ const armHeader = (header: HTMLElement) => {
     });
   };
   each(() => {
-    if (!w.tbAnnotations) return;
+    if (!w.tbAnnotations) {
+      // A book whose margin comments wait for a class group (edition-integrations:
+      // no public layer, no restricted group yet): the item is there, greyed out.
+      // Setting the group's id loads the client, and this becomes the live item.
+      const comment = $<HTMLButtonElement>("[data-tb-comment]");
+      if (comment && (window as unknown as { tbCommentsComing?: boolean }).tbCommentsComing) {
+        const t = comment.querySelector(".tb-mi-t");
+        const sub = comment.querySelector(".tb-mi-s");
+        if (t) t.textContent = ROUTES.groupComment.title;
+        if (sub) sub.textContent = "Coming soon for classes";
+        comment.setAttribute("aria-disabled", "true");
+        comment.hidden = false;
+      }
+      return;
+    }
     const annotate = $<HTMLButtonElement>("[data-tb-annotate]");
     if (annotate) {
       // On a narrow screen the open sidebar is below the header, across the

@@ -9133,6 +9133,7 @@ var EditionIntegrations = (userOpts) => {
         );
       }
       head.push(script(opts.plausibleScriptSrc ? trackRuntime : noTracking));
+      if (mode === "off" && !opts.publicAnnotations) head.push(script("window.tbCommentsComing = true"));
       const annotations = mode !== "off";
       if (annotations && opts.tagHelper) head.push(script(tagHelper));
       if (annotations && opts.annotationBadge)

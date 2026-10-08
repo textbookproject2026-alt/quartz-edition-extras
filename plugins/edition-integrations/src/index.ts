@@ -325,6 +325,9 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       // With no analytics configured, events go nowhere, but the helpers can
       // still call tbTrack() without checking.
       head.push(script(opts.plausibleScriptSrc ? trackRuntime : noTracking));
+      // A book still waiting for its class group: Contribute shows margin
+      // comments as coming (edit-on-github), greyed out.
+      if (mode === "off" && !opts.publicAnnotations) head.push(script("window.tbCommentsComing = true"));
       // "off": no client, so nothing that drives or counts it.
       const annotations = mode !== "off";
       if (annotations && opts.tagHelper) head.push(script(tagHelper));
