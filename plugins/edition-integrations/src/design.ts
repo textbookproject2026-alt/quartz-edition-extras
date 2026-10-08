@@ -251,6 +251,9 @@ export const designCss = (d: Design): string => {
   --tb-home-link-height: ${d.homeLink.height};
   --tb-home-link-icon-height: ${d.homeLink.iconHeight};
   --tb-measure-em: ${layout.measure};
+  /* Both widths, for the Appearance panel to compare without changing the page. */
+  --tb-measure-standard-em: ${layout.measure};
+  --tb-measure-wide-em: ${layout.wideMeasure};
   --tb-rhythm: ${layout.rhythm};
   /* The width of the annotation client's collapsed tab and buttons, reserved on phones. */
   --tb-annotation-gutter: 2.5rem;
@@ -399,7 +402,10 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     --tb-size-h3: ${t.mobile.h3};
     --tb-lh-body: ${t.mobile.lineHeight};
   }
-  article p.tb-lead { font-size: var(--tb-size-body); }
+  article p.tb-lead {
+    font-size: calc(var(--tb-size-body) * var(--tb-text-scale));
+    line-height: var(--tb-lh-body) !important;
+  }
 }
 
 /* Phones: Quartz's phone layout, where the left sidebar is the header row. */
@@ -534,7 +540,7 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
   /* The page's own side padding (1rem) is the row's; only the strip needs more. */
   .page[data-frame="book"] > #quartz-body > .tb-header-slot {
     padding-left: 0;
-    padding-right: calc(var(--tb-annotation-gutter) - 1rem);
+    padding-right: var(--tb-annotation-gutter);
   }
   .page[data-frame="book"] > #quartz-body > .sidebar.right { height: auto; }
 }

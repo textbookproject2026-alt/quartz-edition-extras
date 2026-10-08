@@ -649,21 +649,27 @@ const topLayer = (p: HTMLElement) => typeof p.showPopover === "function";
 const placed = new Set<{ button: HTMLElement; panel: HTMLElement }>();
 const place = (button: HTMLElement, panel: HTMLElement) => {
   const hdr = button.closest<HTMLElement>(".tb-header") ?? button;
-  const h = hdr.getBoundingClientRect();
+  // The whole row (the "book" frame's, with the menu button and logo) is the span
+  // a narrow panel takes; the header's own box starts after them.
+  const row = button.closest<HTMLElement>(".tb-header-slot") ?? hdr;
+  const h = row.getBoundingClientRect();
   const b = button.getBoundingClientRect();
   const vw = document.documentElement.clientWidth;
   const s = panel.style;
+  s.boxSizing = "border-box";
   s.top = `${Math.max(h.bottom, 0) + 6}px`;
   s.maxHeight = `${Math.max(window.innerHeight - Math.max(h.bottom, 0) - 12, 120)}px`;
-  if (hdr.classList.contains("tb-hdr-icons") || h.width <= 640) {
-    s.left = `${h.left}px`;
+  const across = () => {
+    s.left = `${Math.max(h.left, 0)}px`;
     s.right = "auto";
-    s.width = `${h.width}px`;
-  } else {
-    s.left = "auto";
-    s.right = `${Math.max(vw - b.right, 0)}px`;
-    s.width = "";
-  }
+    s.width = `${Math.min(h.width, vw)}px`;
+  };
+  if (hdr.classList.contains("tb-hdr-icons") || hdr.getBoundingClientRect().width <= 640) return across();
+  s.left = "auto";
+  s.right = `${Math.max(vw - b.right, 0)}px`;
+  s.width = "";
+  // Right-aligned under its button, unless that runs it past the row's left end.
+  if (panel.getBoundingClientRect().left < h.left) across();
 };
 const replace = () => {
   for (const o of Array.from(placed)) place(o.button, o.panel);
@@ -1028,19 +1034,25 @@ const appearance = (panel: HTMLElement, prefs: Prefs, annotations: Annotations |
  * in turn and reading the article's width (synchronously, so neither is painted).
  */
 const widthRow = (panel: HTMLElement, row: HTMLElement) => {
+  // Two empty probes beside the article, one at each width's measure: the page
+  // itself doesn't change, so nothing reflows or scrolls.
+  const probe = (em: string) =>
+    el("div", {
+      "aria-hidden": "true",
+      style: `height:0;visibility:hidden;margin:0;max-width:calc(var(${em}) * var(--tb-size-body) * var(--tb-text-scale))`,
+    });
   const fit = () => {
     const art = document.querySelector("article");
-    const root = document.documentElement;
-    if (!art || panel.hidden) return;
-    const was = root.getAttribute("data-tb-width");
-    root.setAttribute("data-tb-width", "standard");
-    const standard = art.getBoundingClientRect().width;
-    root.setAttribute("data-tb-width", "wide");
-    const wide = art.getBoundingClientRect().width;
-    if (was === null) root.removeAttribute("data-tb-width");
-    else root.setAttribute("data-tb-width", was);
+    if (!art?.parentElement || panel.hidden) return;
+    const a = probe("--tb-measure-standard-em");
+    const b = probe("--tb-measure-wide-em");
+    art.parentElement.append(a, b);
+    const standard = a.getBoundingClientRect().width;
+    const wide = b.getBoundingClientRect().width;
+    a.remove();
+    b.remove();
     // At least an em of body text wider, or it isn't a different width.
-    row.hidden = wide - standard < 16;
+    row.hidden = !(wide - standard >= 16);
   };
   new MutationObserver(fit).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
   window.addEventListener("resize", fit);
