@@ -135,11 +135,15 @@ describe("A. the sticky header", () => {
     menu.click();
     await tick();
     expect($(w, ".explorer").classList.contains("collapsed")).toBe(false);
+    // Close, in the same place: the drawer opens below the header.
     expect(menu.getAttribute("aria-expanded")).toBe("true");
-    expect(quartzMenu.tabIndex).toBe(0);
-    quartzMenu.click();
+    expect(menu.classList.contains("tb-closes")).toBe(true);
+    expect(menu.querySelector(".tb-hdr-label")!.textContent).toBe("Close menu");
+    expect(quartzMenu.tabIndex).toBe(-1);
+    menu.click();
     await tick();
     expect(menu.getAttribute("aria-expanded")).toBe("false");
+    expect(menu.querySelector(".tb-hdr-label")!.textContent).toBe("Menu");
     const reader = $<HTMLButtonElement>(w, "[data-tb-reader]");
     expect(reader.hidden).toBe(false);
     reader.click();

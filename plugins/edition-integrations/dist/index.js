@@ -7349,7 +7349,7 @@ var SCHEMA = {
     h3: HEADING,
     h4: { ...HEADING, letterSpacing: "length" },
     linkWeight: "number",
-    mobile: { h1: "length", h2: "length", h3: "length" }
+    mobile: { h1: "length", h2: "length", h3: "length", lineHeight: "number" }
   },
   layout: {
     measure: "number",
@@ -7600,6 +7600,27 @@ pre, article code { background-color: var(--tb-bg-soft); }
 /* Anchored headings and paragraphs stop below the sticky header. */
 article [id],
 article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
+/* edit-on-github's "book" frame: the header row spans the whole page at every
+   width, and the sidebars and the reading column sit below it. These are
+   Quartz's own grids with the header area widened to every column: the desktop
+   one here, the tablet and phone ones below, at Quartz's breakpoints. The
+   sidebars stick just under the header (--tb-hdr-h, which the header's script
+   measures). */
+.page[data-frame="book"] > #quartz-body {
+  grid-template-areas:
+    "grid-header grid-header grid-header"
+    "grid-sidebar-left grid-center grid-sidebar-right"
+    "grid-sidebar-left grid-footer grid-sidebar-right";
+}
+.page[data-frame="book"] > #quartz-body > .tb-header-slot {
+  padding-left: 2rem;
+  padding-right: max(2rem, var(--tb-annotation-gutter));
+}
+.page[data-frame="book"] > #quartz-body > .sidebar {
+  top: var(--tb-hdr-h, 3.3rem);
+  height: calc(100vh - var(--tb-hdr-h, 3.3rem));
+}
+.page[data-frame="book"] > #quartz-body > .sidebar.right { padding-top: 1rem; }
 /* The sidebar open on a wide screen: the page makes room for it, so the text and
    the paragraph pencils stay in view, and the right rail (graph, contents,
    backlinks) goes under the chapter, as on Quartz's tablet layout, so the text
@@ -7613,7 +7634,7 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     grid-template-columns: 320px auto;
     grid-template-rows: auto auto auto auto;
     grid-template-areas:
-      "grid-sidebar-left grid-header"
+      "grid-header grid-header"
       "grid-sidebar-left grid-center"
       "grid-sidebar-left grid-sidebar-right"
       "grid-sidebar-left grid-footer";
@@ -7635,6 +7656,7 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     --tb-size-h1: ${t2.mobile.h1};
     --tb-size-h2: ${t2.mobile.h2};
     --tb-size-h3: ${t2.mobile.h3};
+    --tb-lh-body: ${t2.mobile.lineHeight};
   }
   article p.tb-lead { font-size: var(--tb-size-body); }
 }
@@ -7755,12 +7777,78 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
    strip exists only once a script has loaded the client, so until then this
    placeholder matches nothing. */
 @media (max-width: 0px) {
-  html.tb-hypothesis-on #quartz-body .center,
-  html.tb-hypothesis-on #quartz-body > .tb-header-slot {
+  html.tb-hypothesis-on #quartz-body .center {
     box-sizing: border-box;
     padding-right: var(--tb-annotation-gutter);
   }
+  /* The "book" frame's tablet grid: the header row across both columns, edge to
+     edge over the page's side padding, clear of the strip. */
+  .page[data-frame="book"] > #quartz-body {
+    grid-template-areas:
+      "grid-header grid-header"
+      "grid-sidebar-left grid-center"
+      "grid-sidebar-left grid-sidebar-right"
+      "grid-sidebar-left grid-footer";
+  }
+  /* The page's own side padding (1rem) is the row's; only the strip needs more. */
+  .page[data-frame="book"] > #quartz-body > .tb-header-slot {
+    padding-left: 0;
+    padding-right: calc(var(--tb-annotation-gutter) - 1rem);
+  }
+  .page[data-frame="book"] > #quartz-body > .sidebar.right { height: auto; }
 }
+
+/* Where the explorer is a drawer (phones, small tablets): the reading column is
+   the page. No annotation strip: the client's tab and bucket bar stay hidden
+   (its highlights are the page's own, and stay), and no gutter is kept for
+   them. Annotate opens the sidebar below the header across the screen: its host
+   is that box, and holds the client's fixed panel (the transform), which
+   annotationSheet (runtime.ts) fits to it. The menu's drawer opens below the header too, so
+   the header stays usable: its menu and Annotate buttons become Close
+   (edit-on-github). --tb-hdr-bottom is the header's bottom edge, measured. */
+@media (max-width: ${layout.narrowWidth}) {
+  .page[data-frame="book"] > #quartz-body {
+    grid-template-areas: "grid-header" "grid-sidebar-left" "grid-center" "grid-sidebar-right" "grid-footer";
+  }
+  .page[data-frame="book"] > #quartz-body > .tb-header-slot {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .page[data-frame="book"] > #quartz-body > .sidebar.right { height: auto; }
+  html.tb-hypothesis-on #quartz-body .center,
+  html.tb-hypothesis-on #quartz-body .left.sidebar { padding-right: 0; }
+  hypothesis-sidebar { display: none; }
+  :root.tb-hypothesis-expanded hypothesis-sidebar {
+    display: block;
+    position: fixed;
+    top: var(--tb-hdr-bottom, 0px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Makes it the box the client's fixed panel is placed and sized in. */
+    transform: translateZ(0);
+    z-index: 3;
+  }
+  #tb-tag-helper { display: none !important; }
+  #quartz-body .explorer .explorer-content {
+    top: var(--tb-hdr-bottom, 0px);
+    height: calc(100dvh - var(--tb-hdr-bottom, 0px));
+    max-height: none;
+    padding-top: 1rem;
+    padding-right: 1rem;
+  }
+  /* Paragraph numbers inline, before the paragraph's first word: no margin to
+     hang them in, and they never clip, at any number of digits. */
+  article [data-pnum]::before {
+    position: static;
+    display: inline-block;
+    width: auto;
+    margin-right: 0.5em;
+    font-size: 0.7rem;
+    vertical-align: 0.15em;
+  }
+}
+
 
 /* Print: the chapter alone, at full width, with no annotation layer, always light. */
 @media print {
@@ -8048,6 +8136,10 @@ var annotationsControl = `
         if (t && t.getAttribute("aria-expanded") === "true") t.click()
         return { reload: loaded() }
       },
+      close: function () {
+        var t = toggle()
+        if (t && t.getAttribute("aria-expanded") === "true") t.click()
+      },
       open: function () {
         window.tbAnnotations.enable()
         return new Promise(function (resolve) {
@@ -8071,6 +8163,30 @@ var annotationsControl = `
       },
     }
   } catch (e) { /* Annotate stays hidden */ }
+})()
+`;
+var annotationSheet = (narrowWidth) => `
+;(function () {
+  try {
+    var CSS = "@media (max-width: " + ${JSON.stringify(narrowWidth)} + ") {" +
+      " .sidebar-container:not(.sidebar-collapsed) { left: 0 !important; width: 100% !important; margin-left: 0 !important; box-shadow: none !important; }" +
+      " .sidebar-container > :not(iframe) { display: none !important; } }"
+    var tries = 0
+    var add = function () {
+      var host = document.querySelector("hypothesis-sidebar")
+      var root = host && host.shadowRoot
+      if (!root) return ++tries < 120 && setTimeout(add, 250)
+      if (root.querySelector("style[data-tb-annotation-sheet]")) return
+      var s = document.createElement("style")
+      s.setAttribute("data-tb-annotation-sheet", "")
+      s.textContent = CSS
+      root.appendChild(s)
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", add)
+    else add()
+    // A client loaded later (Annotate with annotations off) says so when it opens.
+    document.addEventListener("tb-hypothesis-layout", function () { tries = 0; add() })
+  } catch (e) { /* the client keeps its own layout */ }
 })()
 `;
 var tagHelper = `
@@ -8533,7 +8649,6 @@ var paragraphNumbers = `
       "." + OFF + " [data-pnum]:target { background: none; box-shadow: none; }",
       // Other pages' paragraphs shown in a popover keep their own numbers to themselves.
       ".popover [data-pnum]::before { content: none; }",
-      "@media (max-width: 800px) { [data-pnum]::before { left: -1.9rem; width: 1.6rem; font-size: 0.65rem; } }",
       ".tb-pnum-flash { position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%); z-index: 9999;",
       "  padding: 0.4rem 0.9rem; border-radius: 999px; background: var(--tb-ink, #2B2B2B); color: var(--tb-bg, #FFFFFF);",
       "  font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; }",
@@ -8829,6 +8944,7 @@ var EditionIntegrations = (userOpts) => {
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       head.push(script(annotationsControl));
+      head.push(script(annotationSheet(design.layout.narrowWidth)));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
       return { additionalHead: head };
     }

@@ -186,6 +186,10 @@ export const annotationsControl = `
         if (t && t.getAttribute("aria-expanded") === "true") t.click()
         return { reload: loaded() }
       },
+      close: function () {
+        var t = toggle()
+        if (t && t.getAttribute("aria-expanded") === "true") t.click()
+      },
       open: function () {
         window.tbAnnotations.enable()
         return new Promise(function (resolve) {
@@ -209,6 +213,39 @@ export const annotationsControl = `
       },
     }
   } catch (e) { /* Annotate stays hidden */ }
+})()
+`;
+
+/**
+ * The annotation sidebar on a narrow screen (where the explorer is a drawer):
+ * one small style inside the client's open shadow root, under that width only.
+ * The open panel fills its host, which design.ts makes the box below the header
+ * (the client sets the panel's margin inline, hence !important), and the tab
+ * and bucket bar beside it go: the header's Annotate is its Close there. On a
+ * wider screen nothing in the client changes.
+ */
+export const annotationSheet = (narrowWidth: string) => `
+;(function () {
+  try {
+    var CSS = "@media (max-width: " + ${JSON.stringify(narrowWidth)} + ") {" +
+      " .sidebar-container:not(.sidebar-collapsed) { left: 0 !important; width: 100% !important; margin-left: 0 !important; box-shadow: none !important; }" +
+      " .sidebar-container > :not(iframe) { display: none !important; } }"
+    var tries = 0
+    var add = function () {
+      var host = document.querySelector("hypothesis-sidebar")
+      var root = host && host.shadowRoot
+      if (!root) return ++tries < 120 && setTimeout(add, 250)
+      if (root.querySelector("style[data-tb-annotation-sheet]")) return
+      var s = document.createElement("style")
+      s.setAttribute("data-tb-annotation-sheet", "")
+      s.textContent = CSS
+      root.appendChild(s)
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", add)
+    else add()
+    // A client loaded later (Annotate with annotations off) says so when it opens.
+    document.addEventListener("tb-hypothesis-layout", function () { tries = 0; add() })
+  } catch (e) { /* the client keeps its own layout */ }
 })()
 `;
 
@@ -719,6 +756,9 @@ export const phoneMenuStartsClosed = (narrowWidth: string) => `
  * paints and changed in the header's Appearance panel.
  *
  * Clicking a number puts the paragraph's link in the address bar and copies it.
+ * Where the explorer is a drawer they sit inline instead (design.ts): that rule
+ * is static CSS, which breakpointBand moves to the narrow width; this style is
+ * added after it has run.
  */
 export const paragraphNumbers = `
 ;(function () {
@@ -742,7 +782,6 @@ export const paragraphNumbers = `
       "." + OFF + " [data-pnum]:target { background: none; box-shadow: none; }",
       // Other pages' paragraphs shown in a popover keep their own numbers to themselves.
       ".popover [data-pnum]::before { content: none; }",
-      "@media (max-width: 800px) { [data-pnum]::before { left: -1.9rem; width: 1.6rem; font-size: 0.65rem; } }",
       ".tb-pnum-flash { position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%); z-index: 9999;",
       "  padding: 0.4rem 0.9rem; border-radius: 999px; background: var(--tb-ink, #2B2B2B); color: var(--tb-bg, #FFFFFF);",
       "  font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; }",

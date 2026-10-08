@@ -117,13 +117,15 @@ const SVG = (d: string) =>
     { viewBox: "0 0 16 16", width: 16, height: 16, "aria-hidden": "true", focusable: "false" },
     h("path", { d, fill: "currentColor" }),
   );
-// Octicons (MIT): search, pencil, comment, three-bars, book.
+// Octicons (MIT): search, pencil, comment, three-bars, book, x.
 const SEARCH =
   "M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z";
 const PENCIL =
   "M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Zm-2.677 2.323L3.64 10.92a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.25.25 0 0 0 .108-.064l6.11-6.11Z";
 const MENU =
   "M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z";
+const CLOSE =
+  "M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z";
 const BOOK =
   "M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z";
 const COMMENT =
@@ -307,10 +309,11 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
         ...(hasSource && opts.sourceCommit ? { "data-source-commit": opts.sourceCommit } : {}),
         ...(blob ? { "data-source-blob": blob } : {}),
       },
-      // Quartz's explorer menu, where the explorer is a drawer (a narrow window).
+      // Quartz's explorer menu, where the explorer is a drawer (a narrow window);
+      // Close while the drawer is open. The page script moves it to the row's start.
       btn(
         { "data-tb-menu": "", "aria-expanded": "false" },
-        SVG(MENU),
+        [h("span", { class: "tb-ic-open" }, SVG(MENU)), h("span", { class: "tb-ic-close" }, SVG(CLOSE))],
         "Menu",
       ),
       h(
@@ -342,7 +345,7 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
         ),
         btn(
           { "data-tb-annotate": "" },
-          SVG(COMMENT),
+          [h("span", { class: "tb-ic-open" }, SVG(COMMENT)), h("span", { class: "tb-ic-close" }, SVG(CLOSE))],
           "Annotate",
         ),
         btn({ "data-tb-reader": "", "aria-pressed": "false" }, SVG(BOOK), "Reader mode"),
@@ -524,6 +527,18 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
   gap: 0.75rem;
   margin: 0 0 1.5rem;
   box-sizing: border-box;
+}
+/* The bar itself runs the full width of the window, whatever the page's side
+   padding: drawn behind the row, centred on it (the row spans the page, which is
+   centred). The root clips sideways overflow. */
+.tb-header-slot::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 50vw);
+  right: calc(50% - 50vw);
+  z-index: -1;
   border-bottom: 1px solid var(--tb-border, var(--lightgray));
   background: var(--tb-bg, var(--light));
 }
@@ -553,26 +568,27 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
   background: none;
 }
 /* The menu button only where Quartz's explorer is a drawer (Quartz's 800px, which
-   edition-integrations' breakpointBand moves to its narrow width). */
-.tb-header [data-tb-menu] { display: none; }
+   edition-integrations' breakpointBand moves to its narrow width), first in the
+   row at its left edge, as an icon: the menu's lines, or a cross while open. */
+[data-tb-menu] { display: none; flex: 0 0 auto; }
 @media (max-width: 800px) {
-  .tb-header [data-tb-menu]:not([hidden]) { display: inline-flex; }
+  [data-tb-menu]:not([hidden]) { display: inline-flex; }
 }
+[data-tb-menu] .tb-hdr-label {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+.tb-ic-open, .tb-ic-close { display: inline-flex; }
+.tb-ic-close, .tb-closes > .tb-ic-open { display: none; }
+.tb-closes > .tb-ic-close { display: inline-flex; }
 .tb-header [data-tb-reader][aria-pressed="true"] { color: var(--tb-accent, var(--secondary)); }
 /* Quartz's own reader-mode and explorer-menu buttons stay in the page, out of
-   sight, so their scripts keep working: the header's buttons press them. Open,
-   the drawer's own menu button (above the drawer, its way to close) shows at the
-   header's menu button's place. */
+   sight, so their scripts keep working: the header's buttons press them. The
+   drawer opens below the header, whose menu button closes it. */
 .page > #quartz-body > .sidebar .readermode { display: none; }
 .page > #quartz-body .explorer .mobile-explorer:not(.hide-until-loaded) {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
   clip-path: inset(50%); white-space: nowrap; border: 0;
-}
-html.mobile-no-scroll .page > #quartz-body .explorer .mobile-explorer:not(.hide-until-loaded) {
-  position: fixed;
-  left: var(--tb-menu-x, 0.5rem);
-  top: var(--tb-menu-y, 0.5rem);
-  width: auto; height: auto; margin: 0; padding: 0.45rem; overflow: visible; clip-path: none;
 }
 .tb-mi {
   display: flex;

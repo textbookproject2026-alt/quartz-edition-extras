@@ -978,7 +978,12 @@ const cite = (header: HTMLElement, trigger: HTMLElement) => {
 // --- C: the Appearance panel ------------------------------------------------------
 
 type Prefs = { get: (n: string) => string; set: (n: string, v: string) => void };
-type Annotations = { open: () => Promise<boolean>; enable: () => void; disable: () => { reload: boolean } };
+type Annotations = {
+  open: () => Promise<boolean>;
+  close?: () => void;
+  enable: () => void;
+  disable: () => { reload: boolean };
+};
 
 const appearance = (panel: HTMLElement, prefs: Prefs, annotations: Annotations | undefined) => {
   const groups: [string, string, [string, string][]][] = [
@@ -1012,8 +1017,61 @@ const appearance = (panel: HTMLElement, prefs: Prefs, annotations: Annotations |
     }
     const fs = el("fieldset", {}, el("legend", { text: legend }), seg);
     if (name === "annotations") fs.append(note);
+    if (name === "width") widthRow(panel, fs);
     panel.append(fs);
   }
+};
+
+/**
+ * The Width row shows only where Wide changes the reading column: measured each
+ * time the panel opens and while it is open, by setting each width on the page
+ * in turn and reading the article's width (synchronously, so neither is painted).
+ */
+const widthRow = (panel: HTMLElement, row: HTMLElement) => {
+  const fit = () => {
+    const art = document.querySelector("article");
+    const root = document.documentElement;
+    if (!art || panel.hidden) return;
+    const was = root.getAttribute("data-tb-width");
+    root.setAttribute("data-tb-width", "standard");
+    const standard = art.getBoundingClientRect().width;
+    root.setAttribute("data-tb-width", "wide");
+    const wide = art.getBoundingClientRect().width;
+    if (was === null) root.removeAttribute("data-tb-width");
+    else root.setAttribute("data-tb-width", was);
+    // At least an em of body text wider, or it isn't a different width.
+    row.hidden = wide - standard < 16;
+  };
+  new MutationObserver(fit).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+  window.addEventListener("resize", fit);
+};
+
+/** The width at and below which the explorer is a drawer (edition-integrations' breakpointBand). */
+const narrow = () =>
+  window.matchMedia(`(max-width: ${(window as { __tbLayout?: { narrow?: string } }).__tbLayout?.narrow ?? "800px"})`)
+    .matches;
+
+/**
+ * The header row's height and bottom edge, for what opens below it on a narrow
+ * screen (the drawer, the annotation sidebar) and what sticks below it on a wide
+ * one (the sidebars): --tb-hdr-h and --tb-hdr-bottom on the root.
+ */
+const headerEdges = (row: HTMLElement) => {
+  let queued = false;
+  const set = () => {
+    queued = false;
+    const r = row.getBoundingClientRect();
+    const s = document.documentElement.style;
+    s.setProperty("--tb-hdr-h", `${Math.round(r.height)}px`);
+    s.setProperty("--tb-hdr-bottom", `${Math.max(0, Math.round(r.bottom))}px`);
+  };
+  const later = () => {
+    if (!queued) (queued = true), requestAnimationFrame(set);
+  };
+  set();
+  window.addEventListener("scroll", later, { passive: true });
+  window.addEventListener("resize", later);
+  if (typeof ResizeObserver === "function") new ResizeObserver(later).observe(row);
 };
 
 // --- wiring --------------------------------------------------------------------------
@@ -1200,34 +1258,34 @@ const armHeader = (header: HTMLElement) => {
     const explorer = document.querySelector<HTMLElement>(".explorer");
     const quartz = explorer?.querySelector<HTMLButtonElement>(".mobile-explorer");
     if (!menu || !explorer || !quartz) return;
+    // First in the "book" frame's row, at its left edge, before the logo.
+    const row = header.parentElement;
+    if (row?.classList.contains("tb-header-slot")) row.prepend(menu);
     const drawer = explorer.querySelector<HTMLElement>(".explorer-content");
     if (drawer?.id) menu.setAttribute("aria-controls", drawer.id);
-    // Closed, Quartz's button is out of the tab order: the header's is the one.
+    // Quartz's button is out of sight and out of the tab order: this one opens
+    // the drawer, below the header, and closes it again in the same place.
     quartz.tabIndex = -1;
+    quartz.setAttribute("aria-hidden", "true");
+    const label = menu.querySelector(".tb-hdr-label");
     const isOpen = () => !explorer.classList.contains("collapsed");
-    let was = isOpen();
     const sync = () => {
       const open = isOpen();
       menu.setAttribute("aria-expanded", String(open));
-      quartz.tabIndex = open ? 0 : -1;
-      if (was && !open && (quartz === document.activeElement || explorer.contains(document.activeElement)))
-        menu.focus();
-      was = open;
+      menu.classList.toggle("tb-closes", open);
+      if (label) label.textContent = open ? "Close menu" : "Menu";
     };
     new MutationObserver(sync).observe(explorer, { attributes: true, attributeFilter: ["class"] });
     menu.addEventListener("click", () => {
-      // Open, the drawer's own button (its way to close) shows where this one is.
-      const r = menu.getBoundingClientRect();
-      document.documentElement.style.setProperty("--tb-menu-x", `${r.left}px`);
-      document.documentElement.style.setProperty("--tb-menu-y", `${r.top}px`);
+      if (!isOpen()) w.tbAnnotations?.close?.();
       quartz.click();
-      if (isOpen()) quartz.focus();
     });
     document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape" || !isOpen() || !quartz.checkVisibility?.()) return;
+      if (e.key !== "Escape" || !isOpen() || !narrow()) return;
       quartz.click();
       menu.focus();
     });
+    sync();
     menu.hidden = false;
   });
   each(() => {
@@ -1256,9 +1314,25 @@ const armHeader = (header: HTMLElement) => {
     if (!w.tbAnnotations) return;
     const annotate = $<HTMLButtonElement>("[data-tb-annotate]");
     if (annotate) {
-      annotate.addEventListener("click", () =>
-        firstTime(annotate, howTo, "Continue: open annotations", openAnnotations),
-      );
+      // On a narrow screen the open sidebar is below the header, across the
+      // screen: Annotate is its Close, in the same place.
+      const label = annotate.querySelector(".tb-hdr-label");
+      const closes = () =>
+        narrow() && document.documentElement.classList.contains("tb-hypothesis-expanded");
+      const sync = () => {
+        const c = closes();
+        annotate.classList.toggle("tb-closes", c);
+        if (label) label.textContent = c ? "Close annotations" : "Annotate";
+      };
+      document.addEventListener("tb-hypothesis-layout", sync);
+      window.addEventListener("resize", sync);
+      annotate.addEventListener("click", () => {
+        if (closes()) return w.tbAnnotations!.close?.();
+        const explorer = document.querySelector(".explorer");
+        if (explorer && !explorer.classList.contains("collapsed") && narrow())
+          explorer.querySelector<HTMLButtonElement>(".mobile-explorer")?.click();
+        firstTime(annotate, howTo, "Continue: open annotations", openAnnotations);
+      });
       if (!annotate.querySelector(".tb-anno-count")) annotate.append(el("span", { class: "tb-anno-count" }));
       annotate.hidden = false;
     }
@@ -1357,6 +1431,10 @@ const armHeader = (header: HTMLElement) => {
 
   // Last: the armed controls are all shown now, so the fit is measured on them.
   each(() => void fitHeader(header));
+  each(() => {
+    const row = header.parentElement;
+    headerEdges(row?.classList.contains("tb-header-slot") ? row : header);
+  });
 };
 
 // Wires the header once per page. "nav" fires after each full load, and after

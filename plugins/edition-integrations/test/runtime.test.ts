@@ -721,7 +721,7 @@ describe("Quartz's phone layout from narrowWidth (A, B)", () => {
 
   it("design.ts's gutter rule is the placeholder the script finds", () => {
     const css = designCss(loadDesign());
-    expect(css).toMatch(/@media \(max-width: 0px\) \{\s*html\.tb-hypothesis-on #quartz-body \.center,/);
+    expect(css).toMatch(/@media \(max-width: 0px\) \{\s*html\.tb-hypothesis-on #quartz-body \.center \{/);
     expect(css).not.toContain("1199px");
   });
 });
