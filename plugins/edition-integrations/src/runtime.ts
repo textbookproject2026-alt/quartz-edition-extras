@@ -1120,8 +1120,9 @@ export const targetFlash = `
  * Turn comments off; then never again on this site (localStorage "tb-privacy-ok").
  * Turn comments off is Aa › Public annotations off (window.tbAnnotations.disable).
  * Storage blocked: the notice shows, and its buttons still close it for this page.
- * `privacyUrl` is the platform's Privacy page. It stacks at 0: over the text, under
- * the sidebars and the header (1-3), so an open menu or drawer is never covered.
+ * `privacyUrl` is the platform's Privacy page. It stacks at 2: over the sidebars (1,
+ * which on a desktop fill the column it sits in, so 0 left its buttons unclickable),
+ * under an open drawer or overlay (3), so an open phone menu is never covered.
  */
 export const privacyNotice = (privacyUrl: string) => `
 ;(function () {
@@ -1163,7 +1164,7 @@ export const privacyNotice = (privacyUrl: string) => `
       box.append(p, row)
       var style = document.createElement("style")
       style.textContent = [
-        "#tb-privacy { position: fixed; left: 1rem; bottom: 1rem; z-index: 0; max-width: min(26rem, calc(100vw - 2rem));",
+        "#tb-privacy { position: fixed; left: 1rem; bottom: 1rem; z-index: 2; max-width: min(26rem, calc(100vw - 2rem));",
         "  box-sizing: border-box; padding: 0.75rem 0.9rem; border: 1px solid var(--lightgray); border-radius: 8px;",
         "  background: var(--light); color: var(--darkgray); box-shadow: 0 4px 16px rgba(0,0,0,0.12);",
         "  font-family: var(--bodyFont); font-size: 0.85rem; line-height: 1.45; }",
