@@ -61,6 +61,9 @@ jobs:
         env:
           REPO: ${{ steps.book.outputs.repo }}
           BRANCH: ${{ steps.book.outputs.branch }}
+          # With a Hypothes.is client, so the sidebar layout is still checked
+          # (quartz-book builder/prepare.mjs); books have no public layer.
+          TB_LAYOUT_ANNOTATIONS: public
         run: |
           git -c credential.helper= clone --quiet --branch "$BRANCH" "https://github.com/$REPO.git" "$RUNNER_TEMP/book"
           ./build-book.sh "$RUNNER_TEMP/book" --branch "$BRANCH" --out "$RUNNER_TEMP/site"
