@@ -343,7 +343,7 @@ describe("E. the explainer", () => {
     for (const route of ["Edit this page", "Note to the authors", "Public comment"]) expect(text).toContain(route);
     expect(text).toContain("Who sees it");
     const hrefs = Array.from(d.querySelectorAll("a")).map((a) => a.getAttribute("href"));
-    expect(hrefs).toEqual(["https://github.com/signup", "https://hypothes.is/signup", "../how-to-comment"]);
+    expect(hrefs).toEqual(["https://github.com/signup", "https://hypothes.is/signup", "https://hypothes.is/logout", "../how-to-comment"]);
     // Continue carries on to the menu.
     const go = Array.from(d.querySelectorAll("button")).find((b) => b.textContent === "Continue to Contribute")!;
     go.click();
@@ -381,12 +381,33 @@ describe("E. the explainer", () => {
     groups.eval("window.tbAnnotations.groupsOnly = true");
     groups.document.dispatchEvent(new groups.CustomEvent("nav"));
     const g = routes(groups);
-    expect(g.titles).toEqual(["Edit this page", "Note to the authors", "Margin comment"]);
+    expect(g.titles).toEqual(["Edit this page", "Note to the authors", "Comment in the margin"]);
     expect(g.text).toContain("Public comments are switched off on this book.");
+    const sw = [...groups.document.querySelectorAll("dialog.tb-dialog a")].find((a) => a.textContent === "Switch account ↗");
+    expect(sw?.getAttribute("href")).toBe("https://hypothes.is/logout");
     expect(g.text).not.toContain("Anyone on the internet");
     const none = page(undefined, { explained: true, prefs: false });
     expect(routes(none).titles).toEqual(["Edit this page", "Note to the authors"]);
     expect(items(none, "#tb-contribute-menu").map((i) => i.querySelector(".tb-mi-t")!.textContent)).not.toContain("Public comment");
+  });
+
+  it("a book waiting for its class group: Comment in the margin is in Contribute, greyed out, and does nothing", () => {
+    const w = new Window({ url: "https://book.example.org/chapters/chapter-03" }) as unknown as Page;
+    w.localStorage.setItem("tb-contribute-explained", "1");
+    w.document.write(`<html><head></head><body>${render()}<article><p data-pnum="1">One.</p></article></body></html>`);
+    w.calls = [];
+    w.eval("window.tbTrack = function () {}; window.tbCommentsComing = true");
+    w.eval(script);
+    w.document.dispatchEvent(new w.CustomEvent("nav"));
+    opened.push(w);
+    const comment = $<HTMLButtonElement>(w, "[data-tb-comment]");
+    expect(comment.hidden).toBe(false);
+    expect(comment.getAttribute("aria-disabled")).toBe("true");
+    expect(comment.querySelector(".tb-mi-t")!.textContent).toBe("Comment in the margin");
+    expect(comment.querySelector(".tb-mi-s")!.textContent).toBe("Coming soon for classes");
+    // Without the flag (an edition-integrations-less page), nothing is offered.
+    const bare = page(undefined, { explained: true, prefs: false });
+    expect($<HTMLButtonElement>(bare, "[data-tb-comment]").hidden).toBe(true);
   });
 
   it("says what this site has: a book's three routes, an edition's two, and the note's real masking", () => {

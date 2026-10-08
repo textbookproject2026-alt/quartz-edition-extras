@@ -115,6 +115,13 @@ describe("Hypothes.is without the public layer (books)", () => {
     }
   });
 
+  it("waiting for the group: Contribute is told margin comments are coming; never on a book with the group or an edition", () => {
+    const flag = (opts: Record<string, unknown>) => inlineScripts(headOf(opts)).includes("window.tbCommentsComing = true");
+    expect(flag({ publicAnnotations: false })).toBe(true);
+    expect(flag({ publicAnnotations: false, hypothesisGroupId: "anchor1" })).toBe(false);
+    expect(flag({})).toBe(false);
+  });
+
   it("an edition's group id alone changes nothing: the public layer stays", () => {
     expect(configOf({ hypothesisGroupId: "abc123" })).not.toContain("groupsAllowlist");
   });
