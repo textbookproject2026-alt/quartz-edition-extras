@@ -7821,21 +7821,6 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     padding-right: 0;
   }
   .page[data-frame="book"] > #quartz-body > .sidebar.right { height: auto; }
-  html.tb-hypothesis-on #quartz-body .center,
-  html.tb-hypothesis-on #quartz-body .left.sidebar { padding-right: 0; }
-  hypothesis-sidebar { display: none; }
-  :root.tb-hypothesis-expanded hypothesis-sidebar {
-    display: block;
-    position: fixed;
-    top: var(--tb-hdr-bottom, 0px);
-    left: 0;
-    right: 0;
-    bottom: 0;
-    /* Makes it the box the client's fixed panel is placed and sized in. */
-    transform: translateZ(0);
-    z-index: 3;
-  }
-  #tb-tag-helper { display: none !important; }
   #quartz-body .explorer .explorer-content {
     top: var(--tb-hdr-bottom, 0px);
     height: calc(100dvh - var(--tb-hdr-bottom, 0px));
@@ -7854,6 +7839,34 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     vertical-align: 0.15em;
   }
 }
+/* The annotation sheet, at the same width. Its own block, first rule
+   "hypothesis-sidebar": annotationRoom (runtime.ts) moves the drawer's rules
+   above without it on a wider screen, and with it where the column won't fit. */
+@media (max-width: ${layout.narrowWidth}) {
+  hypothesis-sidebar { display: none; }
+  :root.tb-hypothesis-expanded hypothesis-sidebar {
+    display: block;
+    position: fixed;
+    top: var(--tb-hdr-bottom, 0px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Makes it the box the client's fixed panel is placed and sized in. */
+    transform: translateZ(0);
+    z-index: 3;
+  }
+  html.tb-hypothesis-on #quartz-body .center,
+  html.tb-hypothesis-on #quartz-body .left.sidebar { padding-right: 0; }
+  #tb-tag-helper { display: none !important; }
+}
+/* The drawer kept on a wider screen while the sidebar is open (annotationRoom):
+   the page takes what the sidebar leaves, with room for the pencils. */
+:root.tb-anno-drawer body {
+  box-sizing: border-box;
+  padding-right: var(--tb-hypothesis-width);
+}
+:root.tb-anno-drawer #quartz-body .center { padding-right: 2.5rem; }
+:root.tb-anno-drawer #tb-tag-helper { display: none !important; }
 
 
 /* Print: the chapter alone, at full width, with no annotation layer, always light. */
@@ -8174,25 +8187,91 @@ var annotationsControl = `
 var annotationSheet = (narrowWidth) => `
 ;(function () {
   try {
-    var CSS = "@media (max-width: " + ${JSON.stringify(narrowWidth)} + ") {" +
-      " .sidebar-container:not(.sidebar-collapsed) { left: 0 !important; width: 100% !important; margin-left: 0 !important; box-shadow: none !important; }" +
-      " .sidebar-container > :not(iframe) { display: none !important; } }"
+    // annotationRoom can use the sheet on a wider screen too (tb-anno-sheet).
+    var css = function () {
+      var w = document.documentElement.classList.contains("tb-anno-sheet") ? "9999px" : ${JSON.stringify(narrowWidth)}
+      return "@media (max-width: " + w + ") {" +
+        " .sidebar-container:not(.sidebar-collapsed) { left: 0 !important; width: 100% !important; margin-left: 0 !important; box-shadow: none !important; }" +
+        " .sidebar-container > :not(iframe) { display: none !important; } }"
+    }
     var tries = 0
     var add = function () {
       var host = document.querySelector("hypothesis-sidebar")
       var root = host && host.shadowRoot
       if (!root) return ++tries < 120 && setTimeout(add, 250)
-      if (root.querySelector("style[data-tb-annotation-sheet]")) return
-      var s = document.createElement("style")
-      s.setAttribute("data-tb-annotation-sheet", "")
-      s.textContent = CSS
-      root.appendChild(s)
+      var s = root.querySelector("style[data-tb-annotation-sheet]")
+      if (!s) {
+        s = document.createElement("style")
+        s.setAttribute("data-tb-annotation-sheet", "")
+        root.appendChild(s)
+      }
+      s.textContent = css()
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", add)
     else add()
     // A client loaded later (Annotate with annotations off) says so when it opens.
     document.addEventListener("tb-hypothesis-layout", function () { tries = 0; add() })
+    document.addEventListener("tb-layout-band", function () { tries = 0; add() })
   } catch (e) { /* the client keeps its own layout */ }
+})()
+`;
+var annotationRoom = (narrowWidth) => `
+;(function () {
+  try {
+    var L = window.__tbLayout
+    if (!L || !L.band) return
+    var WIDE = 1280, MIN_TEXT = 560, PENCIL = 40
+    var root = document.documentElement
+    var level = 0, natural = 0, open = false, reopen = false, queued = false
+    var narrowMq = window.matchMedia("(max-width: ${narrowWidth})")
+    var article = function () { return document.querySelector(".center article") }
+    // The text and the pencils in its right margin (2.5rem) end left of the sidebar.
+    var clear = function () {
+      var a = article()
+      return !a || a.getBoundingClientRect().right + PENCIL <= window.innerWidth - natural
+    }
+    var explorer = function () { return document.querySelector(".explorer") }
+    var commit = function (n) {
+      L.band(n)
+      var ex = explorer()
+      if (n && level === 0 && ex && !ex.classList.contains("collapsed")) {
+        reopen = true
+        ex.classList.add("collapsed")
+        ex.setAttribute("aria-expanded", "false")
+        root.classList.remove("mobile-no-scroll")
+      } else if (!n && level && reopen && ex) {
+        reopen = false
+        ex.classList.remove("collapsed")
+        ex.setAttribute("aria-expanded", "true")
+      }
+      level = n
+    }
+    var fit = function () {
+      queued = false
+      var want = 0
+      if (open && window.innerWidth < WIDE && !narrowMq.matches) {
+        L.band(0) // measured as the page would be without us
+        if (!clear()) {
+          L.band(1)
+          var a = article()
+          want = a && a.getBoundingClientRect().width >= MIN_TEXT && clear() ? 1 : 2
+        }
+      }
+      commit(want)
+    }
+    var later = function () { if (!queued) { queued = true; requestAnimationFrame(fit) } }
+    document.addEventListener("tb-hypothesis-layout", function () {
+      var nowOpen = root.classList.contains("tb-hypothesis-expanded")
+      var w = parseFloat(root.style.getPropertyValue("--tb-hypothesis-width")) || 0
+      // Across the screen (band 2) the client reports the screen's width, not its own.
+      var changed = nowOpen !== open || (nowOpen && level < 2 && w !== natural)
+      open = nowOpen
+      if (nowOpen && level < 2) natural = w
+      if (changed) fit()
+    })
+    window.addEventListener("resize", later)
+    document.addEventListener("nav", function () { if (level) later() })
+  } catch (e) { /* the sidebar overlays the page, as before */ }
 })()
 `;
 var tagHelper = `
@@ -8602,7 +8681,40 @@ var breakpointBand = (narrowWidth) => `
       var g = gutter.parent.cssRules[gutter.i]
       setMedia(gutter.parent, gutter.i, g, /\\(max-width:\\s*[^)]*\\)/, "(max-width: " + desktop + ")")
     }
-    window.__tbLayout = { narrow: TO, desktop: desktop }
+    var AT = new RegExp("((?:max|min)-width:\\\\s*)" + TO.replace(".", "\\\\."), "g")
+    var held = []
+    var collect = function (parent, rules) {
+      for (var i = 0; i < rules.length; i++) {
+        var r = rules[i]
+        if (r.media && AT.test(r.media.mediaText)) {
+          var first = r.cssRules && r.cssRules[0] && String(r.cssRules[0].selectorText)
+          held.push({ parent: parent, i: i, sheet: first === "hypothesis-sidebar" })
+        }
+        AT.lastIndex = 0
+        if (r.cssRules) collect(r, r.cssRules)
+      }
+    }
+    for (var t = 0; t < document.styleSheets.length; t++) {
+      var own = null
+      try { own = document.styleSheets[t].cssRules } catch (e) {}
+      if (own) collect(document.styleSheets[t], own)
+    }
+    var level = 0
+    var band = function (n) {
+      if (n === level) return
+      for (var k = 0; k < held.length; k++) {
+        var h = held[k]
+        var want = n === 2 || (n === 1 && !h.sheet) ? "9999px" : TO
+        var from = level === 2 || (level === 1 && !h.sheet) ? /((?:max|min)-width:\\s*)9999px/g : AT
+        setMedia(h.parent, h.i, h.parent.cssRules[h.i], from, "$1" + want)
+      }
+      level = n
+      window.__tbLayout.narrow = n ? "9999px" : TO
+      document.documentElement.classList.toggle("tb-anno-drawer", n === 1)
+      document.documentElement.classList.toggle("tb-anno-sheet", n === 2)
+      document.dispatchEvent(new CustomEvent("tb-layout-band", { detail: n }))
+    }
+    window.__tbLayout = { narrow: TO, desktop: desktop, band: band }
   } catch (e) { /* Quartz's own breakpoints stay */ }
 })()
 `;
@@ -8951,6 +9063,7 @@ var EditionIntegrations = (userOpts) => {
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       head.push(script(annotationsControl));
       head.push(script(annotationSheet(design.layout.narrowWidth)));
+      head.push(script(annotationRoom(design.layout.narrowWidth)));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
       return { additionalHead: head };
     }

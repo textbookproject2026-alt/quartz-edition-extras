@@ -54,6 +54,7 @@ import {
   analyticsLoader,
   annotationBadge,
   annotationsControl,
+  annotationRoom,
   annotationSheet,
   breakpointBand,
   explorerFollowsContents,
@@ -291,6 +292,7 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       head.push(script(annotationsControl));
       head.push(script(annotationSheet(design.layout.narrowWidth)));
+      head.push(script(annotationRoom(design.layout.narrowWidth)));
       // Last, so window.hypothesisConfig above is already set when embed.js boots.
       head.push(h("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }) as VNode);
       return { additionalHead: head };

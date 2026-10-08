@@ -227,25 +227,104 @@ export const annotationsControl = `
 export const annotationSheet = (narrowWidth: string) => `
 ;(function () {
   try {
-    var CSS = "@media (max-width: " + ${JSON.stringify(narrowWidth)} + ") {" +
-      " .sidebar-container:not(.sidebar-collapsed) { left: 0 !important; width: 100% !important; margin-left: 0 !important; box-shadow: none !important; }" +
-      " .sidebar-container > :not(iframe) { display: none !important; } }"
+    // annotationRoom can use the sheet on a wider screen too (tb-anno-sheet).
+    var css = function () {
+      var w = document.documentElement.classList.contains("tb-anno-sheet") ? "9999px" : ${JSON.stringify(narrowWidth)}
+      return "@media (max-width: " + w + ") {" +
+        " .sidebar-container:not(.sidebar-collapsed) { left: 0 !important; width: 100% !important; margin-left: 0 !important; box-shadow: none !important; }" +
+        " .sidebar-container > :not(iframe) { display: none !important; } }"
+    }
     var tries = 0
     var add = function () {
       var host = document.querySelector("hypothesis-sidebar")
       var root = host && host.shadowRoot
       if (!root) return ++tries < 120 && setTimeout(add, 250)
-      if (root.querySelector("style[data-tb-annotation-sheet]")) return
-      var s = document.createElement("style")
-      s.setAttribute("data-tb-annotation-sheet", "")
-      s.textContent = CSS
-      root.appendChild(s)
+      var s = root.querySelector("style[data-tb-annotation-sheet]")
+      if (!s) {
+        s = document.createElement("style")
+        s.setAttribute("data-tb-annotation-sheet", "")
+        root.appendChild(s)
+      }
+      s.textContent = css()
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", add)
     else add()
     // A client loaded later (Annotate with annotations off) says so when it opens.
     document.addEventListener("tb-hypothesis-layout", function () { tries = 0; add() })
+    document.addEventListener("tb-layout-band", function () { tries = 0; add() })
   } catch (e) { /* the client keeps its own layout */ }
+})()
+`;
+
+/**
+ * The open annotation sidebar between the drawer width and the width where the
+ * page makes room for it (1280px, design.ts) overlays the page's right edge. If
+ * the text or its paragraph pencils would sit under it, the explorer becomes the
+ * drawer for as long as the sidebar is open (__tbLayout.band(1), breakpointBand),
+ * and the column takes the rest of the screen, clear of the sidebar (design.ts,
+ * tb-anno-drawer). If the column is then under 560px (the tag helper's floor),
+ * or still not clear, the sidebar goes across the screen below the header as on
+ * a phone (band(2)). Closing the sidebar puts everything back, the explorer's
+ * open or closed state included. Checked when the sidebar opens, closes or
+ * changes width, and on resize.
+ */
+export const annotationRoom = (narrowWidth: string) => `
+;(function () {
+  try {
+    var L = window.__tbLayout
+    if (!L || !L.band) return
+    var WIDE = 1280, MIN_TEXT = 560, PENCIL = 40
+    var root = document.documentElement
+    var level = 0, natural = 0, open = false, reopen = false, queued = false
+    var narrowMq = window.matchMedia("(max-width: ${narrowWidth})")
+    var article = function () { return document.querySelector(".center article") }
+    // The text and the pencils in its right margin (2.5rem) end left of the sidebar.
+    var clear = function () {
+      var a = article()
+      return !a || a.getBoundingClientRect().right + PENCIL <= window.innerWidth - natural
+    }
+    var explorer = function () { return document.querySelector(".explorer") }
+    var commit = function (n) {
+      L.band(n)
+      var ex = explorer()
+      if (n && level === 0 && ex && !ex.classList.contains("collapsed")) {
+        reopen = true
+        ex.classList.add("collapsed")
+        ex.setAttribute("aria-expanded", "false")
+        root.classList.remove("mobile-no-scroll")
+      } else if (!n && level && reopen && ex) {
+        reopen = false
+        ex.classList.remove("collapsed")
+        ex.setAttribute("aria-expanded", "true")
+      }
+      level = n
+    }
+    var fit = function () {
+      queued = false
+      var want = 0
+      if (open && window.innerWidth < WIDE && !narrowMq.matches) {
+        L.band(0) // measured as the page would be without us
+        if (!clear()) {
+          L.band(1)
+          var a = article()
+          want = a && a.getBoundingClientRect().width >= MIN_TEXT && clear() ? 1 : 2
+        }
+      }
+      commit(want)
+    }
+    var later = function () { if (!queued) { queued = true; requestAnimationFrame(fit) } }
+    document.addEventListener("tb-hypothesis-layout", function () {
+      var nowOpen = root.classList.contains("tb-hypothesis-expanded")
+      var w = parseFloat(root.style.getPropertyValue("--tb-hypothesis-width")) || 0
+      // Across the screen (band 2) the client reports the screen's width, not its own.
+      var changed = nowOpen !== open || (nowOpen && level < 2 && w !== natural)
+      open = nowOpen
+      if (nowOpen && level < 2) natural = w
+      if (changed) fit()
+    })
+    window.addEventListener("resize", later)
+    document.addEventListener("nav", function () { if (level) later() })
+  } catch (e) { /* the sidebar overlays the page, as before */ }
 })()
 `;
 
@@ -656,6 +735,13 @@ export const annotationBadge = `
  * gutter rule (the one for "html.tb-hypothesis-on #quartz-body .center") the
  * condition (max-width: <desktop>), so the two can't drift apart, 1200px
  * included. window.__tbLayout says what it found: { narrow, desktop }.
+ *
+ * It keeps every rule now at the narrow width, so annotationRoom can move them:
+ * __tbLayout.band(1) puts the drawer's rules (all but the annotation sheet's
+ * block, the one whose first rule is "hypothesis-sidebar") at any width,
+ * band(2) the sheet's too, band(0) puts them back. While moved, `narrow` says
+ * so (edit-on-github's narrow() reads it) and <html> has tb-anno-drawer (1) or
+ * tb-anno-sheet (2); a "tb-layout-band" event follows each move.
  */
 export const breakpointBand = (narrowWidth: string) => `
 ;(function () {
@@ -701,7 +787,40 @@ export const breakpointBand = (narrowWidth: string) => `
       var g = gutter.parent.cssRules[gutter.i]
       setMedia(gutter.parent, gutter.i, g, /\\(max-width:\\s*[^)]*\\)/, "(max-width: " + desktop + ")")
     }
-    window.__tbLayout = { narrow: TO, desktop: desktop }
+    var AT = new RegExp("((?:max|min)-width:\\\\s*)" + TO.replace(".", "\\\\."), "g")
+    var held = []
+    var collect = function (parent, rules) {
+      for (var i = 0; i < rules.length; i++) {
+        var r = rules[i]
+        if (r.media && AT.test(r.media.mediaText)) {
+          var first = r.cssRules && r.cssRules[0] && String(r.cssRules[0].selectorText)
+          held.push({ parent: parent, i: i, sheet: first === "hypothesis-sidebar" })
+        }
+        AT.lastIndex = 0
+        if (r.cssRules) collect(r, r.cssRules)
+      }
+    }
+    for (var t = 0; t < document.styleSheets.length; t++) {
+      var own = null
+      try { own = document.styleSheets[t].cssRules } catch (e) {}
+      if (own) collect(document.styleSheets[t], own)
+    }
+    var level = 0
+    var band = function (n) {
+      if (n === level) return
+      for (var k = 0; k < held.length; k++) {
+        var h = held[k]
+        var want = n === 2 || (n === 1 && !h.sheet) ? "9999px" : TO
+        var from = level === 2 || (level === 1 && !h.sheet) ? /((?:max|min)-width:\\s*)9999px/g : AT
+        setMedia(h.parent, h.i, h.parent.cssRules[h.i], from, "$1" + want)
+      }
+      level = n
+      window.__tbLayout.narrow = n ? "9999px" : TO
+      document.documentElement.classList.toggle("tb-anno-drawer", n === 1)
+      document.documentElement.classList.toggle("tb-anno-sheet", n === 2)
+      document.dispatchEvent(new CustomEvent("tb-layout-band", { detail: n }))
+    }
+    window.__tbLayout = { narrow: TO, desktop: desktop, band: band }
   } catch (e) { /* Quartz's own breakpoints stay */ }
 })()
 `;
