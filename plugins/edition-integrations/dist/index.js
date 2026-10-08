@@ -8133,7 +8133,7 @@ var readerPrefs = `
   } catch (e) { /* Quartz's defaults: light theme, standard text */ }
 })()
 `;
-var annotationsControl = `
+var annotationsControl = (groupsOnly) => `
 ;(function () {
   try {
     var toggle = function () {
@@ -8144,6 +8144,8 @@ var annotationsControl = `
     var loaded = function () { return !!document.querySelector("script[data-edition-hypothesis]") }
     var load = function () { if (typeof window.tbLoadHypothesis === "function") window.tbLoadHypothesis() }
     window.tbAnnotations = {
+      // No public layer: the controls say "margin comments" in groups, not "public".
+      groupsOnly: ${groupsOnly ? "true" : "false"},
       on: function () { return !(window.tbPrefs && window.tbPrefs.get("annotations") === "off") },
       enable: function () {
         if (window.tbPrefs) window.tbPrefs.set("annotations", "on")
@@ -8502,10 +8504,13 @@ var tagHelper = `
   } catch (e) { /* helper absent; everything else untouched */ }
 })()
 `;
-var annotationBadge = `
+var annotationBadge = (group) => `
 ;(function () {
   try {
     var API = "https://api.hypothes.is/api/search"
+    // Books without the public layer count their anchor group only: the search
+    // API without a group counts Public too.
+    var GROUP = ${JSON.stringify(group)}
     var BADGE_CLASS = "tb-anno-badge"
     var STYLE_ID = "tb-anno-badge-style"
     var CACHE_TTL = 5 * 60 * 1000
@@ -8519,7 +8524,7 @@ var annotationBadge = `
     }
     var uri = canonicalUri()
     // "v2:" is the query schema: publish.js's entries (v1) used Publish's URLs.
-    var cacheKey = "tb-anno-count:v2:" + uri
+    var cacheKey = "tb-anno-count:v2:" + (GROUP ? GROUP + ":" : "") + uri
     var cacheGet = function () {
       try {
         var raw = sessionStorage.getItem(cacheKey)
@@ -8605,7 +8610,7 @@ var annotationBadge = `
     var fetchCount = function () {
       var c = typeof AbortController === "function" ? new AbortController() : null
       var timer = setTimeout(function () { if (c) c.abort() }, FETCH_TIMEOUT)
-      return fetch(API + "?limit=0&uri=" + encodeURIComponent(uri), c ? { signal: c.signal } : {})
+      return fetch(API + "?limit=0&uri=" + encodeURIComponent(uri) + (GROUP ? "&group=" + encodeURIComponent(GROUP) : ""), c ? { signal: c.signal } : {})
         .then(function (res) {
           if (!res.ok) throw new Error("search API HTTP " + res.status)
           return res.json()
@@ -8948,7 +8953,11 @@ var privacyNotice = (privacyUrl) => `
       box.setAttribute("role", "region")
       box.setAttribute("aria-label", "Privacy")
       var p = document.createElement("p")
-      p.textContent = "No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. "
+      // No client on this book (no margin comments): nothing about Hypothes.is to say.
+      var comments = !!window.tbAnnotations
+      p.textContent = comments
+        ? "No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. "
+        : "No tracking cookies. "
       var a = document.createElement("a")
       a.href = URL_
       a.textContent = "Privacy"
@@ -8962,8 +8971,7 @@ var privacyNotice = (privacyUrl) => `
       off.type = "button"
       off.textContent = "Turn comments off"
       off.addEventListener("click", function () {
-        if (window.tbAnnotations) window.tbAnnotations.disable()
-        else try { localStorage.setItem("tb-annotations", "off") } catch (e) {}
+        window.tbAnnotations.disable()
         done()
       })
       var ok = document.createElement("button")
@@ -8971,7 +8979,8 @@ var privacyNotice = (privacyUrl) => `
       ok.className = "tb-privacy-ok"
       ok.textContent = "OK"
       ok.addEventListener("click", done)
-      row.append(off, ok)
+      if (comments) row.append(off)
+      row.append(ok)
       box.append(p, row)
       var style = document.createElement("style")
       style.textContent = [
@@ -9003,24 +9012,30 @@ var defaultOptions = {
   tagHelper: true,
   annotationBadge: true,
   paragraphNumbers: true,
+  publicAnnotations: true,
   hypothesisGroupId: "",
+  hypothesisGroups: [],
   explorerOrder: [],
   privacyUrl: ""
 };
-var HYPOTHESIS_GROUP_PLACEHOLDER = "GROUP_ID";
 var isRealGroupId = (groupId) => {
   const trimmed = groupId.trim();
   return trimmed.length > 0 && !/^__.*__$/.test(trimmed);
 };
-var hypothesisConfig = (groupId) => {
-  const group = isRealGroupId(groupId) ? groupId.trim() : HYPOTHESIS_GROUP_PLACEHOLDER;
+var annotationMode = (opts) => opts.publicAnnotations ? "public" : isRealGroupId(opts.hypothesisGroupId) ? "groups" : "off";
+var hypothesisConfig = (mode, anchor = "", groups = []) => {
+  const only = mode === "groups" ? `
+    // No public layer: the anchor group (restricted; its \`group\` is in the JSON
+    // config) and the class groups only. Highlights start off; the sidebar's eye
+    // turns them on.
+    groupsAllowlist: ${JSON.stringify([anchor.trim(), ...groups.filter(isRealGroupId).map((g2) => g2.trim())])},
+    showHighlights: 'never',` : `
+    // Public layer, as the canonical site's publish.js: highlights always shown.
+    showHighlights: 'always',`;
   return `
 window.hypothesisConfig = function () {
   return {
-    // First-party flow: sidebar collapsed, highlights always visible \u2014 same as the
-    // canonical site's publish.js.
-    openSidebar: false,
-    showHighlights: 'always',
+    openSidebar: false,${only}
     // The open sidebar's width as a CSS variable, so the page makes room for it
     // on wide screens (design.ts) instead of sitting under it.
     onLayoutChange: function (layout) {
@@ -9031,22 +9046,11 @@ window.hypothesisConfig = function () {
         document.dispatchEvent(new CustomEvent("tb-hypothesis-layout"))
       } catch (e) {}
     },
-    // R1 hook \u2014 per-edition group locking. UNUSED BY DECISION: the Publisher
-    // tier will not be bought, so this is a record of the shape the swap would
-    // have taken, not a step waiting to be taken. It needs Publisher-tier /
-    // third-party auth; the services array 404s on the standard account tier
-    // (verified, hypothesis-spike-baseline.md). Do not uncomment:
-    //
-    // services: [{
-    //   apiUrl: "https://hypothes.is/api/",
-    //   authority: "YOUR_AUTHORITY",
-    //   grantToken: "GENERATED_PER_USER",
-    //   groups: ["${group}"],
-    // }],
   }
 }
 `;
 };
+var hypothesisGroupJson = (anchor) => JSON.stringify({ group: anchor.trim() }).replace(/</g, "\\u003c");
 var plausibleInit = `
 window.plausible = window.plausible || function () { (window.plausible.q = window.plausible.q || []).push(arguments) }
 window.plausible.init = window.plausible.init || function (o) { window.plausible.o = o || {} }
@@ -9100,11 +9104,25 @@ var EditionIntegrations = (userOpts) => {
         // First of the scripts: the phone layout's width, the theme and the
         // reader's settings, all before paint.
         _("script", { dangerouslySetInnerHTML: { __html: breakpointBand(design.layout.narrowWidth) } }),
-        _("script", { dangerouslySetInnerHTML: { __html: readerPrefs } }),
-        _("script", {
-          dangerouslySetInnerHTML: { __html: hypothesisConfig(opts.hypothesisGroupId) }
-        })
+        _("script", { dangerouslySetInnerHTML: { __html: readerPrefs } })
       ];
+      const mode = annotationMode(opts);
+      if (mode === "groups")
+        head.push(
+          _("script", {
+            type: "application/json",
+            class: "js-hypothesis-config",
+            dangerouslySetInnerHTML: { __html: hypothesisGroupJson(opts.hypothesisGroupId) }
+          })
+        );
+      if (mode !== "off")
+        head.push(
+          _("script", {
+            dangerouslySetInnerHTML: {
+              __html: hypothesisConfig(mode, opts.hypothesisGroupId, opts.hypothesisGroups)
+            }
+          })
+        );
       const script = (js) => _("script", { dangerouslySetInnerHTML: { __html: js } });
       if (opts.plausibleScriptSrc && opts.siteDomain) {
         head.push(script(analyticsLoader(opts.plausibleScriptSrc, opts.siteDomain)));
@@ -9115,24 +9133,28 @@ var EditionIntegrations = (userOpts) => {
         );
       }
       head.push(script(opts.plausibleScriptSrc ? trackRuntime : noTracking));
-      if (opts.tagHelper) head.push(script(tagHelper));
-      if (opts.annotationBadge) head.push(script(annotationBadge));
+      const annotations = mode !== "off";
+      if (annotations && opts.tagHelper) head.push(script(tagHelper));
+      if (annotations && opts.annotationBadge)
+        head.push(script(annotationBadge(mode === "groups" ? opts.hypothesisGroupId.trim() : "")));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
       head.push(script(explorerKeepsPageStill));
       if (opts.explorerOrder.length) head.push(script(explorerFollowsContents(opts.explorerOrder)));
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
-      head.push(script(annotationsControl));
+      if (annotations) head.push(script(annotationsControl(mode === "groups")));
       if (opts.privacyUrl) head.push(script(privacyNotice(opts.privacyUrl)));
-      head.push(script(annotationSheet(design.layout.narrowWidth)));
-      head.push(script(annotationRoom(design.layout.narrowWidth)));
-      head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
+      if (annotations) {
+        head.push(script(annotationSheet(design.layout.narrowWidth)));
+        head.push(script(annotationRoom(design.layout.narrowWidth)));
+        head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
+      }
       return { additionalHead: head };
     }
   };
 };
 var src_default = EditionIntegrations;
 
-export { EditionIntegrations, src_default as default };
+export { EditionIntegrations, annotationMode, src_default as default, hypothesisConfig, hypothesisGroupJson };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

@@ -184,7 +184,7 @@ describe("the annotation badge", () => {
     );
     const asked = withCount(w, 3);
     w.eval(trackRuntime);
-    w.eval(annotationBadge);
+    w.eval(annotationBadge(""));
     await (w.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
     expect(asked).toEqual([
       "https://api.hypothes.is/api/search?limit=0&uri=" +
@@ -193,6 +193,22 @@ describe("the annotation badge", () => {
     const badge = w.document.querySelector("button.tb-anno-badge")!;
     expect(badge.textContent).toBe("3 annotations");
     expect(badge.previousElementSibling?.className).toBe("edit-on-github");
+  });
+
+  it("without the public layer, counts the anchor group only", async () => {
+    const w = page(
+      "https://book.example.org/chapters/chapter-03",
+      '<h1 class="article-title">T</h1><p><a class="edit-on-github" href="#">Edit</a></p>',
+    );
+    const asked = withCount(w, 0);
+    w.eval(trackRuntime);
+    w.eval(annotationBadge("anchor1"));
+    await (w.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
+    expect(asked).toEqual([
+      "https://api.hypothes.is/api/search?limit=0&uri=" +
+        encodeURIComponent("https://book.example.org/chapters/chapter-03") +
+        "&group=anchor1",
+    ]);
   });
 
   it("goes at the end of the controls row when the page has one", async () => {
@@ -204,7 +220,7 @@ describe("the annotation badge", () => {
     );
     withCount(w, 1);
     w.eval(trackRuntime);
-    w.eval(annotationBadge);
+    w.eval(annotationBadge(""));
     await (w.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
     const row = w.document.querySelector(".tb-page-controls")!;
     expect(row.lastElementChild?.className).toBe("tb-anno-badge");
@@ -215,7 +231,7 @@ describe("the annotation badge", () => {
     const w = page("https://book.example.org/index.html");
     const asked = withCount(w, 0);
     w.eval(trackRuntime);
-    w.eval(annotationBadge);
+    w.eval(annotationBadge(""));
     await (w.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
     expect(decodeURIComponent(asked[0]!.split("uri=")[1]!)).toBe("https://book.example.org/");
     expect(w.document.querySelector("button.tb-anno-badge")!.textContent).toBe(
@@ -227,7 +243,7 @@ describe("the annotation badge", () => {
     const w = page("https://book.example.org/x");
     withCount(w, 1);
     w.eval(trackRuntime);
-    w.eval(annotationBadge);
+    w.eval(annotationBadge(""));
     await (w.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
     const badge = w.document.querySelector("button.tb-anno-badge") as unknown as HTMLElement;
     expect(badge.textContent).toBe("1 annotation");
@@ -250,7 +266,7 @@ describe("the annotation badge", () => {
     const w = page("https://book.example.org/x");
     withCount(w, "fail");
     w.eval(trackRuntime);
-    w.eval(annotationBadge);
+    w.eval(annotationBadge(""));
     await (w.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
     expect(w.document.querySelector("button.tb-anno-badge")).toBeNull();
   });
@@ -605,7 +621,7 @@ describe("public annotations on and off (C)", () => {
     const w = page("https://book.example.org/x");
     w.localStorage.setItem("tb-annotations", "off");
     w.eval(readerPrefs);
-    w.eval(annotationsControl);
+    w.eval(annotationsControl(false));
     loaderStub(w);
     const a = w.tbAnnotations as Annotations;
     expect(a.on()).toBe(false);
@@ -626,7 +642,7 @@ describe("public annotations on and off (C)", () => {
   it("asks again when an open doesn't hold (a mouse press closes the sidebar), and never toggles it shut", async () => {
     const w = page("https://book.example.org/x");
     w.eval(readerPrefs);
-    w.eval(annotationsControl);
+    w.eval(annotationsControl(false));
     loaderStub(w);
     const toggle = sidebar(w, false);
     let clicks = 0;
@@ -644,7 +660,7 @@ describe("public annotations on and off (C)", () => {
   it("turning them off mid-page hides highlights, collapses the sidebar, and says a reload finishes it", () => {
     const w = page("https://book.example.org/x");
     w.eval(readerPrefs);
-    w.eval(annotationsControl);
+    w.eval(annotationsControl(false));
     loaderStub(w);
     (w.tbLoadHypothesis as () => void)();
     const toggle = sidebar(w, true);
@@ -663,7 +679,7 @@ describe("public annotations on and off (C)", () => {
     (off as unknown as { fetch: unknown }).fetch = async () => (asked++, { ok: true, json: async () => ({ total: 2 }) });
     off.eval(readerPrefs);
     off.eval(trackRuntime);
-    off.eval(annotationBadge);
+    off.eval(annotationBadge(""));
     await (off.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
     expect(asked).toBe(0);
 
@@ -671,7 +687,7 @@ describe("public annotations on and off (C)", () => {
     (on as unknown as { fetch: unknown }).fetch = async () => ({ ok: true, json: async () => ({ total: 2 }) });
     on.eval(readerPrefs);
     on.eval(trackRuntime);
-    on.eval(annotationBadge);
+    on.eval(annotationBadge(""));
     await (on.__tbAnnoBadge as { ready: Promise<unknown> }).ready;
     const b = on.document.querySelector("[data-tb-annotate]")!;
     expect(b.querySelector(".tb-anno-count")!.textContent).toBe("2");
@@ -764,12 +780,20 @@ describe("privacyNotice", () => {
 
   it("shows the notice on a first visit, with the Privacy link and both buttons", () => {
     const w = page("https://book.example.org/chapters/one");
+    w.eval("window.tbAnnotations = { disable: function () {} }");
     w.eval(privacyNotice(URL_));
     expect(box(w)?.querySelector("p")?.textContent).toBe(
       "No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. Privacy",
     );
     expect(box(w)?.querySelector("a")?.getAttribute("href")).toBe(URL_);
     expect([...box(w)!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Turn comments off", "OK"]);
+  });
+
+  it("on a book with no margin comments: no word about Hypothes.is, OK only", () => {
+    const w = page("https://book.example.org/chapters/one");
+    w.eval(privacyNotice(URL_));
+    expect(box(w)?.querySelector("p")?.textContent).toBe("No tracking cookies. Privacy");
+    expect([...box(w)!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["OK"]);
   });
 
   it("OK closes it for good on this site", () => {

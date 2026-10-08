@@ -88,8 +88,22 @@ interface Options {
    * a toggle in the controls row that each reader's browser remembers.
    */
   paragraphNumbers: boolean;
-  /** Hypothes.is group ID — inert: it would only take effect if the commented services block below were enabled, and that is unused by decision (Publisher tier not bought, R1 closed). */
+  /**
+   * true (the default, editions): Hypothes.is's public layer, as on hypothes.is.
+   * false (books): no public layer. Readers see and post only in the groups
+   * below; until hypothesisGroupId is set, the client isn't loaded at all.
+   */
+  publicAnnotations: boolean;
+  /**
+   * With publicAnnotations false: a restricted Hypothes.is group (anyone reads,
+   * members post) that every reader's client loads. It is what keeps Public out:
+   * the client's groupsAllowlist only takes effect when a listed group loaded,
+   * and a reader who isn't in any class group has no other. "" (the default):
+   * the client isn't loaded.
+   */
   hypothesisGroupId: string;
+  /** With publicAnnotations false: class groups readers may also use (members only). */
+  hypothesisGroups: string[];
   /**
    * The book's reading order, as slugs ("chapters/introduction"): the links
    * under "## Contents" in its index.md, which the builder reads. The
@@ -109,7 +123,9 @@ const defaultOptions: Options = {
   tagHelper: true,
   annotationBadge: true,
   paragraphNumbers: true,
+  publicAnnotations: true,
   hypothesisGroupId: "",
+  hypothesisGroups: [],
   explorerOrder: [],
   privacyUrl: "",
 };
@@ -120,35 +136,50 @@ const defaultOptions: Options = {
 // scale, the lead paragraph, the annotation highlight and print (src/design.ts).
 
 // --- 2. Hypothes.is -----------------------------------------------------------
-// Quartz editions match the canonical site: public, first-party annotation always
-// loads, and that is the final arrangement — per-cohort isolation was considered
-// and not adopted. Group-locking is therefore unused by decision rather than a
-// pending upgrade. The embed loads unconditionally (mirroring publish.js), and an
-// unset or placeholder group id falls through quietly, leaving public annotation
-// active. The group-id plumbing below is kept as documented dead code.
-const HYPOTHESIS_GROUP_PLACEHOLDER = "GROUP_ID";
+// Editions keep Hypothes.is's public layer (publicAnnotations, the default).
+// Books turn it off. What the real client does (hypothesis/client, checked
+// against hypothes.is on 08 Oct 2026):
+//   - groupsAllowlist alone doesn't hide Public: when none of the listed groups
+//     loaded, the client drops the filter and shows every group, Public included.
+//   - `group` makes the client fetch that group by id even for a reader who is
+//     logged out or not a member; a restricted group is world-readable, so it
+//     always loads, the allowlist then holds, and Public isn't offered, read,
+//     highlighted or postable (a direct link to a public annotation included).
+//     The client reads `group` only from the JSON config script (or a
+//     #annotations:group: fragment), never from window.hypothesisConfig: there
+//     it is ignored and Public comes back (hypothesisGroupJson).
+//   - `services` without a grant token hands login to the host page: no one
+//     could sign in. Not used.
+// So "groups" mode needs the restricted group (hypothesisGroupId); without it a
+// book loads no client ("off"), which is the only other way to keep Public out.
+type AnnotationMode = "public" | "groups" | "off";
 
-// A configured hypothesisGroupId counts as "real" only when it's non-empty and not
-// a scaffolding placeholder left unfilled by the edition build (e.g. "" or a
-// "__TOKEN__"-style token). Anything else means "no group configured".
+// A configured id counts as real only when it's non-empty and not a scaffolding
+// placeholder left unfilled by an edition build (e.g. "__TOKEN__").
 const isRealGroupId = (groupId: string): boolean => {
   const trimmed = groupId.trim();
   return trimmed.length > 0 && !/^__.*__$/.test(trimmed);
 };
 
-const hypothesisConfig = (groupId: string) => {
-  // The Publisher-tier seam below is commented out and unused by decision, so this
-  // value is only ever interpolated into a comment. A real group id is echoed as-is;
-  // anything else keeps a neutral placeholder. Public first-party annotation loads
-  // either way.
-  const group = isRealGroupId(groupId) ? groupId.trim() : HYPOTHESIS_GROUP_PLACEHOLDER;
+export const annotationMode = (opts: Pick<Options, "publicAnnotations" | "hypothesisGroupId">): AnnotationMode =>
+  opts.publicAnnotations ? "public" : isRealGroupId(opts.hypothesisGroupId) ? "groups" : "off";
+
+export const hypothesisConfig = (mode: AnnotationMode, anchor = "", groups: string[] = []) => {
+  const only =
+    mode === "groups"
+      ? `
+    // No public layer: the anchor group (restricted; its \`group\` is in the JSON
+    // config) and the class groups only. Highlights start off; the sidebar's eye
+    // turns them on.
+    groupsAllowlist: ${JSON.stringify([anchor.trim(), ...groups.filter(isRealGroupId).map((g) => g.trim())])},
+    showHighlights: 'never',`
+      : `
+    // Public layer, as the canonical site's publish.js: highlights always shown.
+    showHighlights: 'always',`;
   return `
 window.hypothesisConfig = function () {
   return {
-    // First-party flow: sidebar collapsed, highlights always visible — same as the
-    // canonical site's publish.js.
-    openSidebar: false,
-    showHighlights: 'always',
+    openSidebar: false,${only}
     // The open sidebar's width as a CSS variable, so the page makes room for it
     // on wide screens (design.ts) instead of sitting under it.
     onLayoutChange: function (layout) {
@@ -159,22 +190,14 @@ window.hypothesisConfig = function () {
         document.dispatchEvent(new CustomEvent("tb-hypothesis-layout"))
       } catch (e) {}
     },
-    // R1 hook — per-edition group locking. UNUSED BY DECISION: the Publisher
-    // tier will not be bought, so this is a record of the shape the swap would
-    // have taken, not a step waiting to be taken. It needs Publisher-tier /
-    // third-party auth; the services array 404s on the standard account tier
-    // (verified, hypothesis-spike-baseline.md). Do not uncomment:
-    //
-    // services: [{
-    //   apiUrl: "https://hypothes.is/api/",
-    //   authority: "YOUR_AUTHORITY",
-    //   grantToken: "GENERATED_PER_USER",
-    //   groups: ["${group}"],
-    // }],
   }
 }
 `;
 };
+
+/** The client's JSON config, which is where it reads `group` from. */
+export const hypothesisGroupJson = (anchor: string) =>
+  JSON.stringify({ group: anchor.trim() }).replace(/</g, "\\u003c");
 
 // --- 3. Plausible (per-site script) -------------------------------------------
 // Queue stub first so calls made before pa-*.js lands are buffered, then init with
@@ -271,10 +294,24 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
         // reader's settings, all before paint.
         h("script", { dangerouslySetInnerHTML: { __html: breakpointBand(design.layout.narrowWidth) } }) as VNode,
         h("script", { dangerouslySetInnerHTML: { __html: readerPrefs } }) as VNode,
-        h("script", {
-          dangerouslySetInnerHTML: { __html: hypothesisConfig(opts.hypothesisGroupId) },
-        }) as VNode,
       ];
+      const mode = annotationMode(opts);
+      if (mode === "groups")
+        head.push(
+          h("script", {
+            type: "application/json",
+            class: "js-hypothesis-config",
+            dangerouslySetInnerHTML: { __html: hypothesisGroupJson(opts.hypothesisGroupId) },
+          }) as VNode,
+        );
+      if (mode !== "off")
+        head.push(
+          h("script", {
+            dangerouslySetInnerHTML: {
+              __html: hypothesisConfig(mode, opts.hypothesisGroupId, opts.hypothesisGroups),
+            },
+          }) as VNode,
+        );
       const script = (js: string) =>
         h("script", { dangerouslySetInnerHTML: { __html: js } }) as VNode;
       if (opts.plausibleScriptSrc && opts.siteDomain) {
@@ -288,8 +325,11 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       // With no analytics configured, events go nowhere, but the helpers can
       // still call tbTrack() without checking.
       head.push(script(opts.plausibleScriptSrc ? trackRuntime : noTracking));
-      if (opts.tagHelper) head.push(script(tagHelper));
-      if (opts.annotationBadge) head.push(script(annotationBadge));
+      // "off": no client, so nothing that drives or counts it.
+      const annotations = mode !== "off";
+      if (annotations && opts.tagHelper) head.push(script(tagHelper));
+      if (annotations && opts.annotationBadge)
+        head.push(script(annotationBadge(mode === "groups" ? opts.hypothesisGroupId.trim() : "")));
       if (opts.paragraphNumbers) head.push(script(paragraphNumbers));
       // Always, and before the explorer's script runs: see explorerKeepsPageStill.
       head.push(script(explorerKeepsPageStill));
@@ -297,12 +337,14 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       // Always: it completes fixBlockRefLinks, which is not optional either.
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
-      head.push(script(annotationsControl));
+      if (annotations) head.push(script(annotationsControl(mode === "groups")));
       if (opts.privacyUrl) head.push(script(privacyNotice(opts.privacyUrl)));
-      head.push(script(annotationSheet(design.layout.narrowWidth)));
-      head.push(script(annotationRoom(design.layout.narrowWidth)));
-      // Last, so window.hypothesisConfig above is already set when embed.js boots.
-      head.push(h("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }) as VNode);
+      if (annotations) {
+        head.push(script(annotationSheet(design.layout.narrowWidth)));
+        head.push(script(annotationRoom(design.layout.narrowWidth)));
+        // Last, so window.hypothesisConfig above is already set when embed.js boots.
+        head.push(h("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }) as VNode);
+      }
       return { additionalHead: head };
     },
   };
