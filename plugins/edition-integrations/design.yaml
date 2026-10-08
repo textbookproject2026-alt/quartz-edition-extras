@@ -79,11 +79,13 @@ type:
 layout:
   # The reading column, in ems of body text, so it holds about the same number
   # of characters a line at every text size (the Appearance panel's Small,
-  # Standard, Large). 36em of Source Serif 4 is about 70 characters; the Wide
-  # option's 45em about 90. A column can't grow past the room Quartz's centre
-  # track has, so the Appearance panel shows Wide only where it changes the column.
-  measure: 36
-  wideMeasure: 45
+  # Standard, Large). Measured as typographers do (the column's width over the
+  # average width of a character of body text): 33em of Source Serif 4 is about
+  # 73 characters; the Wide option's 40em about 89. A column can't grow past the
+  # room Quartz's centre track has, so the Appearance panel shows Wide only where
+  # it changes the column.
+  measure: 33
+  wideMeasure: 40
   # The sticky header (edit-on-github), and how far below it a linked heading
   # or paragraph stops.
   headerHeight: 3.25rem

@@ -118,7 +118,7 @@ describe("design.yaml as shipped", () => {
       "--tb-size-controls": "0.85rem",
       "--tb-home-link-height": "32px",
       "--tb-home-link-icon-height": "28px",
-      "--tb-measure-em": "36",
+      "--tb-measure-em": "33",
       "--tb-header-h": "3.25rem",
       "--tb-text-scale": "1",
       "--tb-rhythm": "1.5rem",
@@ -221,7 +221,7 @@ describe("editing design.yaml", () => {
     const css = designCss(loadDesign());
     expect(declared(css, ':root[data-tb-text="small"]', "--tb-text-scale")).toBe("0.9");
     expect(declared(css, ':root[data-tb-text="large"]', "--tb-text-scale")).toBe("1.15");
-    expect(declared(css, ':root[data-tb-width="wide"]', "--tb-measure-em")).toBe("45");
+    expect(declared(css, ':root[data-tb-width="wide"]', "--tb-measure-em")).toBe("40");
     expect(declared(css, "article", "max-width")).toBe(
       "calc(var(--tb-measure-em) * var(--tb-size-body) * var(--tb-text-scale))",
     );
