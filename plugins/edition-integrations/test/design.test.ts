@@ -275,14 +275,14 @@ describe("editing design.yaml", () => {
     expect(css).toContain('"grid-header grid-header grid-header"');
     const tablet = css.slice(css.indexOf("@media (max-width: 0px)"));
     expect(tablet.slice(0, tablet.indexOf("\n}\n"))).toContain('"grid-header grid-header"');
-    const phone = css.slice(css.lastIndexOf("@media (max-width: 956px) {"));
+    const phone = css.slice(css.indexOf("/* Where the explorer is a drawer"));
     expect(phone).toContain('grid-template-areas: "grid-header" "grid-sidebar-left"');
   });
 
   it("on a narrow screen: no annotation strip or gutter, things open below the header, numbers inline", () => {
     const d = loadDesign();
     const css = designCss(d);
-    const phone = css.slice(css.lastIndexOf("@media (max-width: 956px) {"));
+    const phone = css.slice(css.indexOf("/* Where the explorer is a drawer"));
     expect(declared(phone, "hypothesis-sidebar", "display")).toBe("none");
     expect(declared(phone, ":root.tb-hypothesis-expanded hypothesis-sidebar", "top")).toBe("var(--tb-hdr-bottom, 0px)");
     expect(declared(phone, "#quartz-body .explorer .explorer-content", "top")).toBe("var(--tb-hdr-bottom, 0px)");
@@ -295,5 +295,13 @@ describe("editing design.yaml", () => {
 
   it("says where the file should be when it is missing", () => {
     expect(() => loadDesign("/nowhere/design.yaml")).toThrow(/missing\. It ships beside dist\//);
+  });
+});
+
+describe("the drawer while the annotation sidebar is open (annotationRoom)", () => {
+  it("keeps the annotation sheet in its own block, first rule hypothesis-sidebar, so band(1) can leave it", () => {
+    const css = designCss(loadDesign());
+    expect(css).toMatch(/@media \(max-width: 956px\) \{\s*hypothesis-sidebar \{ display: none; \}/);
+    expect(css).toMatch(/:root\.tb-anno-drawer body \{[^}]*padding-right: var\(--tb-hypothesis-width\)/);
   });
 });

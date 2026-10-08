@@ -562,21 +562,6 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     padding-right: 0;
   }
   .page[data-frame="book"] > #quartz-body > .sidebar.right { height: auto; }
-  html.tb-hypothesis-on #quartz-body .center,
-  html.tb-hypothesis-on #quartz-body .left.sidebar { padding-right: 0; }
-  hypothesis-sidebar { display: none; }
-  :root.tb-hypothesis-expanded hypothesis-sidebar {
-    display: block;
-    position: fixed;
-    top: var(--tb-hdr-bottom, 0px);
-    left: 0;
-    right: 0;
-    bottom: 0;
-    /* Makes it the box the client's fixed panel is placed and sized in. */
-    transform: translateZ(0);
-    z-index: 3;
-  }
-  #tb-tag-helper { display: none !important; }
   #quartz-body .explorer .explorer-content {
     top: var(--tb-hdr-bottom, 0px);
     height: calc(100dvh - var(--tb-hdr-bottom, 0px));
@@ -595,6 +580,34 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     vertical-align: 0.15em;
   }
 }
+/* The annotation sheet, at the same width. Its own block, first rule
+   "hypothesis-sidebar": annotationRoom (runtime.ts) moves the drawer's rules
+   above without it on a wider screen, and with it where the column won't fit. */
+@media (max-width: ${layout.narrowWidth}) {
+  hypothesis-sidebar { display: none; }
+  :root.tb-hypothesis-expanded hypothesis-sidebar {
+    display: block;
+    position: fixed;
+    top: var(--tb-hdr-bottom, 0px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Makes it the box the client's fixed panel is placed and sized in. */
+    transform: translateZ(0);
+    z-index: 3;
+  }
+  html.tb-hypothesis-on #quartz-body .center,
+  html.tb-hypothesis-on #quartz-body .left.sidebar { padding-right: 0; }
+  #tb-tag-helper { display: none !important; }
+}
+/* The drawer kept on a wider screen while the sidebar is open (annotationRoom):
+   the page takes what the sidebar leaves, with room for the pencils. */
+:root.tb-anno-drawer body {
+  box-sizing: border-box;
+  padding-right: var(--tb-hypothesis-width);
+}
+:root.tb-anno-drawer #quartz-body .center { padding-right: 2.5rem; }
+:root.tb-anno-drawer #tb-tag-helper { display: none !important; }
 
 
 /* Print: the chapter alone, at full width, with no annotation layer, always light. */

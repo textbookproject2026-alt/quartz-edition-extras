@@ -715,8 +715,39 @@ describe("Quartz's phone layout from narrowWidth (A, B)", () => {
       expect(media(ours)).toContain(`max-width: ${desktop}`);
       expect(media(quartz)).toContain("min-width: 956px");
       expect(media(quartz)).toContain(`max-width: ${desktop}`);
-      expect(w.__tbLayout).toEqual({ narrow: "956px", desktop });
+      expect(w.__tbLayout).toMatchObject({ narrow: "956px", desktop });
     }
+  });
+
+  it("band(1) moves the drawer's rules but not the annotation sheet's; band(2) both; band(0) back", () => {
+    const w = page("https://book.example.org/x");
+    const style = w.document.createElement("style");
+    style.textContent = [
+      "@media all and (max-width: 800px) { .explorer { order: -1; } }",
+      "@media all and (min-width: 800px) and (max-width: 1200px) { .grid { gap: 5px; } }",
+      "@media (max-width: 956px) { hypothesis-sidebar { display: none; } }",
+    ].join("\n");
+    w.document.head.appendChild(style);
+    w.eval(breakpointBand("956px"));
+    const rules = () => Array.from((style.sheet as unknown as CSSStyleSheet).cssRules).map((r) => (r as CSSMediaRule).media.mediaText);
+    const L = w.__tbLayout as { band: (n: number) => void; narrow: string };
+    L.band(1);
+    expect(rules()[0]).toContain("max-width: 9999px");
+    expect(rules()[1]).toContain("min-width: 9999px");
+    expect(rules()[2]).toContain("max-width: 956px");
+    expect(L.narrow).toBe("9999px");
+    expect(w.document.documentElement.classList.contains("tb-anno-drawer")).toBe(true);
+    L.band(2);
+    expect(rules()[2]).toContain("max-width: 9999px");
+    expect(w.document.documentElement.classList.contains("tb-anno-sheet")).toBe(true);
+    L.band(0);
+    expect(rules()).toEqual([
+      expect.stringContaining("max-width: 956px"),
+      expect.stringContaining("min-width: 956px"),
+      expect.stringContaining("max-width: 956px"),
+    ]);
+    expect(L.narrow).toBe("956px");
+    expect(w.document.documentElement.className).not.toMatch(/tb-anno/);
   });
 
   it("design.ts's gutter rule is the placeholder the script finds", () => {
