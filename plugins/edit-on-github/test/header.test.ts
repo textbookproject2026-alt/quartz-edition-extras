@@ -392,9 +392,37 @@ describe("E. the explainer", () => {
     const one = page(render({ repo: "o/r" }), { explained: true, prefs: false });
     $<HTMLButtonElement>(one, "[data-tb-explain]").click();
     expect($(one, "dialog.tb-dialog p").textContent).toBe(
-      "There is one way to help with this edition: who sees what you write, and which account you need.",
+      "There is one way to help with this edition: suggest a change on GitHub. Below: who sees what you write, and which account you need.",
     );
     expect(items(none, "#tb-contribute-menu").map((i) => i.querySelector(".tb-mi-t")!.textContent)).not.toContain("Public comment");
+  });
+
+  it("every variant's opening sentence: books and editions, comments off, in groups and public", () => {
+    const intro = (html: string, comments: "off" | "groups" | "public") => {
+      const w = page(html, { explained: true, prefs: comments !== "off" });
+      if (comments === "groups") w.eval("window.tbAnnotations.groupsOnly = true");
+      $<HTMLButtonElement>(w, "[data-tb-explain]").click();
+      const d = $(w, "dialog.tb-dialog");
+      return [d.querySelector("p")!.textContent, [...d.querySelectorAll("h3")].map((h) => h.textContent)];
+    };
+    const differ = "They differ in who sees what you write, and in which account you need.";
+    const book = render({ ...BOOK, editor: true });
+    const edition = render({ repo: "o/r" });
+    expect(intro(book, "off")).toEqual([`There are two ways to help with this book. ${differ}`, ["Edit this page", "Note to the authors"]]);
+    expect(intro(book, "groups")).toEqual([
+      `There are three ways to help with this book. ${differ}`,
+      ["Edit this page", "Note to the authors", "Comment in the margin"],
+    ]);
+    expect(intro(book, "public")).toEqual([
+      `There are three ways to help with this book. ${differ}`,
+      ["Edit this page", "Note to the authors", "Public comment"],
+    ]);
+    expect(intro(edition, "off")).toEqual([
+      "There is one way to help with this edition: suggest a change on GitHub. Below: who sees what you write, and which account you need.",
+      ["Edit on GitHub"],
+    ]);
+    expect(intro(edition, "groups")).toEqual([`There are two ways to help with this edition. ${differ}`, ["Edit on GitHub", "Comment in the margin"]]);
+    expect(intro(edition, "public")).toEqual([`There are two ways to help with this edition. ${differ}`, ["Edit on GitHub", "Public comment"]]);
   });
 
   it("a book waiting for its class group: Comment in the margin is in Contribute, greyed out, and does nothing", () => {
