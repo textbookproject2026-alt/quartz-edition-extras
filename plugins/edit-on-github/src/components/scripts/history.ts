@@ -24,10 +24,10 @@ import {
   OVERLAY_ID,
   el,
   injectStyle,
-  renderDiff,
   safeUserMessage,
   sanitise,
 } from "./editor";
+import { body, renderRichDiff } from "./rich-diff";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
 
@@ -100,14 +100,31 @@ ${H} .tb-ed-bar { background: var(--tb-bg, #FFFFFF); padding: 0 0.5rem; }
 ${H} [role="tab"] { border: 0; border-bottom: 2px solid transparent; border-radius: 0; margin-bottom: -1px; padding: 0.6rem 0.75rem;
   color: var(--tb-muted, #6E6E73); font-weight: 600; }
 ${H} [role="tab"][aria-selected="true"] { border-bottom-color: var(--tb-accent, #7C6CF0); background: none; color: var(--tb-ink, #2B2B2B); }
-/* What changed, in the book's text font: readers compare words, not source. The
-   colours mix into the page's own background, so they hold in dark mode. */
-${H} .tb-ed-diff { font-family: var(--tb-font-text, serif); font-size: 0.95rem; line-height: 1.6; }
-${H} .tb-ed-hh { background: var(--tb-bg-soft, #F7F7F5); font-family: var(--tb-font-ui, sans-serif); font-size: 0.8rem; }
+/* What changed (rich-diff.ts): the text as the page shows it, removed and added
+   lines and words marked. The colours mix into the page's own background, so
+   they hold in dark mode. */
+${H} .tb-rd { padding: 0.5rem 0; font-family: var(--tb-font-text, serif); font-size: 1rem; line-height: 1.6;
+  color: var(--tb-ink, #2B2B2B); }
+${H} .tb-rd-line { display: grid; grid-template-columns: 1.75rem 1fr; padding: 0.1rem 1rem 0.1rem 0; }
+${H} .tb-rd-sign { text-align: center; color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-ui, sans-serif); user-select: none; }
+${H} .tb-rd-text { min-width: 0; overflow-wrap: anywhere; }
+${H} .tb-rd-blank { min-height: 0.6rem; padding: 0; }
+${H} .tb-rd-h1 .tb-rd-text { font-size: 1.5rem; font-weight: 700; line-height: 1.3; }
+${H} .tb-rd-h2 .tb-rd-text { font-size: 1.3rem; font-weight: 700; line-height: 1.3; }
+${H} .tb-rd-h3 .tb-rd-text { font-size: 1.15rem; font-weight: 700; }
+${H} :is(.tb-rd-h4, .tb-rd-h5, .tb-rd-h6) .tb-rd-text { font-weight: 700; }
+${H} :is(.tb-rd-li, .tb-rd-note) .tb-rd-text { padding-left: 1.4rem; text-indent: -1.4rem; }
+${H} .tb-rd-marker { display: inline-block; min-width: 1.4rem; text-indent: 0; color: var(--tb-muted, #6E6E73); }
+${H} .tb-rd-note { font-size: 0.9rem; }
+${H} .tb-rd-quote .tb-rd-text { padding-left: 0.8rem; border-left: 3px solid var(--tb-border, #E6E6E6); font-style: italic; }
+${H} .tb-rd-rule .tb-rd-text { align-self: center; border-top: 1px solid var(--tb-border, #E6E6E6); }
+${H} .tb-rd-link { color: var(--tb-accent, #7C6CF0); }
+${H} .tb-rd code { font-family: var(--tb-font-mono, monospace); font-size: 0.88em; }
+${H} .tb-rd-gap { padding: 0.3rem 0; text-align: center; color: var(--tb-faint, #9B9BA1); font-family: var(--tb-font-ui, sans-serif); }
 ${H} .tb-ed-del { background: color-mix(in srgb, #D1242F 12%, var(--tb-bg, #FFFFFF)); }
 ${H} .tb-ed-add { background: color-mix(in srgb, #1A7F37 12%, var(--tb-bg, #FFFFFF)); }
-${H} .tb-ed-del del { background: color-mix(in srgb, #D1242F 30%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: line-through; }
-${H} .tb-ed-add ins { background: color-mix(in srgb, #1A7F37 30%, var(--tb-bg, #FFFFFF)); color: inherit; }
+${H} .tb-ed-del del { background: color-mix(in srgb, #D1242F 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: line-through; border-radius: 2px; }
+${H} .tb-ed-add ins { background: color-mix(in srgb, #1A7F37 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: none; border-radius: 2px; }
 ${H} .tb-ed-preview { font-family: var(--tb-font-text, serif); }
 ${H} .tb-hi-gh { color: var(--tb-accent, #7C6CF0); font-weight: 600; }
 @media (max-width: 768px) {
@@ -368,10 +385,10 @@ export const openHistory = (o: HistoryOptions) => {
           changes.append(
             el("p", {
               class: "tb-ed-panel tb-ed-muted",
-              text: `The page moved to where it is now${before === after ? "; its text didn’t change." : "."}`,
+              text: `The page moved to where it is now${body(before) === body(after) ? "; its text didn’t change." : "."}`,
             }),
           );
-        if (!moved || before !== after) changes.append(renderDiff(before, after));
+        if (!moved || body(before) !== body(after)) changes.append(renderRichDiff(before, after));
         const page = el("div", {
           role: "tabpanel",
           id: "tb-hi-panel-1",
