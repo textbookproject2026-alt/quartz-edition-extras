@@ -406,6 +406,13 @@ describe("E. the explainer", () => {
   });
 });
 
+describe("the type badge", () => {
+  it("names what kind of text it is beside the title; nothing for an edition", () => {
+    expect(page(render({ ...BOOK, type: "paper" })).document.querySelector(".tb-type-badge")?.textContent).toBe("Paper");
+    expect(page(render(BOOK)).document.querySelector(".tb-type-badge")).toBeNull();
+  });
+});
+
 describe("F. the ⋯ menu", () => {
   it("has Cite, Print, Page history, What links here, Download and View source at the build's commit", () => {
     const w = page(undefined, { explained: true });
@@ -422,6 +429,25 @@ describe("F. the ⋯ menu", () => {
     expect(list[4]!.getAttribute("data-tb-download")).toBe(
       `https://raw.githubusercontent.com/o/r/${SHA}/chapters/chapter-03.md`,
     );
+  });
+
+  it("Page statistics (and Book statistics on the front page): the platform dashboard, filtered", () => {
+    const stats = { ...BOOK, statsUrl: "https://plausible.io/share/confused4now.org?auth=k", statsHost: "book.example.org" };
+    const w = page(render(stats), { explained: true });
+    const pg = items(w, "#tb-more-menu").find((i) => i.textContent?.includes("Page statistics"))!;
+    expect(pg.getAttribute("href")).toBe(
+      "https://plausible.io/share/confused4now.org?auth=k&f=is,hostname,book.example.org&f=is,page,/chapters/chapter-03",
+    );
+    expect(items(w, "#tb-more-menu").some((i) => i.textContent?.includes("Book statistics"))).toBe(false);
+    const front = page(render({ ...stats, statsUrl: "https://plausible.io/confused4now.org" }, "index.md"), { explained: true });
+    const book = items(front, "#tb-more-menu").find((i) => i.textContent?.includes("Book statistics"))!;
+    expect(book.getAttribute("href")).toBe("https://plausible.io/confused4now.org?f=is,hostname,book.example.org");
+    expect(items(front, "#tb-more-menu").find((i) => i.textContent?.includes("Page statistics"))!.getAttribute("href")).toMatch(/f=is,page,\/$/);
+  });
+
+  it("no statistics where the site isn't counted", () => {
+    const w = page(render(BOOK), { explained: true });
+    expect(items(w, "#tb-more-menu").some((i) => /statistics/.test(i.textContent ?? ""))).toBe(false);
   });
 
   it("Cite gives APA 7 and the licence's attribution, each with a copy button", () => {

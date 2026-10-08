@@ -61,6 +61,7 @@ import {
   explorerKeepsPageStill,
   noTracking,
   phoneMenuStartsClosed,
+  privacyNotice,
   paragraphNumbers,
   readerPrefs,
   tagHelper,
@@ -95,6 +96,11 @@ interface Options {
    * explorer lists pages in this order. [] (the default) keeps its own.
    */
   explorerOrder: string[];
+  /**
+   * The platform's Privacy page. Set: the first-visit privacy notice links to it
+   * (privacyNotice). "" (the default): no notice.
+   */
+  privacyUrl: string;
 }
 
 const defaultOptions: Options = {
@@ -105,6 +111,7 @@ const defaultOptions: Options = {
   paragraphNumbers: true,
   hypothesisGroupId: "",
   explorerOrder: [],
+  privacyUrl: "",
 };
 
 // --- 1. Design values --------------------------------------------------------
@@ -291,6 +298,7 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       head.push(script(annotationsControl));
+      if (opts.privacyUrl) head.push(script(privacyNotice(opts.privacyUrl)));
       head.push(script(annotationSheet(design.layout.narrowWidth)));
       head.push(script(annotationRoom(design.layout.narrowWidth)));
       // Last, so window.hypothesisConfig above is already set when embed.js boots.
