@@ -851,6 +851,7 @@ const explained = () => {
 const ROUTES = {
   edit: {
     title: "Edit this page",
+    short: "edit the page and propose your change",
     what: "Change the wording yourself. Your change goes to the authors as a proposal, and nothing in the book changes until they accept it.",
     who: "The authors review it. The proposal is public on the book's GitHub repository, and once it's accepted your GitHub name appears in the page's history.",
     account: "A free GitHub account.",
@@ -858,6 +859,7 @@ const ROUTES = {
   },
   github: {
     title: "Edit on GitHub",
+    short: "suggest a change on GitHub",
     what: "Change the wording on GitHub. Your change goes to the edition's maintainers as a proposal, and nothing in the edition changes until they accept it.",
     who: "The edition's maintainers review it. The proposal is public on the edition's GitHub repository and shows your GitHub username.",
     account: "A free GitHub account.",
@@ -867,6 +869,7 @@ const ROUTES = {
   // nothing else.
   note: {
     title: "Note to the authors",
+    short: "send the authors a note",
     what: "Tell the authors about a mistake or an idea, in a short form.",
     who: "The authors. It becomes a public issue on the book's GitHub repository, showing your name. It doesn't appear on this page.",
     account: "None. You give your name.",
@@ -875,6 +878,7 @@ const ROUTES = {
   // publicAnnotations: false): comments live in groups only.
   groupComment: {
     title: "Comment in the margin",
+    short: "comment in the margin, in your class's group",
     what: "Write in the margin with Hypothes.is, in a group such as your class's: highlight a passage and comment on it, or reply to someone else's comment.",
     who: "Only the members of the Hypothes.is group you post in, with your Hypothes.is username. Public comments are switched off on this book.",
     account: "A free Hypothes.is account, and membership of the group.",
@@ -885,6 +889,7 @@ const ROUTES = {
   },
   comment: {
     title: "Public comment",
+    short: "comment in the margin",
     what: "Write in the margin with Hypothes.is: highlight a passage and comment on it, or reply to someone else's comment.",
     who: "Anyone on the internet, with your Hypothes.is username.",
     account: "A free Hypothes.is account.",
@@ -952,7 +957,7 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
     el("p", {
       text:
         names.length === 1
-          ? `There is one way to help with this ${what}: who sees what you write, and which account you need.`
+          ? `There is one way to help with this ${what}: ${ROUTES[names[0]!].short}. Below: who sees what you write, and which account you need.`
           : `There are ${NUMBER[names.length] ?? names.length} ways to help with this ${what}. They differ in who sees what you write, and in which account you need.`,
     }),
     ...names.map((n) => route(ROUTES[n])),
