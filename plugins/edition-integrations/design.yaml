@@ -72,17 +72,20 @@ type:
   # h4 is the "keycap" heading: a real heading, set in tracked capitals.
   h4: { size: 1.125rem, weight: 600, lineHeight: 1.4, letterSpacing: 0.04em }
   linkWeight: 600
-  # Below layout.mobileWidth. The lead paragraph drops to body size there too.
-  mobile: { h1: 1.875rem, h2: 1.5rem, h3: 1.25rem }
+  # Below layout.mobileWidth. The lead paragraph drops to body size there too,
+  # and body text is set a little tighter on a phone's short lines.
+  mobile: { h1: 1.875rem, h2: 1.5rem, h3: 1.25rem, lineHeight: 1.55 }
 
 layout:
   # The reading column, in ems of body text, so it holds about the same number
   # of characters a line at every text size (the Appearance panel's Small,
-  # Standard, Large). 36em of Source Serif 4 is about 70 characters; the Wide
-  # option's 48em about 95. A column can't grow past the room Quartz's centre
-  # track has, so Wide shows only on screens with that room.
-  measure: 36
-  wideMeasure: 48
+  # Standard, Large). Measured as typographers do (the column's width over the
+  # average width of a character of body text): 33em of Source Serif 4 is about
+  # 73 characters; the Wide option's 40em about 89. A column can't grow past the
+  # room Quartz's centre track has, so the Appearance panel shows Wide only where
+  # it changes the column.
+  measure: 33
+  wideMeasure: 40
   # The sticky header (edit-on-github), and how far below it a linked heading
   # or paragraph stops.
   headerHeight: 3.25rem

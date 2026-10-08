@@ -118,7 +118,7 @@ describe("design.yaml as shipped", () => {
       "--tb-size-controls": "0.85rem",
       "--tb-home-link-height": "32px",
       "--tb-home-link-icon-height": "28px",
-      "--tb-measure-em": "36",
+      "--tb-measure-em": "33",
       "--tb-header-h": "3.25rem",
       "--tb-text-scale": "1",
       "--tb-rhythm": "1.5rem",
@@ -221,7 +221,7 @@ describe("editing design.yaml", () => {
     const css = designCss(loadDesign());
     expect(declared(css, ':root[data-tb-text="small"]', "--tb-text-scale")).toBe("0.9");
     expect(declared(css, ':root[data-tb-text="large"]', "--tb-text-scale")).toBe("1.15");
-    expect(declared(css, ':root[data-tb-width="wide"]', "--tb-measure-em")).toBe("48");
+    expect(declared(css, ':root[data-tb-width="wide"]', "--tb-measure-em")).toBe("40");
     expect(declared(css, "article", "max-width")).toBe(
       "calc(var(--tb-measure-em) * var(--tb-size-body) * var(--tb-text-scale))",
     );
@@ -253,8 +253,7 @@ describe("editing design.yaml", () => {
     expect(parseFloat(d.layout.narrowWidth)).toBe(320 + 5 + 32 + 560 + strip - 1);
     const css = designCss(d);
     const tablet = css.slice(css.indexOf("@media (max-width: 0px)"));
-    // The header's own grid cell (the "book" frame) shares the rule with the centre column.
-    expect(declared(tablet, "html.tb-hypothesis-on #quartz-body > .tb-header-slot", "padding-right")).toBe(
+    expect(declared(tablet, "html.tb-hypothesis-on #quartz-body .center", "padding-right")).toBe(
       "var(--tb-annotation-gutter)",
     );
     expect(declared(css, ":root", "--tb-annotation-gutter")).toBe("2.5rem");
@@ -269,6 +268,29 @@ describe("editing design.yaml", () => {
     expect(declared(supports, "html", "overflow-x")).toBe("clip");
     // Quartz's rule is in its own stylesheet, earlier in <head>: this one, later, wins.
     expect(css.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(/html \{[^}]*overflow-x: hidden/);
+  });
+
+  it("gives the book frame's header row the whole page width in each of Quartz's grids", () => {
+    const css = designCss(loadDesign());
+    expect(css).toContain('"grid-header grid-header grid-header"');
+    const tablet = css.slice(css.indexOf("@media (max-width: 0px)"));
+    expect(tablet.slice(0, tablet.indexOf("\n}\n"))).toContain('"grid-header grid-header"');
+    const phone = css.slice(css.lastIndexOf("@media (max-width: 956px) {"));
+    expect(phone).toContain('grid-template-areas: "grid-header" "grid-sidebar-left"');
+  });
+
+  it("on a narrow screen: no annotation strip or gutter, things open below the header, numbers inline", () => {
+    const d = loadDesign();
+    const css = designCss(d);
+    const phone = css.slice(css.lastIndexOf("@media (max-width: 956px) {"));
+    expect(declared(phone, "hypothesis-sidebar", "display")).toBe("none");
+    expect(declared(phone, ":root.tb-hypothesis-expanded hypothesis-sidebar", "top")).toBe("var(--tb-hdr-bottom, 0px)");
+    expect(declared(phone, "#quartz-body .explorer .explorer-content", "top")).toBe("var(--tb-hdr-bottom, 0px)");
+    expect(declared(phone, "article [data-pnum]::before", "position")).toBe("static");
+    expect(phone).toMatch(/html\.tb-hypothesis-on #quartz-body \.left\.sidebar \{ padding-right: 0; \}/);
+    // Body text a little tighter on a phone's short lines.
+    expect(String(d.type.mobile.lineHeight)).toBe("1.55");
+    expect(css).toMatch(/--tb-lh-body: 1\.55;/);
   });
 
   it("says where the file should be when it is missing", () => {
