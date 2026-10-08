@@ -48,6 +48,17 @@ interface Options {
     licence: string;
     /** The page that explains the ways to contribute, relative to the site root. */
     howTo: string;
+    /**
+     * The platform's Plausible dashboard (its shared link, or the public dashboard),
+     * with `statsHost` the hostname this site is counted under. Both set: ⋯ gets
+     * "Page statistics" (filtered to the page) and, on the front page, "Book
+     * statistics" (filtered to the hostname). Either "": neither. The shared builder
+     * sets them for live books only, the ones Plausible counts.
+     */
+    statsUrl: string;
+    statsHost: string;
+    /** What kind of text this is (registry books[].type): a badge beside the title. "" for none. */
+    type: string;
 }
 /**
  * The sticky header on every page (A): the book's title and where the page sits

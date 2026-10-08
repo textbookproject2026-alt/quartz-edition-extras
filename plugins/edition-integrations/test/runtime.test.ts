@@ -12,6 +12,7 @@ import {
   readerPrefs,
   annotationsControl,
   breakpointBand,
+  privacyNotice,
   tagHelper,
   targetFlash,
   trackRuntime,
@@ -754,5 +755,40 @@ describe("Quartz's phone layout from narrowWidth (A, B)", () => {
     const css = designCss(loadDesign());
     expect(css).toMatch(/@media \(max-width: 0px\) \{\s*html\.tb-hypothesis-on #quartz-body \.center \{/);
     expect(css).not.toContain("1199px");
+  });
+});
+
+describe("privacyNotice", () => {
+  const URL_ = "https://confused4now.org/privacy";
+  const box = (w: Page) => w.document.getElementById("tb-privacy");
+
+  it("shows the notice on a first visit, with the Privacy link and both buttons", () => {
+    const w = page("https://book.example.org/chapters/one");
+    w.eval(privacyNotice(URL_));
+    expect(box(w)?.querySelector("p")?.textContent).toBe(
+      "No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. Privacy",
+    );
+    expect(box(w)?.querySelector("a")?.getAttribute("href")).toBe(URL_);
+    expect([...box(w)!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Turn comments off", "OK"]);
+  });
+
+  it("OK closes it for good on this site", () => {
+    const w = page("https://book.example.org/chapters/one");
+    w.eval(privacyNotice(URL_));
+    (box(w)!.querySelector("button.tb-privacy-ok") as unknown as HTMLButtonElement).click();
+    expect(box(w)).toBeNull();
+    expect(w.localStorage.getItem("tb-privacy-ok")).toBe("1");
+    w.eval(privacyNotice(URL_));
+    expect(box(w)).toBeNull();
+  });
+
+  it("Turn comments off is Aa's Public annotations off, and closes it", () => {
+    const w = page("https://book.example.org/chapters/one");
+    w.eval("window.disabled = 0; window.tbAnnotations = { disable: function () { window.disabled++ } }");
+    w.eval(privacyNotice(URL_));
+    (box(w)!.querySelector("button") as unknown as HTMLButtonElement).click();
+    expect(w.disabled).toBe(1);
+    expect(box(w)).toBeNull();
+    expect(w.localStorage.getItem("tb-privacy-ok")).toBe("1");
   });
 });

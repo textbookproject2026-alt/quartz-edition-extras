@@ -56,7 +56,30 @@ export interface Options {
   licence: string;
   /** The page that explains the ways to contribute, relative to the site root. */
   howTo: string;
+  /**
+   * The platform's Plausible dashboard (its shared link, or the public dashboard),
+   * with `statsHost` the hostname this site is counted under. Both set: ⋯ gets
+   * "Page statistics" (filtered to the page) and, on the front page, "Book
+   * statistics" (filtered to the hostname). Either "": neither. The shared builder
+   * sets them for live books only, the ones Plausible counts.
+   */
+  statsUrl: string;
+  statsHost: string;
+  /** What kind of text this is (registry books[].type): a badge beside the title. "" for none. */
+  type: string;
 }
+
+/** The header badge's words for each registry `type`. */
+export const TYPE_LABELS: Record<string, string> = { book: "Book", paper: "Paper", report: "Report", article: "Article" };
+
+/** The dashboard filtered to a hostname and, given one, a page path ("/chapters/x"). */
+export const statsHref = (base: string, host: string, page?: string): string =>
+  `${base}${base.includes("?") ? "&" : "?"}f=is,hostname,${encodeURIComponent(host)}` +
+  (page ? `&f=is,page,${encodeURI(page)}` : "");
+
+/** The path Plausible records for a page with this slug: "/" for the front page, "/a/" for a folder's. */
+export const pagePath = (slug: string): string =>
+  "/" + (slug === "index" ? "" : slug.endsWith("/index") ? slug.slice(0, -"index".length) : slug);
 
 const defaultOptions: Options = {
   repo: "",
@@ -70,6 +93,9 @@ const defaultOptions: Options = {
   authors: "",
   licence: "",
   howTo: "how-to-comment",
+  statsUrl: "",
+  statsHost: "",
+  type: "",
 };
 
 /** Where the builder writes a page's revision list (quartz-book's HISTORY_DIR). */
@@ -270,6 +296,12 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
           )
         : null,
       item("button", { "data-tb-backlinks": "" }, "What links here"),
+      opts.statsUrl && opts.statsHost
+        ? item("a", { class: "tb-stats-page", href: statsHref(opts.statsUrl, opts.statsHost, pagePath(slug)), ...away }, "Page statistics ↗")
+        : null,
+      opts.statsUrl && opts.statsHost && slug === "index"
+        ? item("a", { class: "tb-stats-book", href: statsHref(opts.statsUrl, opts.statsHost), ...away }, "Book statistics ↗")
+        : null,
       // Reader mode is a header button; here instead only when the header is short of room.
       item("button", { "data-tb-reader-item": "", hidden: true }, "Reader mode"),
       hasSource
@@ -320,6 +352,7 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
         "div",
         { class: "tb-hdr-where" },
         h("a", { class: "tb-hdr-title", href: root }, cfg?.pageTitle ?? ""),
+        TYPE_LABELS[opts.type] ? h("span", { class: "tb-type-badge" }, TYPE_LABELS[opts.type]) : null,
         crumbs.length
           ? h("nav", { class: "tb-hdr-crumbs", "aria-label": "Breadcrumb" }, ...crumbs)
           : null,
@@ -460,6 +493,19 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
 .tb-hdr-crumbs a { min-width: 0; overflow: hidden; white-space: nowrap; text-wrap: nowrap; text-overflow: ellipsis; color: inherit; text-decoration: none; }
 .tb-hdr-crumbs a::before { content: "›"; margin-right: 0.4rem; color: var(--tb-faint, var(--gray)); }
 .tb-hdr-title:hover, .tb-hdr-crumbs a:hover { color: var(--tb-accent, var(--secondary)); }
+/* What kind of text this is (registry type): a quiet pill after the title; the
+   title keeps the room, the badge never wraps. */
+.tb-type-badge {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--lightgray);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--darkgray);
+  white-space: nowrap;
+}
 .tb-hdr-actions { display: flex; align-items: center; gap: 0.25rem; flex: 0 0 auto; }
 .tb-hdr-wrap { position: relative; }
 .tb-hdr-btn {

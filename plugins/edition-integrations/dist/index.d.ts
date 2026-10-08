@@ -27,6 +27,11 @@ interface Options {
      * explorer lists pages in this order. [] (the default) keeps its own.
      */
     explorerOrder: string[];
+    /**
+     * The platform's Privacy page. Set: the first-visit privacy notice links to it
+     * (privacyNotice). "" (the default): no notice.
+     */
+    privacyUrl: string;
 }
 declare const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>>;
 

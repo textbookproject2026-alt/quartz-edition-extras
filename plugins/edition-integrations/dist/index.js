@@ -8935,6 +8935,66 @@ var targetFlash = `
   } catch (e) { /* links still jump; nothing else affected */ }
 })()
 `;
+var privacyNotice = (privacyUrl) => `
+;(function () {
+  try {
+    var KEY = "tb-privacy-ok"
+    try { if (localStorage.getItem(KEY)) return } catch (e) {}
+    var URL_ = ${JSON.stringify(privacyUrl).replace(/</g, "\\u003c")}
+    var show = function () {
+      if (document.getElementById("tb-privacy")) return
+      var box = document.createElement("div")
+      box.id = "tb-privacy"
+      box.setAttribute("role", "region")
+      box.setAttribute("aria-label", "Privacy")
+      var p = document.createElement("p")
+      p.textContent = "No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. "
+      var a = document.createElement("a")
+      a.href = URL_
+      a.textContent = "Privacy"
+      p.appendChild(a)
+      var row = document.createElement("div")
+      var done = function () {
+        try { localStorage.setItem(KEY, "1") } catch (e) {}
+        box.remove()
+      }
+      var off = document.createElement("button")
+      off.type = "button"
+      off.textContent = "Turn comments off"
+      off.addEventListener("click", function () {
+        if (window.tbAnnotations) window.tbAnnotations.disable()
+        else try { localStorage.setItem("tb-annotations", "off") } catch (e) {}
+        done()
+      })
+      var ok = document.createElement("button")
+      ok.type = "button"
+      ok.className = "tb-privacy-ok"
+      ok.textContent = "OK"
+      ok.addEventListener("click", done)
+      row.append(off, ok)
+      box.append(p, row)
+      var style = document.createElement("style")
+      style.textContent = [
+        "#tb-privacy { position: fixed; left: 1rem; bottom: 1rem; z-index: 4; max-width: min(26rem, calc(100vw - 2rem));",
+        "  box-sizing: border-box; padding: 0.75rem 0.9rem; border: 1px solid var(--lightgray); border-radius: 8px;",
+        "  background: var(--light); color: var(--darkgray); box-shadow: 0 4px 16px rgba(0,0,0,0.12);",
+        "  font-family: var(--bodyFont); font-size: 0.85rem; line-height: 1.45; }",
+        "#tb-privacy p { margin: 0 0 0.6rem; }",
+        "#tb-privacy a { color: var(--secondary); }",
+        "#tb-privacy div { display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap; }",
+        "#tb-privacy button { font: inherit; padding: 0.3rem 0.8rem; border-radius: 6px; cursor: pointer;",
+        "  border: 1px solid var(--lightgray); background: transparent; color: var(--dark); }",
+        "#tb-privacy button.tb-privacy-ok { background: var(--secondary); border-color: var(--secondary); color: var(--light); }",
+        "@media print { #tb-privacy { display: none; } }",
+      ].join("\\n")
+      document.head.appendChild(style)
+      document.body.appendChild(box)
+    }
+    if (document.body) show()
+    else document.addEventListener("DOMContentLoaded", show)
+  } catch (e) { /* no notice */ }
+})()
+`;
 
 // src/index.ts
 var defaultOptions = {
@@ -8944,7 +9004,8 @@ var defaultOptions = {
   annotationBadge: true,
   paragraphNumbers: true,
   hypothesisGroupId: "",
-  explorerOrder: []
+  explorerOrder: [],
+  privacyUrl: ""
 };
 var HYPOTHESIS_GROUP_PLACEHOLDER = "GROUP_ID";
 var isRealGroupId = (groupId) => {
@@ -9062,6 +9123,7 @@ var EditionIntegrations = (userOpts) => {
       head.push(script(targetFlash));
       head.push(script(phoneMenuStartsClosed(design.layout.narrowWidth)));
       head.push(script(annotationsControl));
+      if (opts.privacyUrl) head.push(script(privacyNotice(opts.privacyUrl)));
       head.push(script(annotationSheet(design.layout.narrowWidth)));
       head.push(script(annotationRoom(design.layout.narrowWidth)));
       head.push(_("script", { dangerouslySetInnerHTML: { __html: hypothesisLoader } }));
