@@ -1,0 +1,110 @@
+name: layout
+
+# The reader's layout with this pull request's plugins: quartz-book's builder
+# (main) builds the first live book with every extras plugin pinned to this
+# pull request's head, then runs quartz-book's own checks on it: the phone layout
+# (Pixel 7, iPhone 13) and the layout checks (a dozen widths at and around each
+# switch point in Chromium and WebKit, and Android Chrome at 360, 390 and 412px).
+# The summary goes on the pull request as one comment, updated on each push.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: layout-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: builder
+    steps:
+      - name: Check out quartz-book's builder
+        uses: actions/checkout@v6
+        with:
+          repository: textbookproject2026-alt/quartz-book
+          path: builder
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: builder/.node-version
+          cache: npm
+          cache-dependency-path: builder/package-lock.json
+
+      - run: npm ci
+
+      - name: Pin every extras plugin to this pull request's head
+        env:
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node builder/extras.mjs bump "$SHA"
+
+      - name: Install Quartz plugins
+        run: npx quartz plugin install
+
+      - name: Which live book
+        id: book
+        run: |
+          read -r slug repo branch < <(node test/check-live-book.mjs --pick)
+          echo "Building $slug ($repo@$branch)."
+          { echo "slug=$slug"; echo "repo=$repo"; echo "branch=$branch"; } >> "$GITHUB_OUTPUT"
+
+      - name: Build it
+        env:
+          REPO: ${{ steps.book.outputs.repo }}
+          BRANCH: ${{ steps.book.outputs.branch }}
+        run: |
+          git -c credential.helper= clone --quiet --branch "$BRANCH" "https://github.com/$REPO.git" "$RUNNER_TEMP/book"
+          ./build-book.sh "$RUNNER_TEMP/book" --branch "$BRANCH" --out "$RUNNER_TEMP/site"
+
+      - name: Install the browsers
+        run: npx playwright-core install --with-deps chromium webkit
+
+      - name: Phone layout (Pixel 7, iPhone 13)
+        run: |
+          node test/serve-static.mjs "$RUNNER_TEMP/site" 8801 &
+          sleep 1
+          node test/phone-layout.mjs http://127.0.0.1:8801/ "$RUNNER_TEMP/phone-layout"
+
+      - name: Layout checks (header, panels, scroll, reading)
+        if: always()
+        run: |
+          node test/serve-static.mjs "$RUNNER_TEMP/site" 8803 &
+          sleep 1
+          node test/layout-checks.mjs http://127.0.0.1:8803/ "$RUNNER_TEMP/layout-checks"
+
+      - name: Layout checks on the pull request
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          [ -f "$RUNNER_TEMP/layout-checks/summary.md" ] || exit 0
+          body="$RUNNER_TEMP/layout-comment.md"
+          { echo "<!-- layout-checks -->"; cat "$RUNNER_TEMP/layout-checks/summary.md"; echo; echo "At \`${HEAD:0:7}\`, built by quartz-book main; screenshots in the run's layout artifact."; } > "$body"
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate --jq '.[] | select(.body | startswith("<!-- layout-checks -->")) | .id' | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F "body=@$body" --silent
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -F "body=@$body" --silent
+          fi
+
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: layout
+          path: |
+            ${{ runner.temp }}/phone-layout
+            ${{ runner.temp }}/layout-checks
+          if-no-files-found: ignore
+          retention-days: 14
