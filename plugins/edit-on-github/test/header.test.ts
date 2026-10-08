@@ -66,6 +66,7 @@ const page = (
       window.annoCalls = []
       window.tbAnnotations = {
         open: function () { window.annoCalls.push("open"); return Promise.resolve(true) },
+        close: function () { window.annoCalls.push("close") },
         enable: function () { window.annoCalls.push("enable") },
         disable: function () { window.annoCalls.push("disable"); return { reload: true } },
       }`);
@@ -296,6 +297,29 @@ describe("D. Contribute", () => {
     key(w, "Escape");
     expect($(w, "#tb-contribute-menu").hidden).toBe(true);
     expect(w.document.activeElement).toBe(btn);
+  });
+
+  it("as Close on a narrow screen, a tap closes the sidebar even when the client closed it on the press", async () => {
+    const w = page(undefined, { explained: true });
+    w.eval("window.matchMedia = function () { return { matches: true } }");
+    const root = w.document.documentElement;
+    const annotate = $<HTMLButtonElement>(w, "[data-tb-annotate]");
+    root.classList.add("tb-hypothesis-expanded");
+    w.document.dispatchEvent(new w.CustomEvent("tb-hypothesis-layout") as never);
+    expect(annotate.classList.contains("tb-closes")).toBe(true);
+    expect(annotate.querySelector(".tb-hdr-label")!.textContent).toBe("Close annotations");
+    // Hypothes.is closes its sidebar on any press in the page, before the click.
+    annotate.dispatchEvent(new w.Event("pointerdown", { bubbles: true }) as never);
+    root.classList.remove("tb-hypothesis-expanded");
+    w.document.dispatchEvent(new w.CustomEvent("tb-hypothesis-layout") as never);
+    annotate.click();
+    await tick();
+    expect(w.annoCalls).toEqual(["close"]);
+    // Closed, the next tap opens it.
+    annotate.dispatchEvent(new w.Event("pointerdown", { bubbles: true }) as never);
+    annotate.click();
+    await tick();
+    expect(w.annoCalls).toContain("open");
   });
 
   it("Public comment opens the annotation sidebar", async () => {

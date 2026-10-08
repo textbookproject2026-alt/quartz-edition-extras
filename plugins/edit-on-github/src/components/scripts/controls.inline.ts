@@ -1338,8 +1338,16 @@ const armHeader = (header: HTMLElement) => {
       };
       document.addEventListener("tb-hypothesis-layout", sync);
       window.addEventListener("resize", sync);
+      // Hypothes.is closes its sidebar itself on any press in the page, this button
+      // included, so by the click it may already read as closed: what the button
+      // does is decided by the state when the press began. Close never opens it
+      // again (open retries until the sidebar holds).
+      let closedAtPress: boolean | null = null;
+      annotate.addEventListener("pointerdown", () => (closedAtPress = closes()), true);
       annotate.addEventListener("click", () => {
-        if (closes()) return w.tbAnnotations!.close?.();
+        const closing = closedAtPress ?? closes();
+        closedAtPress = null;
+        if (closing) return w.tbAnnotations!.close?.();
         const explorer = document.querySelector(".explorer");
         if (explorer && !explorer.classList.contains("collapsed") && narrow())
           explorer.querySelector<HTMLButtonElement>(".mobile-explorer")?.click();
