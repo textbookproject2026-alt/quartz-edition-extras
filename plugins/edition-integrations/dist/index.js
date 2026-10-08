@@ -8975,7 +8975,7 @@ var privacyNotice = (privacyUrl) => `
       box.append(p, row)
       var style = document.createElement("style")
       style.textContent = [
-        "#tb-privacy { position: fixed; left: 1rem; bottom: 1rem; z-index: 4; max-width: min(26rem, calc(100vw - 2rem));",
+        "#tb-privacy { position: fixed; left: 1rem; bottom: 1rem; z-index: 0; max-width: min(26rem, calc(100vw - 2rem));",
         "  box-sizing: border-box; padding: 0.75rem 0.9rem; border: 1px solid var(--lightgray); border-radius: 8px;",
         "  background: var(--light); color: var(--darkgray); box-shadow: 0 4px 16px rgba(0,0,0,0.12);",
         "  font-family: var(--bodyFont); font-size: 0.85rem; line-height: 1.45; }",
