@@ -288,8 +288,6 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
                   "data-revision-endpoint": opts.revisionEndpoint,
                   "data-history": historyUrl(slug),
                   "data-path": path,
-                  "data-repo": opts.repo,
-                  "data-branch": opts.branch,
                 }
               : { class: "tb-history-link", href: historyHref, ...away },
             opts.editor && opts.revisionEndpoint && slug ? "Page history" : "Page history ↗",

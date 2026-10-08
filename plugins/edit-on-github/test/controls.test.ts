@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-syntax -- test pages are closed after each test */
 import { afterEach, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
+import { summary } from "../src/components/scripts/history";
 import { renderToString } from "preact-render-to-string";
 import type { QuartzComponentProps } from "@quartz-community/types";
 import EditOnGitHub, {
@@ -633,7 +634,12 @@ describe("the History panel", () => {
     const rows = [...w.document.querySelectorAll("#tb-editor .tb-hi-rev")].map(
       (b) => b.textContent,
     );
+    // Dressed for readers: the page, not the repo, the file or the branch.
+    const top = $(w, "#tb-editor .tb-hi-top").textContent ?? "";
+    expect(top).toContain("Page history");
+    expect(top).not.toMatch(/chapter-03\.md|\bmain\b|\bo\/r\b/);
     expect(rows[0]).toContain("Clearer");
+    expect(rows[0]).toContain("Published");
     expect(rows[0]).toContain("Jo Reader");
     expect(rows[0]).not.toContain("a reader");
     expect(rows[1]).toContain("ann");
@@ -655,7 +661,7 @@ describe("the History panel", () => {
     expect($(w, "#tb-editor .tb-hi-head").textContent).toContain("Jo Reader");
     // Back to the list: the reader's name is kept there too.
     [...w.document.querySelectorAll<HTMLButtonElement>("#tb-editor button")]
-      .find((b) => b.textContent === "← All revisions")!
+      .find((b) => b.textContent === "← All versions")!
       .click();
     expect($(w, "#tb-editor .tb-hi-rev").textContent).toContain("Jo Reader");
     key(w, "Escape");
@@ -708,7 +714,7 @@ describe("the History panel", () => {
     $<HTMLButtonElement>(w, "#tb-editor .tb-hi-rev").click();
     await tick();
     expect($(w, "#tb-hi-panel-0").textContent).toBe(
-      "The page moved here from content/chapters/chapter-03.md; its text didn’t change.",
+      "The page moved to where it is now; its text didn’t change.",
     );
   });
 
@@ -731,5 +737,16 @@ describe("the History panel", () => {
     expect(alert.querySelector("a")?.getAttribute("href")).toBe(
       "https://github.com/o/r/commits/main/chapters/chapter-03.md",
     );
+  });
+});
+
+describe("the History panel's plain words", () => {
+  it("says the platform's stock messages as a reader would, and keeps people's own", () => {
+    expect(summary("Edit ¶12 of introduction.md", false)).toBe("Paragraph 12 changed");
+    expect(summary("Update introduction.md (#3)", false)).toBe("Text changed");
+    expect(summary("Ontology: a new book from request #2", true)).toBe("First published");
+    expect(summary("Ontology: a new book from request #2", false)).toBe("Ontology: a new book from request #2");
+    expect(summary("Revise introduction for clarity", false)).toBe("Revise introduction for clarity");
+    expect(summary("", false)).toBe("Changed (no description given)");
   });
 });
