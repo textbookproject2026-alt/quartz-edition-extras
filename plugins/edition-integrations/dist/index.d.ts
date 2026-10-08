@@ -50,6 +50,8 @@ interface Options {
 type AnnotationMode = "public" | "groups" | "off";
 declare const annotationMode: (opts: Pick<Options, "publicAnnotations" | "hypothesisGroupId">) => AnnotationMode;
 declare const hypothesisConfig: (mode: AnnotationMode, anchor?: string, groups?: string[]) => string;
+/** The client's JSON config, which is where it reads `group` from. */
+declare const hypothesisGroupJson: (anchor: string) => string;
 declare const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>>;
 
-export { EditionIntegrations, annotationMode, EditionIntegrations as default, hypothesisConfig };
+export { EditionIntegrations, annotationMode, EditionIntegrations as default, hypothesisConfig, hypothesisGroupJson };

@@ -90,7 +90,15 @@ describe("Hypothes.is without the public layer (books)", () => {
       hypothesisGroupId: "  anchor1  ",
       hypothesisGroups: ["class1", "", "__CLASS__"],
     })!;
-    expect(config).toContain('group: "anchor1"');
+    // `group` only takes effect from the JSON config (window.hypothesisConfig's is ignored).
+    expect(config).not.toContain("group:");
+    const json = headOf({ publicAnnotations: false, hypothesisGroupId: "  anchor1  " }).filter(
+      (n) => (n.props as { class?: string }).class === "js-hypothesis-config",
+    );
+    expect(json.map((n) => (n.props as { type?: string }).type)).toEqual(["application/json"]);
+    expect(inlineScripts(json)).toEqual(['{"group":"anchor1"}']);
+    // Editions (the public layer): no JSON config.
+    expect(headOf({}).some((n) => (n.props as { class?: string }).class === "js-hypothesis-config")).toBe(false);
     expect(config).toContain('groupsAllowlist: ["anchor1","class1"]');
     expect(config).toContain("showHighlights: 'never'");
     expect(config).not.toContain("services");

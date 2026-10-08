@@ -145,6 +145,9 @@ const defaultOptions: Options = {
 //     logged out or not a member; a restricted group is world-readable, so it
 //     always loads, the allowlist then holds, and Public isn't offered, read,
 //     highlighted or postable (a direct link to a public annotation included).
+//     The client reads `group` only from the JSON config script (or a
+//     #annotations:group: fragment), never from window.hypothesisConfig: there
+//     it is ignored and Public comes back (hypothesisGroupJson).
 //   - `services` without a grant token hands login to the host page: no one
 //     could sign in. Not used.
 // So "groups" mode needs the restricted group (hypothesisGroupId); without it a
@@ -165,9 +168,9 @@ export const hypothesisConfig = (mode: AnnotationMode, anchor = "", groups: stri
   const only =
     mode === "groups"
       ? `
-    // No public layer: the anchor group (restricted) and the class groups only.
-    // Highlights start off; the sidebar's eye turns them on.
-    group: ${JSON.stringify(anchor.trim())},
+    // No public layer: the anchor group (restricted; its \`group\` is in the JSON
+    // config) and the class groups only. Highlights start off; the sidebar's eye
+    // turns them on.
     groupsAllowlist: ${JSON.stringify([anchor.trim(), ...groups.filter(isRealGroupId).map((g) => g.trim())])},
     showHighlights: 'never',`
       : `
@@ -191,6 +194,10 @@ window.hypothesisConfig = function () {
 }
 `;
 };
+
+/** The client's JSON config, which is where it reads `group` from. */
+export const hypothesisGroupJson = (anchor: string) =>
+  JSON.stringify({ group: anchor.trim() }).replace(/</g, "\\u003c");
 
 // --- 3. Plausible (per-site script) -------------------------------------------
 // Queue stub first so calls made before pa-*.js lands are buffered, then init with
@@ -289,6 +296,14 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
         h("script", { dangerouslySetInnerHTML: { __html: readerPrefs } }) as VNode,
       ];
       const mode = annotationMode(opts);
+      if (mode === "groups")
+        head.push(
+          h("script", {
+            type: "application/json",
+            class: "js-hypothesis-config",
+            dangerouslySetInnerHTML: { __html: hypothesisGroupJson(opts.hypothesisGroupId) },
+          }) as VNode,
+        );
       if (mode !== "off")
         head.push(
           h("script", {

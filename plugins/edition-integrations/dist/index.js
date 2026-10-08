@@ -9025,9 +9025,9 @@ var isRealGroupId = (groupId) => {
 var annotationMode = (opts) => opts.publicAnnotations ? "public" : isRealGroupId(opts.hypothesisGroupId) ? "groups" : "off";
 var hypothesisConfig = (mode, anchor = "", groups = []) => {
   const only = mode === "groups" ? `
-    // No public layer: the anchor group (restricted) and the class groups only.
-    // Highlights start off; the sidebar's eye turns them on.
-    group: ${JSON.stringify(anchor.trim())},
+    // No public layer: the anchor group (restricted; its \`group\` is in the JSON
+    // config) and the class groups only. Highlights start off; the sidebar's eye
+    // turns them on.
     groupsAllowlist: ${JSON.stringify([anchor.trim(), ...groups.filter(isRealGroupId).map((g2) => g2.trim())])},
     showHighlights: 'never',` : `
     // Public layer, as the canonical site's publish.js: highlights always shown.
@@ -9050,6 +9050,7 @@ window.hypothesisConfig = function () {
 }
 `;
 };
+var hypothesisGroupJson = (anchor) => JSON.stringify({ group: anchor.trim() }).replace(/</g, "\\u003c");
 var plausibleInit = `
 window.plausible = window.plausible || function () { (window.plausible.q = window.plausible.q || []).push(arguments) }
 window.plausible.init = window.plausible.init || function (o) { window.plausible.o = o || {} }
@@ -9106,6 +9107,14 @@ var EditionIntegrations = (userOpts) => {
         _("script", { dangerouslySetInnerHTML: { __html: readerPrefs } })
       ];
       const mode = annotationMode(opts);
+      if (mode === "groups")
+        head.push(
+          _("script", {
+            type: "application/json",
+            class: "js-hypothesis-config",
+            dangerouslySetInnerHTML: { __html: hypothesisGroupJson(opts.hypothesisGroupId) }
+          })
+        );
       if (mode !== "off")
         head.push(
           _("script", {
@@ -9146,6 +9155,6 @@ var EditionIntegrations = (userOpts) => {
 };
 var src_default = EditionIntegrations;
 
-export { EditionIntegrations, annotationMode, src_default as default, hypothesisConfig };
+export { EditionIntegrations, annotationMode, src_default as default, hypothesisConfig, hypothesisGroupJson };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map
