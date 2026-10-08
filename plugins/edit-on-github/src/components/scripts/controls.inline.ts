@@ -950,7 +950,10 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
     trigger,
     el("h2", { text: "How contributing works" }),
     el("p", {
-      text: `There ${names.length === 1 ? "is one way" : `are ${NUMBER[names.length] ?? names.length} ways`} to help with this ${what}. They differ in who sees what you write, and in which account you need.`,
+      text:
+        names.length === 1
+          ? `There is one way to help with this ${what}: who sees what you write, and which account you need.`
+          : `There are ${NUMBER[names.length] ?? names.length} ways to help with this ${what}. They differ in who sees what you write, and in which account you need.`,
     }),
     ...names.map((n) => route(ROUTES[n])),
     el("p", {}, el("a", { href: howTo, text: "More about commenting and contributing" })),
