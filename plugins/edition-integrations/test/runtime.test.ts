@@ -793,6 +793,10 @@ describe("privacyNotice", () => {
     const w = page("https://book.example.org/chapters/one");
     w.eval(privacyNotice(URL_));
     expect(box(w)?.querySelector("p")?.textContent).toBe("No tracking cookies. Privacy");
+    const coming = page("https://book.example.org/chapters/one");
+    coming.eval("window.tbCommentsComing = true");
+    coming.eval(privacyNotice(URL_));
+    expect(box(coming)?.querySelector("p")?.textContent).toBe("No tracking cookies. Margin comments are coming soon for classes. Privacy");
     expect([...box(w)!.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["OK"]);
   });
 

@@ -388,6 +388,12 @@ describe("E. the explainer", () => {
     expect(g.text).not.toContain("Anyone on the internet");
     const none = page(undefined, { explained: true, prefs: false });
     expect(routes(none).titles).toEqual(["Edit this page", "Note to the authors"]);
+    // An edition without comments: one way, said in the singular.
+    const one = page(render({ repo: "o/r" }), { explained: true, prefs: false });
+    $<HTMLButtonElement>(one, "[data-tb-explain]").click();
+    expect($(one, "dialog.tb-dialog p").textContent).toBe(
+      "There is one way to help with this edition: who sees what you write, and which account you need.",
+    );
     expect(items(none, "#tb-contribute-menu").map((i) => i.querySelector(".tb-mi-t")!.textContent)).not.toContain("Public comment");
   });
 

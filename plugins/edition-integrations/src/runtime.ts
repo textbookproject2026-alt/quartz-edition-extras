@@ -1146,7 +1146,9 @@ export const privacyNotice = (privacyUrl: string) => `
       var comments = !!window.tbAnnotations
       p.textContent = comments
         ? "No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. "
-        : "No tracking cookies. "
+        : window.tbCommentsComing
+          ? "No tracking cookies. Margin comments are coming soon for classes. "
+          : "No tracking cookies. "
       var a = document.createElement("a")
       a.href = URL_
       a.textContent = "Privacy"
