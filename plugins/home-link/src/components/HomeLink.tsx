@@ -108,5 +108,7 @@ export default ((userOpts?: Partial<HomeLinkOptions>) => {
     </p>
   );
   HomeLink.css = css;
+  // edit-on-github's "book" frame draws it first in the header row, not in the sidebar.
+  (HomeLink as typeof HomeLink & { tbHeaderLead: boolean }).tbHeaderLead = true;
   return HomeLink;
 }) satisfies QuartzComponentConstructor<Partial<HomeLinkOptions>>;

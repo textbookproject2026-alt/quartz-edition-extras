@@ -117,11 +117,15 @@ const SVG = (d: string) =>
     { viewBox: "0 0 16 16", width: 16, height: 16, "aria-hidden": "true", focusable: "false" },
     h("path", { d, fill: "currentColor" }),
   );
-// Octicons (MIT): search, pencil, comment.
+// Octicons (MIT): search, pencil, comment, three-bars, book.
 const SEARCH =
   "M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z";
 const PENCIL =
   "M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Zm-2.677 2.323L3.64 10.92a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.25.25 0 0 0 .108-.064l6.11-6.11Z";
+const MENU =
+  "M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z";
+const BOOK =
+  "M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z";
 const COMMENT =
   "M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z";
 
@@ -264,6 +268,8 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
           )
         : null,
       item("button", { "data-tb-backlinks": "" }, "What links here"),
+      // Reader mode is a header button; here instead only when the header is short of room.
+      item("button", { "data-tb-reader-item": "", hidden: true }, "Reader mode"),
       hasSource
         ? item(
             "button",
@@ -301,6 +307,12 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
         ...(hasSource && opts.sourceCommit ? { "data-source-commit": opts.sourceCommit } : {}),
         ...(blob ? { "data-source-blob": blob } : {}),
       },
+      // Quartz's explorer menu, where the explorer is a drawer (a narrow window).
+      btn(
+        { "data-tb-menu": "", "aria-expanded": "false" },
+        SVG(MENU),
+        "Menu",
+      ),
       h(
         "div",
         { class: "tb-hdr-where" },
@@ -333,6 +345,7 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
           SVG(COMMENT),
           "Annotate",
         ),
+        btn({ "data-tb-reader": "", "aria-pressed": "false" }, SVG(BOOK), "Reader mode"),
         h(
           "div",
           { class: "tb-hdr-wrap" },
@@ -372,9 +385,10 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
   // container query as the first-paint guess, and by the page script whenever
   // the header's contents don't fit (class tb-hdr-icons): nothing ever clips.
   const iconsOnly = (scope: string) => `
-${scope} .tb-hdr-where, ${scope} .tb-hdr-actions { gap: 0.3rem; }
+${scope} .tb-hdr-where, ${scope} .tb-hdr-actions { gap: 0.15rem; }
+${scope} .tb-hdr-where { min-width: 2.5rem; }
 ${scope} .tb-hdr-crumbs { display: none; }
-${scope} .tb-hdr-btn { padding: 0.3rem 0.45rem; }
+${scope} .tb-hdr-btn { padding: 0.3rem 0.35rem; }
 ${scope} .tb-hdr-label {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
   clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
@@ -393,7 +407,7 @@ ${scope} .tb-menu, ${scope} .tb-panel { left: 0; right: 0; width: auto; max-widt
    page in another frame the header sticks by itself, inside the centre column. */
 .tb-header {
   position: sticky;
-  top: var(--tb-sticky-top, 0px);
+  top: 0;
   z-index: 2;
   /* Its own width decides icons-only: a phone, or a centre column squeezed by the
      open annotation sidebar. */
@@ -440,7 +454,7 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
   text-decoration: none;
 }
 .tb-hdr-crumbs { display: flex; gap: 0.4rem; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--tb-muted, var(--gray)); }
-.tb-hdr-crumbs a { color: inherit; text-decoration: none; }
+.tb-hdr-crumbs a { min-width: 0; overflow: hidden; white-space: nowrap; text-wrap: nowrap; text-overflow: ellipsis; color: inherit; text-decoration: none; }
 .tb-hdr-crumbs a::before { content: "›"; margin-right: 0.4rem; color: var(--tb-faint, var(--gray)); }
 .tb-hdr-title:hover, .tb-hdr-crumbs a:hover { color: var(--tb-accent, var(--secondary)); }
 .tb-hdr-actions { display: flex; align-items: center; gap: 0.25rem; flex: 0 0 auto; }
@@ -500,7 +514,66 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
 .tb-hdr-status:popover-open { position: fixed; inset: auto; margin: 0; }
 .tb-menu:popover-open, .tb-panel:popover-open { overflow: auto; color: var(--tb-ink, var(--dark)); }
 .tb-hdr-status:popover-open { border: 0; }
-.tb-header-slot > .tb-header { position: static; }
+/* The "book" frame's header row is the page's one bar: the logo, then the header.
+   Quartz's own bar (logo, menu button, reader mode in the left sidebar's row on a
+   narrow window) is gone: the logo is here, the other two are header buttons, and
+   edition-integrations' design CSS takes that sidebar's height away. */
+.tb-header-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--tb-border, var(--lightgray));
+  background: var(--tb-bg, var(--light));
+}
+.tb-header-slot > .home-link { flex: 0 0 auto; }
+@media (max-width: 800px) { .tb-header-slot { gap: 0.5rem; } }
+/* The full wordmark where the row has room, the icon otherwise: the page script
+   decides, in the header's fit (tb-logo-full / tb-logo-icon). Until it has,
+   home-link's own guess by window width. */
+.tb-header-slot.tb-logo-full > .home-link .home-link-full { display: block; }
+.tb-header-slot.tb-logo-full > .home-link .home-link-icon { display: none; }
+.tb-header-slot.tb-logo-icon > .home-link .home-link-full { display: none; }
+.tb-header-slot.tb-logo-icon > .home-link .home-link-icon { display: block; }
+/* Where the explorer is a sidebar, the left column starts at the top, level with
+   the header row: no empty space where the logo was. Quartz's toolbar row there
+   holds only its hidden Search (whose overlay is fixed) and the hidden reader
+   mode, so it leaves the flow rather than taking a row and a gap. */
+@media not all and (max-width: 800px) {
+  .page[data-frame="book"] > #quartz-body > .sidebar.left { padding-top: 1rem; }
+  .page[data-frame="book"] > #quartz-body > .sidebar.left > .flex-component:has(.search) { position: absolute; }
+}
+.tb-header-slot > .tb-header {
+  position: static;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  border-bottom: 0;
+  background: none;
+}
+/* The menu button only where Quartz's explorer is a drawer (Quartz's 800px, which
+   edition-integrations' breakpointBand moves to its narrow width). */
+.tb-header [data-tb-menu] { display: none; }
+@media (max-width: 800px) {
+  .tb-header [data-tb-menu]:not([hidden]) { display: inline-flex; }
+}
+.tb-header [data-tb-reader][aria-pressed="true"] { color: var(--tb-accent, var(--secondary)); }
+/* Quartz's own reader-mode and explorer-menu buttons stay in the page, out of
+   sight, so their scripts keep working: the header's buttons press them. Open,
+   the drawer's own menu button (above the drawer, its way to close) shows at the
+   header's menu button's place. */
+.page > #quartz-body > .sidebar .readermode { display: none; }
+.page > #quartz-body .explorer .mobile-explorer:not(.hide-until-loaded) {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+html.mobile-no-scroll .page > #quartz-body .explorer .mobile-explorer:not(.hide-until-loaded) {
+  position: fixed;
+  left: var(--tb-menu-x, 0.5rem);
+  top: var(--tb-menu-y, 0.5rem);
+  width: auto; height: auto; margin: 0; padding: 0.45rem; overflow: visible; clip-path: none;
+}
 .tb-mi {
   display: flex;
   flex-direction: column;
@@ -550,6 +623,8 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
 @container tb-header (max-width: 640px) {${iconsOnly("")}
 }
 ${iconsOnly(".tb-header.tb-hdr-icons")}
+.tb-header.tb-hdr-tight .tb-hdr-btn { padding-left: 0.2rem; padding-right: 0.2rem; }
+.tb-header.tb-hdr-tight .tb-hdr-where { min-width: 2rem; }
 @media (max-width: 800px) {
   .tb-header { gap: 0.4rem; margin-bottom: 1rem; }
 }

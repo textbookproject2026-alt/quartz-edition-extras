@@ -41,14 +41,18 @@ afterEach(async () => {
 /** A page with the header, Quartz's search and backlinks, optional prefs/annotations stubs. */
 const page = (
   html = render(),
-  { prefs = true, explained = false, backlinks = 1, storage = true, popover = false } = {},
+  { prefs = true, explained = false, backlinks = 1, storage = true, popover = false, quartzBar = false } = {},
 ) => {
   const w = new Window({ url: "https://book.example.org/chapters/chapter-03" }) as unknown as Page;
   if (!storage) Object.defineProperty(w, "localStorage", { get: () => { throw new Error("denied") } });
   else if (explained) w.localStorage.setItem("tb-contribute-explained", "1");
   const links = Array.from({ length: backlinks }, (_, i) => `<li><a class="internal" href="x${i}">X${i}</a></li>`).join("");
   w.document.write(
-    `<html><head></head><body><div class="left sidebar"><div class="search"><button class="search-button"></button></div></div>` +
+    `<html><head></head><body><div class="left sidebar"><div class="search"><button class="search-button"></button></div>` +
+      (quartzBar
+        ? `<button class="readermode"></button><div class="explorer collapsed"><button class="mobile-explorer"></button><div id="explorer-0" class="explorer-content"></div></div>`
+        : "") +
+      `</div>` +
       `${html}<article><p data-pnum="1" id="p1">One.</p></article>` +
       `<div class="backlinks"><h3>Backlinks</h3><ul>${links || "<li>No backlinks found</li>"}</ul></div></body></html>`,
   );
@@ -70,6 +74,14 @@ const page = (
     w.eval(`window.topLayer = []
       HTMLElement.prototype.showPopover = function () { window.topLayer.push(this) }
       HTMLElement.prototype.hidePopover = function () { window.topLayer.splice(window.topLayer.indexOf(this), 1) }`);
+  // Quartz's explorer and reader-mode scripts, as far as the header relies on them.
+  if (quartzBar)
+    w.eval(`document.querySelector(".mobile-explorer").addEventListener("click", function () {
+        document.querySelector(".explorer").classList.toggle("collapsed") })
+      document.querySelector(".readermode").addEventListener("click", function () {
+        var on = document.documentElement.getAttribute("reader-mode") === "on"
+        document.documentElement.setAttribute("reader-mode", on ? "off" : "on")
+        document.dispatchEvent(new CustomEvent("readermodechange")) })`);
   w.eval(script);
   w.document.dispatchEvent(new w.CustomEvent("nav"));
   opened.push(w);
@@ -101,7 +113,7 @@ describe("A. the sticky header", () => {
 
   it("is sticky, keeps Quartz's overlays above it, and shows only icons on a phone", () => {
     const css = EditOnGitHub({}).css as string;
-    expect(css).toMatch(/\.tb-header \{\s*position: sticky;\s*top: var\(--tb-sticky-top, 0px\);\s*z-index: 2;/);
+    expect(css).toMatch(/\.tb-header \{\s*position: sticky;\s*top: 0;\s*z-index: 2;/);
     expect(css).toContain(".center > .page-header > .popover-hint { display: contents; }");
     expect(css).toContain(".page > #quartz-body > .sidebar.right { z-index: 1; }");
     expect(css).toMatch(/\.sidebar:has\(\.search-container\.active, \.global-graph-outer\.active\),\s*html\.mobile-no-scroll [^{]*\{ z-index: 3; \}/);
@@ -111,6 +123,35 @@ describe("A. the sticky header", () => {
     const narrow = css.slice(css.indexOf("@container tb-header (max-width: 640px)"));
     expect(narrow).toMatch(/\.tb-hdr-label \{[^}]*clip-path: inset\(50%\)/);
     expect(css).toMatch(/@media print \{ \.tb-header, \.tb-dialog \{ display: none !important; \} \}/);
+  });
+
+  it("has Quartz's explorer menu and reader mode as its own buttons, pressing Quartz's", async () => {
+    const w = page(undefined, { explained: true, quartzBar: true });
+    const menu = $<HTMLButtonElement>(w, "[data-tb-menu]");
+    const quartzMenu = $<HTMLButtonElement>(w, ".mobile-explorer");
+    expect(menu.hidden).toBe(false);
+    expect(menu.getAttribute("aria-controls")).toBe("explorer-0");
+    expect(quartzMenu.tabIndex).toBe(-1);
+    menu.click();
+    await tick();
+    expect($(w, ".explorer").classList.contains("collapsed")).toBe(false);
+    expect(menu.getAttribute("aria-expanded")).toBe("true");
+    expect(quartzMenu.tabIndex).toBe(0);
+    quartzMenu.click();
+    await tick();
+    expect(menu.getAttribute("aria-expanded")).toBe("false");
+    const reader = $<HTMLButtonElement>(w, "[data-tb-reader]");
+    expect(reader.hidden).toBe(false);
+    reader.click();
+    expect(w.document.documentElement.getAttribute("reader-mode")).toBe("on");
+    expect(reader.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("without Quartz's explorer or reader mode, has neither button", () => {
+    const w = page(undefined, { explained: true });
+    expect($(w, "[data-tb-menu]").hidden).toBe(true);
+    expect($(w, "[data-tb-reader]").hidden).toBe(true);
+    expect($(w, "[data-tb-reader-item]").hidden).toBe(true);
   });
 
   it("Search opens Quartz's own search, and stays hidden where there is none", () => {

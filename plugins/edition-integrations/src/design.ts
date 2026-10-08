@@ -340,7 +340,7 @@ pre, article code { background-color: var(--tb-bg-soft); }
 }
 /* Anchored headings and paragraphs stop below the sticky header. */
 article [id],
-article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + var(--tb-sticky-top, 0px) + 1rem); }
+article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
 /* The sidebar open on a wide screen: the page makes room for it, so the text and
    the paragraph pencils stay in view, and the right rail (graph, contents,
    backlinks) goes under the chapter, as on Quartz's tablet layout, so the text
@@ -474,6 +474,17 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + var(--tb-stic
   }
   #quartz-body .page-header h1.article-title { margin-top: 0.75rem; }
   #quartz-body .page-header .breadcrumb-container { margin-top: 0.25rem; }
+
+  /* In edit-on-github's "book" frame that bar is gone: the header row is the page's
+     one bar (logo, menu, title, controls). What is left of the left sidebar is the
+     menu's drawer, which is fixed to the screen and needs no height. */
+  .page[data-frame="book"] > #quartz-body > .sidebar.left {
+    height: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
 }
 
 /* Wherever Quartz's grid isn't its desktop one, nothing but the page is at the

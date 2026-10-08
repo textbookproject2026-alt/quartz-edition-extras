@@ -1101,14 +1101,57 @@ const armHistory = (link: HTMLAnchorElement, endpoint: string, back: HTMLElement
 
 /**
  * Header items never clip: when the header's contents are wider than the header
- * (labels, a long title, an annotation count, a larger font), it goes to icons.
- * Measured with the labels shown, on every change of the header's or its
+ * (labels, a long title, an annotation count, a larger font), it goes to icons;
+ * if the icons still don't fit, it goes tight: Reader mode moves into ⋯ and the
+ * icons' side padding narrows (each stays at least 24px wide). Measured with the
+ * labels and Reader mode shown, on every change of the header's or its
  * controls' size.
+ *
+ * The logo before it in the "book" frame's row is the full wordmark only where
+ * the row has room for it, and it gives way first: the fit is made with the
+ * icon, then the wordmark is kept only if it changes nothing else: no overflow,
+ * the labels shown (or hidden) as they were, the title and breadcrumb uncut.
  */
 const fitHeader = (header: HTMLElement) => {
+  const reader = header.querySelector<HTMLElement>("[data-tb-reader]");
+  const readerItem = header.querySelector<HTMLElement>("[data-tb-reader-item]");
+  const over = () => header.scrollWidth > header.clientWidth + 1;
+  const row = header.parentElement?.classList.contains("tb-header-slot") ? header.parentElement : null;
+  const logo = row?.querySelector(".home-link") ? row : null;
+  const label = header.querySelector<HTMLElement>(".tb-hdr-label");
+  const labelsShown = () => !!label && getComputedStyle(label).position !== "absolute";
+  const where = header.querySelector<HTMLElement>(".tb-hdr-where");
+  const cut = (el: Element | null) => !!el && el.scrollWidth > el.clientWidth + 1;
+  const roomy = (labels: boolean) =>
+    !over() &&
+    labelsShown() === labels &&
+    !cut(where) &&
+    !Array.from(where?.querySelectorAll(".tb-hdr-title, .tb-hdr-crumbs a") ?? []).some(cut);
+  const setLogo = (full: boolean) => {
+    logo?.classList.toggle("tb-logo-full", full);
+    logo?.classList.toggle("tb-logo-icon", !full);
+  };
   const fit = () => {
-    header.classList.remove("tb-hdr-icons");
-    if (header.scrollWidth > header.clientWidth + 1) header.classList.add("tb-hdr-icons");
+    const hasReader = !!reader && !!readerItem && header.dataset.tbHasReader === "1";
+    setLogo(false);
+    header.classList.remove("tb-hdr-icons", "tb-hdr-tight");
+    if (hasReader) {
+      reader.hidden = false;
+      readerItem.hidden = true;
+    }
+    if (over()) header.classList.add("tb-hdr-icons");
+    if (over()) {
+      header.classList.add("tb-hdr-tight");
+      if (hasReader) {
+        reader.hidden = true;
+        readerItem.hidden = false;
+      }
+    }
+    const labels = labelsShown();
+    if (logo && roomy(labels)) {
+      setLogo(true);
+      if (!roomy(labels)) setLogo(false);
+    }
     replace();
   };
   fit();
@@ -1116,6 +1159,8 @@ const fitHeader = (header: HTMLElement) => {
   // annotation sidebar); the controls' size (an annotation count arriving). A fit
   // ends at the size it started from, so it doesn't feed back into itself.
   window.addEventListener("resize", fit);
+  // Web fonts change the title's width without changing the header's.
+  void document.fonts?.ready.then(fit);
   if (typeof ResizeObserver === "function") {
     const ro = new ResizeObserver(() => requestAnimationFrame(fit));
     ro.observe(header);
@@ -1123,32 +1168,6 @@ const fitHeader = (header: HTMLElement) => {
     if (actions) ro.observe(actions);
   }
   return fit;
-};
-
-/**
- * On a phone, Quartz's explorer bar (the left sidebar) is itself sticky at the
- * top of the window, above the header. The header sticks just under it rather
- * than behind it: --tb-sticky-top is the bar's height while the bar sits over the
- * header's column and is sticky, and 0 otherwise (a desktop sidebar beside it).
- * An open drawer (the bar the height of the window) keeps the last value.
- */
-const stickyTop = (header: HTMLElement) => {
-  const bar = document.querySelector<HTMLElement>(".page > #quartz-body > .sidebar.left");
-  if (!bar) return;
-  let top = 0;
-  const set = () => {
-    const b = bar.getBoundingClientRect();
-    const h = header.getBoundingClientRect();
-    const over =
-      getComputedStyle(bar).position === "sticky" && b.left < h.right && b.right > h.left;
-    if (!over) top = 0;
-    else if (b.height < window.innerHeight / 2) top = b.height;
-    document.documentElement.style.setProperty("--tb-sticky-top", `${top}px`);
-    replace();
-  };
-  set();
-  window.addEventListener("resize", set);
-  if (typeof ResizeObserver === "function") new ResizeObserver(set).observe(bar);
 };
 
 const armHeader = (header: HTMLElement) => {
@@ -1172,6 +1191,58 @@ const armHeader = (header: HTMLElement) => {
     if (!search || !quartz) return;
     search.addEventListener("click", () => quartz.click());
     search.hidden = false;
+  });
+
+  // The explorer's menu (where it is a drawer) and Quartz's reader mode, as header
+  // buttons that press Quartz's own, which stay in the page out of sight.
+  each(() => {
+    const menu = $<HTMLButtonElement>("[data-tb-menu]");
+    const explorer = document.querySelector<HTMLElement>(".explorer");
+    const quartz = explorer?.querySelector<HTMLButtonElement>(".mobile-explorer");
+    if (!menu || !explorer || !quartz) return;
+    const drawer = explorer.querySelector<HTMLElement>(".explorer-content");
+    if (drawer?.id) menu.setAttribute("aria-controls", drawer.id);
+    // Closed, Quartz's button is out of the tab order: the header's is the one.
+    quartz.tabIndex = -1;
+    const isOpen = () => !explorer.classList.contains("collapsed");
+    let was = isOpen();
+    const sync = () => {
+      const open = isOpen();
+      menu.setAttribute("aria-expanded", String(open));
+      quartz.tabIndex = open ? 0 : -1;
+      if (was && !open && (quartz === document.activeElement || explorer.contains(document.activeElement)))
+        menu.focus();
+      was = open;
+    };
+    new MutationObserver(sync).observe(explorer, { attributes: true, attributeFilter: ["class"] });
+    menu.addEventListener("click", () => {
+      // Open, the drawer's own button (its way to close) shows where this one is.
+      const r = menu.getBoundingClientRect();
+      document.documentElement.style.setProperty("--tb-menu-x", `${r.left}px`);
+      document.documentElement.style.setProperty("--tb-menu-y", `${r.top}px`);
+      quartz.click();
+      if (isOpen()) quartz.focus();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || !isOpen() || !quartz.checkVisibility?.()) return;
+      quartz.click();
+      menu.focus();
+    });
+    menu.hidden = false;
+  });
+  each(() => {
+    const reader = $<HTMLButtonElement>("[data-tb-reader]");
+    const item = $<HTMLButtonElement>("[data-tb-reader-item]");
+    const quartz = document.querySelector<HTMLButtonElement>(".sidebar .readermode");
+    if (!reader || !item || !quartz) return;
+    const sync = () =>
+      reader.setAttribute("aria-pressed", String(document.documentElement.getAttribute("reader-mode") === "on"));
+    document.addEventListener("readermodechange", sync);
+    reader.addEventListener("click", () => quartz.click());
+    item.addEventListener("click", () => quartz.click());
+    sync();
+    header.dataset.tbHasReader = "1";
+    reader.hidden = false;
   });
 
   // A, D: Annotate, and Public comment in the Contribute menu.
@@ -1286,7 +1357,6 @@ const armHeader = (header: HTMLElement) => {
 
   // Last: the armed controls are all shown now, so the fit is measured on them.
   each(() => void fitHeader(header));
-  each(() => stickyTop(header));
 };
 
 // Wires the header once per page. "nav" fires after each full load, and after

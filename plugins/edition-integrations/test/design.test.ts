@@ -234,7 +234,7 @@ describe("editing design.yaml", () => {
   it("stops anchors below the sticky header, and makes room for the open sidebar on wide screens (A, B)", () => {
     const css = designCss(loadDesign());
     expect(declared(css, "article [id],\narticle [data-pnum]", "scroll-margin-top")).toBe(
-      "calc(var(--tb-header-h) + var(--tb-sticky-top, 0px) + 1rem)",
+      "calc(var(--tb-header-h) + 1rem)",
     );
     const wide = css.slice(css.indexOf("@media (min-width: 1280px)"));
     expect(declared(wide, ":root.tb-hypothesis-expanded body", "padding-right")).toBe(
