@@ -75,27 +75,40 @@ describe("EditionIntegrations head injection", () => {
     const config = inlineScripts(headOf()).find((html) => html.includes("hypothesisConfig"));
     expect(config).toContain("openSidebar: false");
     expect(config).toContain("showHighlights: 'always'");
-    // Publisher-tier seam stays commented out.
-    expect(config).toContain("// services: [{");
+    expect(config).not.toContain("groupsAllowlist");
+    expect(config).not.toContain("services");
   });
 });
 
-describe("Hypothes.is group locking", () => {
-  const groupsLine = (hypothesisGroupId: string): string => {
-    const config = inlineScripts(headOf({ hypothesisGroupId })).find((html) =>
-      html.includes("hypothesisConfig"),
-    );
-    return config!.match(/groups: \["(.*)"\]/)![1]!;
-  };
+describe("Hypothes.is without the public layer (books)", () => {
+  const configOf = (opts: Record<string, unknown>) =>
+    inlineScripts(headOf(opts)).find((html) => html.includes("hypothesisConfig"));
 
-  it("locks to a real group id", () => {
-    expect(groupsLine("  abc123  ")).toBe("abc123");
+  it("with the anchor group: that group and the class groups only, highlights off", () => {
+    const config = configOf({
+      publicAnnotations: false,
+      hypothesisGroupId: "  anchor1  ",
+      hypothesisGroups: ["class1", "", "__CLASS__"],
+    })!;
+    expect(config).toContain('group: "anchor1"');
+    expect(config).toContain('groupsAllowlist: ["anchor1","class1"]');
+    expect(config).toContain("showHighlights: 'never'");
+    expect(config).not.toContain("services");
+    expect(srcs(headOf({ publicAnnotations: false, hypothesisGroupId: "anchor1" })).length).toBe(
+      srcs(headOf()).length,
+    );
   });
 
-  it("falls through quietly on an empty or placeholder group", () => {
-    expect(groupsLine("")).toBe("GROUP_ID");
-    expect(groupsLine("   ")).toBe("GROUP_ID");
-    expect(groupsLine("__GROUP_ID__")).toBe("GROUP_ID");
+  it("without it: no client, nothing that drives or counts one", () => {
+    for (const hypothesisGroupId of ["", "   ", "__GROUP_ID__"]) {
+      const scripts = inlineScripts(headOf({ publicAnnotations: false, hypothesisGroupId }));
+      for (const marker of ["hypothesisConfig", "embed.js", "tbAnnotations =", "api.hypothes.is"])
+        expect(scripts.some((html) => html.includes(marker)), marker).toBe(false);
+    }
+  });
+
+  it("an edition's group id alone changes nothing: the public layer stays", () => {
+    expect(configOf({ hypothesisGroupId: "abc123" })).not.toContain("groupsAllowlist");
   });
 });
 

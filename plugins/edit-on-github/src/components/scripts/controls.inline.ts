@@ -871,6 +871,15 @@ const ROUTES = {
     who: "The authors. It becomes a public issue on the book's GitHub repository, showing your name. It doesn't appear on this page.",
     account: "None. You give your name.",
   },
+  // A book without Hypothes.is's public layer (edition-integrations'
+  // publicAnnotations: false): comments live in groups only.
+  groupComment: {
+    title: "Margin comment",
+    what: "Write in the margin with Hypothes.is, in a group such as your class's: highlight a passage and comment on it, or reply to someone else's comment.",
+    who: "Only the members of the Hypothes.is group you post in, with your Hypothes.is username. Public comments are switched off on this book.",
+    account: "A free Hypothes.is account, and membership of the group.",
+    link: ["Create a Hypothes.is account ↗", "https://hypothes.is/signup"],
+  },
   comment: {
     title: "Public comment",
     what: "Write in the margin with Hypothes.is: highlight a passage and comment on it, or reply to someone else's comment.",
@@ -911,7 +920,14 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
     );
   const actions = el("div", { class: "tb-dialog-row" });
   const header = document.querySelector<HTMLElement>(".tb-header");
-  const names = (header?.dataset.routes ?? "comment").split(" ").filter((r): r is keyof typeof ROUTES => r in ROUTES);
+  // Margin comments only where the page has a Hypothes.is client (edition-integrations
+  // loads none on a book with neither the public layer nor its group set).
+  const annotations = (window as unknown as { tbAnnotations?: Annotations }).tbAnnotations;
+  const names = (header?.dataset.routes ?? "comment")
+    .split(" ")
+    .filter((r) => r !== "comment" || annotations)
+    .map((r) => (r === "comment" && annotations?.groupsOnly ? "groupComment" : r))
+    .filter((r): r is keyof typeof ROUTES => r in ROUTES);
   const what = names.includes("edit") || names.includes("note") ? "book" : "edition";
   const box = dialog(
     "How contributing works",
@@ -985,6 +1001,8 @@ const cite = (header: HTMLElement, trigger: HTMLElement) => {
 
 type Prefs = { get: (n: string) => string; set: (n: string, v: string) => void };
 type Annotations = {
+  /** No public layer: margin comments in groups only (edition-integrations). */
+  groupsOnly?: boolean;
   open: () => Promise<boolean>;
   close?: () => void;
   enable: () => void;
@@ -998,7 +1016,12 @@ const appearance = (panel: HTMLElement, prefs: Prefs, annotations: Annotations |
     ["theme", "Theme", [["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]]],
     ["numbers", "Paragraph numbers", [["on", "On"], ["off", "Off"]]],
   ];
-  if (annotations) groups.push(["annotations", "Public annotations", [["on", "On"], ["off", "Off"]]]);
+  if (annotations)
+    groups.push([
+      "annotations",
+      annotations.groupsOnly ? "Margin comments" : "Public annotations",
+      [["on", "On"], ["off", "Off"]],
+    ]);
   const note = el("p", { class: "tb-panel-note", role: "status" });
   for (const [name, legend, options] of groups) {
     const seg = el("div", { class: "tb-seg" });
@@ -1358,6 +1381,12 @@ const armHeader = (header: HTMLElement) => {
     const comment = $<HTMLButtonElement>("[data-tb-comment]");
     if (comment) {
       comment.addEventListener("click", openAnnotations);
+      if (w.tbAnnotations.groupsOnly) {
+        const t = comment.querySelector(".tb-mi-t");
+        const sub = comment.querySelector(".tb-mi-s");
+        if (t) t.textContent = ROUTES.groupComment.title;
+        if (sub) sub.textContent = "Hypothes.is account · only your group sees it";
+      }
       comment.hidden = false;
     }
   });

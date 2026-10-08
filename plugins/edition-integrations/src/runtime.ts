@@ -164,7 +164,7 @@ export const readerPrefs = `
  *
  * Only ever reads the client's state and clicks its own toggle.
  */
-export const annotationsControl = `
+export const annotationsControl = (groupsOnly: boolean) => `
 ;(function () {
   try {
     var toggle = function () {
@@ -175,6 +175,8 @@ export const annotationsControl = `
     var loaded = function () { return !!document.querySelector("script[data-edition-hypothesis]") }
     var load = function () { if (typeof window.tbLoadHypothesis === "function") window.tbLoadHypothesis() }
     window.tbAnnotations = {
+      // No public layer: the controls say "margin comments" in groups, not "public".
+      groupsOnly: ${groupsOnly ? "true" : "false"},
       on: function () { return !(window.tbPrefs && window.tbPrefs.get("annotations") === "off") },
       enable: function () {
         if (window.tbPrefs) window.tbPrefs.set("annotations", "on")
@@ -586,10 +588,13 @@ export const tagHelper = `
  * bare Edit link, from an edit-on-github pinned before the row; else under the
  * article title.
  */
-export const annotationBadge = `
+export const annotationBadge = (group: string) => `
 ;(function () {
   try {
     var API = "https://api.hypothes.is/api/search"
+    // Books without the public layer count their anchor group only: the search
+    // API without a group counts Public too.
+    var GROUP = ${JSON.stringify(group)}
     var BADGE_CLASS = "tb-anno-badge"
     var STYLE_ID = "tb-anno-badge-style"
     var CACHE_TTL = 5 * 60 * 1000
@@ -603,7 +608,7 @@ export const annotationBadge = `
     }
     var uri = canonicalUri()
     // "v2:" is the query schema: publish.js's entries (v1) used Publish's URLs.
-    var cacheKey = "tb-anno-count:v2:" + uri
+    var cacheKey = "tb-anno-count:v2:" + (GROUP ? GROUP + ":" : "") + uri
     var cacheGet = function () {
       try {
         var raw = sessionStorage.getItem(cacheKey)
@@ -689,7 +694,7 @@ export const annotationBadge = `
     var fetchCount = function () {
       var c = typeof AbortController === "function" ? new AbortController() : null
       var timer = setTimeout(function () { if (c) c.abort() }, FETCH_TIMEOUT)
-      return fetch(API + "?limit=0&uri=" + encodeURIComponent(uri), c ? { signal: c.signal } : {})
+      return fetch(API + "?limit=0&uri=" + encodeURIComponent(uri) + (GROUP ? "&group=" + encodeURIComponent(GROUP) : ""), c ? { signal: c.signal } : {})
         .then(function (res) {
           if (!res.ok) throw new Error("search API HTTP " + res.status)
           return res.json()
@@ -1137,7 +1142,11 @@ export const privacyNotice = (privacyUrl: string) => `
       box.setAttribute("role", "region")
       box.setAttribute("aria-label", "Privacy")
       var p = document.createElement("p")
-      p.textContent = "No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. "
+      // No client on this book (no margin comments): nothing about Hypothes.is to say.
+      var comments = !!window.tbAnnotations
+      p.textContent = comments
+        ? "No tracking cookies. Margin comments are provided by Hypothes.is, which may set its own cookies. "
+        : "No tracking cookies. "
       var a = document.createElement("a")
       a.href = URL_
       a.textContent = "Privacy"
@@ -1151,8 +1160,7 @@ export const privacyNotice = (privacyUrl: string) => `
       off.type = "button"
       off.textContent = "Turn comments off"
       off.addEventListener("click", function () {
-        if (window.tbAnnotations) window.tbAnnotations.disable()
-        else try { localStorage.setItem("tb-annotations", "off") } catch (e) {}
+        window.tbAnnotations.disable()
         done()
       })
       var ok = document.createElement("button")
@@ -1160,7 +1168,8 @@ export const privacyNotice = (privacyUrl: string) => `
       ok.className = "tb-privacy-ok"
       ok.textContent = "OK"
       ok.addEventListener("click", done)
-      row.append(off, ok)
+      if (comments) row.append(off)
+      row.append(ok)
       box.append(p, row)
       var style = document.createElement("style")
       style.textContent = [

@@ -371,6 +371,24 @@ describe("E. the explainer", () => {
     expect(Array.from(again.querySelectorAll("button")).map((b) => b.textContent)).toEqual(["×", "Close"]);
   });
 
+  it("a book without the public layer: margin comments in groups, or none without a client", () => {
+    const routes = (w: Page) => {
+      $<HTMLButtonElement>(w, "[data-tb-explain]").click();
+      const d = $(w, "dialog.tb-dialog");
+      return { titles: [...d.querySelectorAll("h3")].map((h) => h.textContent), text: d.textContent! };
+    };
+    const groups = page(undefined, { explained: true });
+    groups.eval("window.tbAnnotations.groupsOnly = true");
+    groups.document.dispatchEvent(new groups.CustomEvent("nav"));
+    const g = routes(groups);
+    expect(g.titles).toEqual(["Edit this page", "Note to the authors", "Margin comment"]);
+    expect(g.text).toContain("Public comments are switched off on this book.");
+    expect(g.text).not.toContain("Anyone on the internet");
+    const none = page(undefined, { explained: true, prefs: false });
+    expect(routes(none).titles).toEqual(["Edit this page", "Note to the authors"]);
+    expect(items(none, "#tb-contribute-menu").map((i) => i.querySelector(".tb-mi-t")!.textContent)).not.toContain("Public comment");
+  });
+
   it("says what this site has: a book's three routes, an edition's two, and the note's real masking", () => {
     const routes = (w: Page) => {
       $<HTMLButtonElement>(w, "[data-tb-explain]").click();
