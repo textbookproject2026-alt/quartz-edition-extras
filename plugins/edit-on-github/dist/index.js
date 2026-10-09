@@ -598,8 +598,11 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
 /* The book's /history page (quartz-book): the swimlane is a static SVG that
    scales to the column; its lanes and dots take the book's palette. The script's
    timeline below it is one column at any width. */
-.tb-swim { margin: 1rem 0 1.5rem; }
-.tb-swimlane { display: block; width: 100%; height: auto; font-family: var(--tb-font-ui, sans-serif); font-size: 12px; }
+/* Below ~560px the drawing would shrink its labels past reading: it keeps that width
+   and the figure (not the page) scrolls sideways. */
+.tb-swim { margin: 1rem 0 1.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tb-swimlane { display: block; width: 100%; min-width: 560px; height: auto; font-family: var(--tb-font-ui, sans-serif); font-size: 12px; }
+.tb-swim-caption { position: sticky; left: 0; }
 .tb-swim-lane { fill: var(--tb-bg-soft, var(--lightgray)); stroke: var(--tb-bg, var(--light)); stroke-width: 2; }
 .tb-swim-name, .tb-swim-axis { fill: var(--tb-muted, var(--darkgray)); }
 .tb-swim-name { font-weight: 600; }
