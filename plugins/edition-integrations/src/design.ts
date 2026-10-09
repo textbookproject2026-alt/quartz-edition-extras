@@ -184,6 +184,26 @@ const hsl = (hex: string) => {
   return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
 };
 
+/** WCAG relative luminance of a #rrggbb colour. */
+const luminance = (hex: string): number => {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(hex.trim());
+  if (!m) return 0;
+  const [r, g, b] = m.slice(1).map((x) => {
+    const v = parseInt(x, 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+};
+/**
+ * Text on an accent-coloured button: white or near-black, whichever reads better on
+ * that accent (a dark palette's lighter accent needs dark text: batch 2b's audit
+ * found white on #A7A374 at 2.6:1).
+ */
+export const onAccent = (accent: string): string => {
+  const l = luminance(accent);
+  return 1.05 / (l + 0.05) >= (l + 0.05) / (luminance("#141414") + 0.05) ? "#FFFFFF" : "#141414";
+};
+
 /** The colour variables for one palette: Quartz's, then the --tb-* tokens. */
 const colours = (p: Palette) => {
   const accent = hsl(p.accent);
@@ -201,6 +221,7 @@ const colours = (p: Palette) => {
   --accent-s: ${accent.s}%;
   --accent-l: ${accent.l}%;
   --tb-accent: ${p.accent};
+  --tb-on-accent: ${onAccent(p.accent)};
   --tb-accent-hover: ${p.accentHover};
   --tb-accent-soft: ${p.accentSoft};
   --tb-accent-wash: ${p.accentWash};

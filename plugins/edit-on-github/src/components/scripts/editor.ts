@@ -173,12 +173,12 @@ ${O} .tb-ed-head { display: flex; align-items: center; gap: 0.75rem; padding: 0.
 ${O} .tb-ed-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; min-width: 0; flex: 1;
   font-family: var(--tb-font-mono, monospace); font-size: 0.85rem; }
 ${O} .tb-ed-crumbs svg { color: var(--tb-muted, #6E6E73); flex: none; }
-${O} .tb-ed-sep { color: var(--tb-faint, #9B9BA1); }
+${O} .tb-ed-sep { color: var(--tb-muted, #6E6E73); }
 ${O} .tb-ed-file { font-weight: 600; overflow-wrap: anywhere; }
 ${O} .tb-ed-pill { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.4rem; padding: 0.05rem 0.55rem;
   border: 1px solid var(--tb-border, #E6E6E6); border-radius: 999px; background: var(--tb-bg, #FFFFFF);
   color: var(--tb-muted, #6E6E73); font-size: 0.78rem; }
-${O} .tb-ed-x { border: 0; background: none; color: var(--tb-faint, #9B9BA1); font-size: 1.4rem; line-height: 1; padding: 0.1rem 0.4rem; }
+${O} .tb-ed-x { border: 0; background: none; color: var(--tb-muted, #6E6E73); font-size: 1.4rem; line-height: 1; padding: 0.1rem 0.4rem; }
 ${O} .tb-ed-x:hover { color: var(--tb-ink, #2B2B2B); }
 ${O} .tb-ed-main { flex: 1; overflow: auto; padding: 1rem 1.25rem 2rem; }
 ${O} .tb-ed-inner { max-width: 60rem; margin: 0 auto; }
@@ -199,9 +199,9 @@ ${O} .tb-ed-actions { display: flex; gap: 0.5rem; padding-bottom: 0.4rem; margin
 ${O} .tb-ed-btn { padding: 0.35rem 0.9rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 6px;
   background: var(--tb-bg, #FFFFFF); color: var(--tb-ink, #2B2B2B); font-weight: 600; }
 ${O} .tb-ed-btn:hover:not(:disabled) { border-color: var(--tb-muted, #6E6E73); }
-${O} .tb-ed-primary { border-color: var(--tb-accent, #7C6CF0); background: var(--tb-accent, #7C6CF0); color: #FFFFFF; }
+${O} .tb-ed-primary { border-color: var(--tb-accent, #7C6CF0); background: var(--tb-accent, #7C6CF0); color: var(--tb-on-accent, #FFFFFF); }
 ${O} .tb-ed-primary:hover:not(:disabled) { border-color: var(--tb-accent-hover, #6A57E0); background: var(--tb-accent-hover, #6A57E0); }
-${O} .tb-ed-ctx { margin: 0; padding: 0.5rem 1rem; color: var(--tb-faint, #9B9BA1); font-family: var(--tb-font-mono, monospace);
+${O} .tb-ed-ctx { margin: 0; padding: 0.5rem 1rem; color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-mono, monospace);
   font-size: 0.8rem; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--tb-bg-soft, #F7F7F5); }
 ${O} textarea.tb-ed-text { display: block; width: 100%; box-sizing: border-box; min-height: 60vh; margin: 0; padding: 0.9rem 1rem;
   border: 0; resize: vertical; background: var(--tb-bg, #FFFFFF); color: var(--tb-ink, #2B2B2B);
@@ -218,12 +218,14 @@ ${O} .tb-ed-hunk { border-top: 1px solid var(--tb-border, #E6E6E6); }
 ${O} .tb-ed-hunk:first-child { border-top: 0; }
 ${O} .tb-ed-hh { padding: 0.25rem 0.75rem; background: var(--tb-accent-wash, #EEEBFD); color: var(--tb-muted, #6E6E73); }
 ${O} .tb-ed-line { display: grid; grid-template-columns: 1.5rem 1fr; white-space: pre-wrap; overflow-wrap: anywhere; }
-${O} .tb-ed-line > span:first-child { text-align: center; color: var(--tb-faint, #9B9BA1); user-select: none; }
+${O} .tb-ed-line > span:first-child { text-align: center; color: var(--tb-muted, #6E6E73); user-select: none; }
 ${O} .tb-ed-line > span:last-child { padding-right: 0.75rem; }
-${O} .tb-ed-del { background: #FFEBE9; }
-${O} .tb-ed-add { background: #E6FFEC; }
-${O} .tb-ed-del del { background: #FFC1C0; text-decoration: none; border-radius: 2px; }
-${O} .tb-ed-add ins { background: #ABF2BC; text-decoration: none; border-radius: 2px; }
+/* Mixed into the page's own background, as the History panel's, so they hold in dark
+   mode (fixed light greens put light text on a light ground there: batch 2b). */
+${O} .tb-ed-del { background: color-mix(in srgb, #D1242F 12%, var(--tb-bg, #FFFFFF)); }
+${O} .tb-ed-add { background: color-mix(in srgb, #1A7F37 12%, var(--tb-bg, #FFFFFF)); }
+${O} .tb-ed-del del { background: color-mix(in srgb, #D1242F 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: none; border-radius: 2px; }
+${O} .tb-ed-add ins { background: color-mix(in srgb, #1A7F37 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: none; border-radius: 2px; }
 ${O} .tb-ed-foot { margin: 0.75rem 0 0; color: var(--tb-muted, #6E6E73); }
 ${O} .tb-ed-discard { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.6rem 1.25rem;
   border-bottom: 1px solid var(--tb-border, #E6E6E6); background: #FFF8C5; }

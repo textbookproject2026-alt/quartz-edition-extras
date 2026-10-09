@@ -305,3 +305,13 @@ describe("the drawer while the annotation sidebar is open (annotationRoom)", () 
     expect(css).toMatch(/:root\.tb-anno-drawer body \{[^}]*padding-right: var\(--tb-hypothesis-width\)/);
   });
 });
+
+describe("text on the accent (batch 2b)", () => {
+  it("is white on a dark accent and near-black on a light one, whichever reads at AA", async () => {
+    const { onAccent } = await import("../src/design");
+    expect(onAccent("#52562F")).toBe("#FFFFFF"); // the light palette's olive: 7.7:1
+    expect(onAccent("#A7A374")).toBe("#141414"); // the dark palette's: white was 2.6:1
+    expect(onAccent("#7C6CF0")).toBe("#141414");
+    expect(onAccent("#1F3A93")).toBe("#FFFFFF");
+  });
+});

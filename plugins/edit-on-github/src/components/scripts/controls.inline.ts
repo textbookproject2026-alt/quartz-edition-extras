@@ -139,7 +139,7 @@ const openSuggestModal: OpenModal | null = (() => {
 #${OVERLAY_ID} .tb-sg-actions { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.1rem; }
 #${OVERLAY_ID} button.tb-sg-btn { font: inherit; font-weight: 600; padding: 0.45rem 1.1rem;
   border: 1px solid var(--tb-accent, #7C6CF0); border-radius: 999px; background: var(--tb-accent, #7C6CF0);
-  color: #FFFFFF; cursor: pointer; }
+  color: var(--tb-on-accent, #FFFFFF); cursor: pointer; }
 #${OVERLAY_ID} button.tb-sg-btn:hover:not(:disabled) { background: var(--tb-accent-hover, #6A57E0);
   border-color: var(--tb-accent-hover, #6A57E0); }
 #${OVERLAY_ID} button.tb-sg-btn:disabled { opacity: 0.6; cursor: default; }
@@ -147,7 +147,7 @@ const openSuggestModal: OpenModal | null = (() => {
   color: var(--tb-muted, #6E6E73); cursor: pointer; }
 #${OVERLAY_ID} button.tb-sg-quiet:hover { color: var(--tb-ink, #2B2B2B); }
 #${OVERLAY_ID} button.tb-sg-close { font: inherit; font-size: 1.25rem; line-height: 1; padding: 0.15rem 0.35rem;
-  border: 0; background: none; color: var(--tb-faint, #9B9BA1); cursor: pointer; }
+  border: 0; background: none; color: var(--tb-muted, #6E6E73); cursor: pointer; }
 #${OVERLAY_ID} button.tb-sg-close:hover { color: var(--tb-ink, #2B2B2B); }
 #${OVERLAY_ID} .tb-sg-pane:focus { outline: none; }
 #${OVERLAY_ID} .tb-sg-pane-title { margin: 0 0 0.5rem; font-size: 1.05rem; font-weight: 600; }

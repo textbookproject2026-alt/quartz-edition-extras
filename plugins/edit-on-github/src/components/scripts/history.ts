@@ -119,7 +119,7 @@ ${H} .tb-rd-quote .tb-rd-text { padding-left: 0.8rem; border-left: 3px solid var
 ${H} .tb-rd-rule .tb-rd-text { align-self: center; border-top: 1px solid var(--tb-border, #E6E6E6); }
 ${H} .tb-rd-link { color: var(--tb-accent, #7C6CF0); }
 ${H} .tb-rd code { font-family: var(--tb-font-mono, monospace); font-size: 0.88em; }
-${H} .tb-rd-gap { padding: 0.3rem 0; text-align: center; color: var(--tb-faint, #9B9BA1); font-family: var(--tb-font-ui, sans-serif); }
+${H} .tb-rd-gap { padding: 0.3rem 0; text-align: center; color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-ui, sans-serif); }
 ${H} .tb-ed-del { background: color-mix(in srgb, #D1242F 12%, var(--tb-bg, #FFFFFF)); }
 ${H} .tb-ed-add { background: color-mix(in srgb, #1A7F37 12%, var(--tb-bg, #FFFFFF)); }
 ${H} .tb-ed-del del { background: color-mix(in srgb, #D1242F 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: line-through; border-radius: 2px; }
@@ -136,7 +136,7 @@ ${H} .tb-hi-band.tb-hi-editing { padding: 0.75rem 0.9rem; border: 1px solid var(
   background: var(--tb-bg-soft, #F7F7F5); }
 ${H} .tb-hi-entry { padding: 0.75rem 0.25rem; border-bottom: 1px solid var(--tb-border, #E6E6E6); }
 ${H} .tb-hi-entry:last-child { border-bottom: 0; }
-${H} .tb-hi-state { display: inline-block; margin-right: 0.4rem; padding: 0 0.4rem; border-radius: 4px; font-size: 0.72rem; font-weight: 700;
+${H} .tb-hi-state { display: inline-block; margin-right: 0.4rem; padding: 0 0.4rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700;
   letter-spacing: 0.02em; text-transform: uppercase; color: var(--tb-muted, #6E6E73); border: 1px solid var(--tb-border, #E6E6E6); }
 ${H} .tb-hi-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
 ${H} .tb-hi-actions button, ${H} .tb-hi-actions a { min-height: 2rem; padding: 0.2rem 0.6rem; border: 1px solid var(--tb-border, #E6E6E6);
