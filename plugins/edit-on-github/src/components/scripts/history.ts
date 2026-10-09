@@ -1,41 +1,48 @@
 /**
- * The History panel: a page's published revisions, for readers. It borrows the
- * editor's overlay (editor.ts) but dresses as the reader's header: the --tb-*
- * tokens (so light, dark and the book's palette follow), the UI font for
- * controls and the text font for what changed. No repo, file path or branch:
- * readers see the page's title, dates, names and what changed in plain words.
+ * The History panel: a page's version history, for readers, in three plain
+ * states (batch 2a): Being edited (what is proposed, then what is accepted on
+ * drafts) above Published (newest first, the book's releases as milestones). It
+ * borrows the editor's overlay (editor.ts) but dresses as the reader's header:
+ * the --tb-* tokens, the UI font for controls and the text font for what changed.
+ * No repo, file path or branch: readers see the page's title, dates, names, roles
+ * and what changed in plain words.
  *
  *   header      Page history › <page title>                              × Close
- *   list        newest first: what changed, when, by whom (the build's list, a static file)
- *   revision    ← All versions · what changed, when, by whom · What changed | The page as it was
+ *   timeline    Being edited · Published, each version with Show changes, Read this version, Compare
+ *   view        ← Page history · a banner · the version as it was, or two versions compared
  *
- * The list is built into the site by quartz-book (git log --follow on the live
- * branch, at /.well-known/history/<slug>.json). Opening a revision asks the
- * platform function's /api/page-revision, which reads GitHub as the App, so no
- * reader's browser calls GitHub. Changes reuses the editor's diff view; "Page as
- * it was" is GitHub's rendering of the file, sanitised again here as the
- * editor's Preview is.
+ * The versions come from quartz-book's /.well-known/history.json (built with the
+ * site; a site built before it has /.well-known/history/<slug>.json, published
+ * versions only). What is proposed, each diff and each version as it was come
+ * from the platform function (/api/history, /api/page-revision), which reads
+ * GitHub as the App, so no reader's browser calls GitHub.
  *
  * Body-mounted, like the editor: the page itself, its paragraph numbers and its
  * Hypothes.is anchors are never touched. All server text goes in with
  * textContent, except the rendering, which goes through sanitise().
  */
-import {
-  OVERLAY_ID,
-  el,
-  injectStyle,
-  safeUserMessage,
-  sanitise,
-} from "./editor";
+import { OVERLAY_ID, el, injectStyle, safeUserMessage, sanitise } from "./editor";
 import { body, renderRichDiff } from "./rich-diff";
+import { roleBadge } from "./roles";
+import {
+  historyApi,
+  openKind,
+  openRole,
+  readBookHistory,
+  releaseLabel,
+  withReleases,
+} from "./timeline";
+import type { Entry, OpenItem, PageHistory } from "./timeline";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
 
 export interface HistoryOptions {
   /** .../api/page-revision?book=<slug> */
   endpoint: string;
-  /** /.well-known/history/<slug>.json */
+  /** /.well-known/history/<slug>.json: the page's published versions alone (a build before history.json). */
   listUrl: string;
+  /** /.well-known/history.json: the book's version history (quartz-book, batch 2a). */
+  bookHistoryUrl?: string;
   /** The page's repo path now: sent to the endpoint, never shown. */
   path: string;
   /** The page's title, for the header and the list's first line. */
@@ -46,19 +53,11 @@ export interface HistoryOptions {
   track: Tracker;
 }
 
-interface Revision {
-  sha: string;
-  date: string;
-  who: string;
-  reader?: boolean;
-  message: string;
-  path: string;
-}
-
 const STYLE_ID = "tb-history-style";
 /** page-revision's cap on one names call. */
 const MAX_NAMES = 30;
 const FETCH_TIMEOUT = 20000;
+const A_READER = "a reader";
 
 const historyStyle = () => {
   if (document.getElementById(STYLE_ID)) return;
@@ -127,6 +126,31 @@ ${H} .tb-ed-del del { background: color-mix(in srgb, #D1242F 32%, var(--tb-bg, #
 ${H} .tb-ed-add ins { background: color-mix(in srgb, #1A7F37 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: none; border-radius: 2px; }
 ${H} .tb-ed-preview { font-family: var(--tb-font-text, serif); }
 ${H} .tb-hi-gh { color: var(--tb-accent, #7C6CF0); font-weight: 600; }
+/* The timeline (batch 2a): bands for what is being edited and what is published,
+   releases as milestones, each version with its actions. One column at any width;
+   diffs wrap. */
+${H} .tb-hi-band { margin: 0 0 1.75rem; }
+${H} .tb-hi-band h2 { margin: 0 0 0.25rem; font-family: var(--tb-font-ui, sans-serif); font-size: 1.05rem; font-weight: 700; color: var(--tb-ink, #2B2B2B); }
+${H} .tb-hi-band > p { margin: 0 0 0.6rem; color: var(--tb-muted, #6E6E73); font-size: 0.9rem; }
+${H} .tb-hi-band.tb-hi-editing { padding: 0.75rem 0.9rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 10px;
+  background: var(--tb-bg-soft, #F7F7F5); }
+${H} .tb-hi-entry { padding: 0.75rem 0.25rem; border-bottom: 1px solid var(--tb-border, #E6E6E6); }
+${H} .tb-hi-entry:last-child { border-bottom: 0; }
+${H} .tb-hi-state { display: inline-block; margin-right: 0.4rem; padding: 0 0.4rem; border-radius: 4px; font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.02em; text-transform: uppercase; color: var(--tb-muted, #6E6E73); border: 1px solid var(--tb-border, #E6E6E6); }
+${H} .tb-hi-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+${H} .tb-hi-actions button, ${H} .tb-hi-actions a { min-height: 2rem; padding: 0.2rem 0.6rem; border: 1px solid var(--tb-border, #E6E6E6);
+  border-radius: 6px; background: var(--tb-bg, #FFFFFF); color: var(--tb-ink, #2B2B2B); font: inherit; font-size: 0.85rem; font-weight: 600;
+  text-decoration: none; cursor: pointer; }
+${H} .tb-hi-actions button[aria-pressed="true"] { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0); }
+${H} .tb-hi-diff { margin-top: 0.6rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 8px; overflow: hidden; }
+${H} .tb-hi-release { display: flex; align-items: center; gap: 0.6rem; margin: 0.9rem 0; color: var(--tb-accent, #7C6CF0);
+  font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; font-weight: 700; list-style: none; }
+${H} .tb-hi-release::before, ${H} .tb-hi-release::after { content: ""; flex: 1 1 auto; border-top: 2px solid currentColor; opacity: 0.35; }
+${H} .tb-hi-banner { margin: 0 0 1rem; padding: 0.6rem 0.8rem; border-left: 4px solid var(--tb-accent, #7C6CF0); border-radius: 4px;
+  background: var(--tb-accent-wash, #EEEBFD); color: var(--tb-ink, #2B2B2B); font-weight: 600; }
+${H} .tb-hi-picking { margin: 0 0 1rem; padding: 0.6rem 0.8rem; border: 1px dashed var(--tb-accent, #7C6CF0); border-radius: 8px; }
+${H} ol.tb-hi-list { list-style: none; margin: 0; padding: 0; border-top: 0; }
 @media (max-width: 768px) {
   ${H} .tb-hi-top { padding-left: 0.75rem; padding-right: 0.75rem; }
   ${H} .tb-ed-main { padding: 1rem 0.75rem 2rem; }
@@ -152,14 +176,20 @@ export const summary = (message: string, first: boolean): string => {
 };
 
 /** "3 September 2026": the reader's own locale, the author's date. */
-const when = (iso: string): string => {
+export const when = (iso: string): string => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? iso
-    : d.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+    : d.toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        // history.json's dates are days: as UTC midnight, they'd show the day before west of UTC.
+        ...(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? { timeZone: "UTC" } : {}),
+      });
 };
 
-const getJson = async (url: string, signal: AbortSignal): Promise<unknown> => {
+export const getJson = async (url: string, signal: AbortSignal): Promise<unknown> => {
   const res = await fetch(url, { signal, headers: { Accept: "application/json" } });
   let data: unknown = null;
   try {
@@ -186,8 +216,6 @@ export const openHistory = (o: HistoryOptions) => {
   const previousOverflow = document.body.style.overflow;
   let controller: AbortController | null = null;
   let listScroll = 0;
-  /** Names anonymous proposals gave: asked for in one call when the list opens. */
-  const names = new Map<string, string>();
 
   const overlay = el("div", {
     id: OVERLAY_ID,
@@ -236,201 +264,282 @@ export const openHistory = (o: HistoryOptions) => {
     const timer = setTimeout(() => c.abort(), FETCH_TIMEOUT);
     return { signal: c.signal, done: () => clearTimeout(timer), current: () => controller === c };
   };
-  const whoOf = (r: Revision) => (r.reader && names.get(r.sha)) || r.who;
-  const meta = (r: Revision) => `Published ${when(r.date)}, by ${whoOf(r)}`;
-  const what = (i: number) => summary(revisions![i]!.message || "", i === revisions!.length - 1);
 
-  let revisions: Revision[] | null = null;
+  // The page's history: its published versions, what is being edited, the releases.
+  let page: PageHistory | null = null;
+  let releases: { tag: string; date: string }[] = [];
+  let proposed: OpenItem[] = [];
+  let picking: Entry | null = null; // Compare: the first version picked
 
-  /**
-   * The list says "a reader" for anonymous proposals whose commits predate the
-   * Proposed-by trailer (the build has no GitHub access). One call asks for all
-   * their names; without it, or without scripts, "a reader" stands.
-   */
-  const askNames = () => {
-    const shas = [...new Set((revisions ?? []).filter((r) => r.reader).map((r) => r.sha))].slice(
-      0,
-      MAX_NAMES,
-    );
-    if (!shas.length) return;
+  const revUrl = (params: Record<string, string>) => {
     const url = new URL(o.endpoint, location.href);
-    url.searchParams.set("shas", shas.join(","));
-    const c = new AbortController();
-    const timer = setTimeout(() => c.abort(), FETCH_TIMEOUT);
-    getJson(url.toString(), c.signal)
-      .then((data) => {
-        const got = (data as { names?: Record<string, unknown> } | null)?.names ?? {};
-        for (const [sha, name] of Object.entries(got))
-          if (typeof name === "string" && name.trim()) names.set(sha, name.trim().slice(0, 80));
-        const metas = inner.querySelectorAll<HTMLElement>(".tb-hi-list .tb-hi-meta");
-        revisions?.forEach((r, i) => {
-          if (metas[i]) metas[i]!.textContent = meta(r);
-        });
-      })
-      .catch(() => {
-        /* "a reader" stands */
-      })
-      .finally(() => clearTimeout(timer));
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+    return url.toString();
+  };
+  const pathOf = (e: Entry) => e.path ?? page?.source ?? o.path;
+  const newest = () => page?.published[0] ?? null;
+
+  /** "9 October 2026 · Ann Author [Author] · #7": who, in what role, and where it came from. */
+  const metaLine = (
+    e: { date: string; who: string; role: string | null; pr?: number },
+    state?: string,
+  ) => {
+    const p = el("p", { class: "tb-hi-meta" });
+    if (state) p.append(el("span", { class: "tb-hi-state", text: state }));
+    p.append(`${when(e.date)} · ${e.who}`);
+    const badge = roleBadge(e.role);
+    if (badge) p.append(" ", badge);
+    if (e.pr && o.githubHref)
+      p.append(
+        " · ",
+        el("a", {
+          href: o.githubHref.replace(/\/commits\/.*$/, `/pull/${e.pr}`),
+          target: "_blank",
+          rel: "noopener noreferrer",
+          text: `#${e.pr}`,
+        }),
+      );
+    return p;
   };
 
-  const showList = () => {
-    inner.textContent = "";
-    if (!revisions) return;
-    if (!revisions.length) {
-      inner.append(status("This page has no published revisions yet."));
+  /** Show changes, inline under the version: its diff against the version before it. */
+  const showChanges = (e: Entry, slot: HTMLElement, button: HTMLButtonElement) => {
+    if (!slot.hidden) {
+      slot.hidden = true;
+      button.setAttribute("aria-pressed", "false");
       return;
     }
-    const n = revisions.length;
-    inner.append(
-      el("p", {
-        class: "tb-hi-intro",
-        text: `${n === 1 ? "One published version" : `${n} published versions`} of ${o.title ? `“${o.title}”` : "this page"}, newest first. Open one to see what changed.`,
-      }),
-    );
-    const list = el("ol", { class: "tb-hi-list" });
-    revisions.forEach((r, i) => {
-      const b = el(
-        "button",
-        { type: "button", class: "tb-hi-rev" },
-        el("span", { class: "tb-hi-msg", text: what(i) }),
-        el("span", { class: "tb-hi-meta", text: meta(r) }),
-      );
-      b.addEventListener("click", () => {
-        listScroll = main.scrollTop;
-        showRevision(i);
-      });
-      list.append(el("li", {}, b));
-    });
-    inner.append(list);
-    main.scrollTop = listScroll;
-  };
-
-  const showRevision = (i: number) => {
-    const r = revisions![i]!;
-    inner.textContent = "";
-    const back = el("button", {
-      type: "button",
-      class: "tb-hi-btn tb-hi-back",
-      text: "← All versions",
-    });
-    back.addEventListener("click", () => {
-      controller?.abort();
-      showList();
-      (inner.querySelectorAll<HTMLButtonElement>(".tb-hi-rev")[i] ?? xBtn).focus();
-    });
-    const metaLine = el("p", { class: "tb-ed-muted", text: meta(r) });
-    const heading = el(
-      "div",
-      { class: "tb-hi-head" },
-      el("h2", { text: what(i) }),
-      metaLine,
-    );
-    const loading = status("Loading this revision…");
-    inner.append(back, heading, loading);
-    main.scrollTop = 0;
-    back.focus();
+    button.setAttribute("aria-pressed", "true");
+    slot.hidden = false;
+    slot.textContent = "";
+    slot.append(status("Loading what changed…"));
     o.track("page_revision_opened");
-
-    const req = fresh();
-    const url = new URL(o.endpoint, location.href);
-    url.searchParams.set("sha", r.sha);
-    url.searchParams.set("path", r.path);
-    getJson(url.toString(), req.signal)
+    const c = new AbortController();
+    const timer = setTimeout(() => c.abort(), FETCH_TIMEOUT);
+    getJson(revUrl({ sha: e.sha, path: pathOf(e) }), c.signal)
       .then((data) => {
-        if (!req.current()) return;
-        const d = data as {
-          before?: unknown;
-          after?: unknown;
-          html?: unknown;
-          proposer?: unknown;
-          status?: unknown;
-          previousPath?: unknown;
-        };
-        if (r.reader && typeof d.proposer === "string" && d.proposer.trim()) {
-          names.set(r.sha, d.proposer.trim().slice(0, 80));
-          metaLine.textContent = meta(r);
-        }
+        const d = data as { before?: unknown; after?: unknown; status?: unknown; previousPath?: unknown };
         const before = typeof d.before === "string" ? d.before : "";
         const after = typeof d.after === "string" ? d.after : "";
-        const tabNames = ["What changed", "The page as it was"];
-        const tablist = el("div", { role: "tablist", "aria-label": "Revision view" });
-        const tabs = tabNames.map((name, k) =>
-          el("button", {
-            type: "button",
-            role: "tab",
-            id: `tb-hi-tab-${k}`,
-            "aria-controls": `tb-hi-panel-${k}`,
-            "aria-selected": k === 0 ? "true" : "false",
-            tabindex: k === 0 ? 0 : -1,
-            text: name,
-          }),
-        );
-        tablist.append(...tabs);
-        const changes = el("div", {
-          role: "tabpanel",
-          id: "tb-hi-panel-0",
-          "aria-labelledby": "tb-hi-tab-0",
-          tabindex: 0,
-        });
+        slot.textContent = "";
         if (d.status === "added")
-          changes.append(
-            el("p", {
-              class: "tb-ed-panel tb-ed-muted",
-              text: "This is the page’s first published version.",
-            }),
-          );
-        const moved =
-          typeof d.previousPath === "string" && d.previousPath !== r.path ? d.previousPath : "";
+          slot.append(el("p", { class: "tb-ed-panel tb-ed-muted", text: "This is the page’s first published version." }));
+        const moved = typeof d.previousPath === "string" && d.previousPath !== pathOf(e);
         if (moved)
-          changes.append(
+          slot.append(
             el("p", {
               class: "tb-ed-panel tb-ed-muted",
               text: `The page moved to where it is now${body(before) === body(after) ? "; its text didn’t change." : "."}`,
             }),
           );
-        if (!moved || body(before) !== body(after)) changes.append(renderRichDiff(before, after));
-        const page = el("div", {
-          role: "tabpanel",
-          id: "tb-hi-panel-1",
-          "aria-labelledby": "tb-hi-tab-1",
-          tabindex: 0,
-          hidden: true,
-          class: "tb-ed-panel tb-ed-preview",
-        });
-        if (typeof d.html === "string" && d.html) page.append(sanitise(d.html));
-        else
-          page.append(
-            el("p", { class: "tb-ed-muted", text: "The page was taken down in this version." }),
-          );
-        const panels = [changes, page];
-        const select = (k: number) =>
-          tabs.forEach((t, j) => {
-            t.setAttribute("aria-selected", j === k ? "true" : "false");
-            t.tabIndex = j === k ? 0 : -1;
-            panels[j]!.hidden = j !== k;
-          });
-        tabs.forEach((t, k) => {
-          t.addEventListener("click", () => select(k));
-          t.addEventListener("keydown", (e) => {
-            const dir = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-            if (!dir) return;
-            e.preventDefault();
-            const n = (k + dir + tabs.length) % tabs.length;
-            select(n);
-            tabs[n]!.focus();
-          });
-        });
-        loading.replaceWith(
-          el("div", { class: "tb-ed-box" }, el("div", { class: "tb-ed-bar" }, tablist), ...panels),
+        if (!moved || body(before) !== body(after)) slot.append(renderRichDiff(before, after));
+      })
+      .catch((err) => {
+        slot.textContent = "";
+        slot.append(failure(err, "What changed couldn’t be loaded just now."));
+      })
+      .finally(() => clearTimeout(timer));
+  };
+
+  /** A view in place of the timeline, with ← back to it. */
+  const view = (title: string, banner: string) => {
+    listScroll = main.scrollTop;
+    inner.textContent = "";
+    const back = el("button", {
+      type: "button",
+      class: "tb-hi-btn tb-hi-back",
+      text: "← Page history",
+    });
+    back.addEventListener("click", () => {
+      controller?.abort();
+      showTimeline();
+    });
+    const box = el("div", {});
+    inner.append(
+      back,
+      el("div", { class: "tb-hi-banner", role: "status", text: banner }),
+      el("div", { class: "tb-hi-head" }, el("h2", { text: title })),
+      box,
+    );
+    main.scrollTop = 0;
+    back.focus();
+    return box;
+  };
+
+  /** Read this version: the page as it was, with a clear banner. */
+  const readVersion = (e: Entry) => {
+    const box = view(e.summary, `You are reading the version of ${when(e.date)}.`);
+    box.append(status("Loading this version…"));
+    o.track("page_version_read");
+    const req = fresh();
+    getJson(revUrl({ sha: e.sha, path: pathOf(e) }), req.signal)
+      .then((data) => {
+        if (!req.current()) return;
+        const html = (data as { html?: unknown }).html;
+        box.textContent = "";
+        box.append(
+          typeof html === "string" && html
+            ? el("div", { class: "tb-ed-panel tb-ed-preview" }, sanitise(html))
+            : el("p", { class: "tb-ed-muted", text: "The page was taken down in this version." }),
         );
       })
       .catch((err) => {
         if (!req.current()) return;
-        loading.replaceWith(
-          failure(err, "This version couldn’t be loaded just now. Please try again in a moment."),
-        );
+        box.textContent = "";
+        box.append(failure(err, "This version couldn’t be loaded just now."));
       })
       .finally(req.done);
+  };
+
+  /** Compare two versions: the older on the left of the diff, the newer after it. */
+  const compare = (a: Entry, b: Entry) => {
+    const [older, newer] = a.date <= b.date ? [a, b] : [b, a];
+    const label = (v: Entry) => `the version of ${when(v.date)}${v === newest() ? " (the one you read now)" : ""}`;
+    const box = view("Compare versions", `Changes from ${label(older)} to ${label(newer)}.`);
+    box.append(status("Loading the two versions…"));
+    o.track("page_versions_compared");
+    const req = fresh();
+    getJson(revUrl({ sha: newer.sha, base: older.sha, path: pathOf(newer) }), req.signal)
+      .then((data) => {
+        if (!req.current()) return;
+        const d = data as { before?: unknown; after?: unknown };
+        box.textContent = "";
+        box.append(
+          el(
+            "div",
+            { class: "tb-hi-diff" },
+            renderRichDiff(
+              typeof d.before === "string" ? d.before : "",
+              typeof d.after === "string" ? d.after : "",
+            ),
+          ),
+        );
+      })
+      .catch((err) => {
+        if (!req.current()) return;
+        box.textContent = "";
+        box.append(failure(err, "The versions couldn’t be compared just now."));
+      })
+      .finally(req.done);
+  };
+
+  /** One version in the timeline, with Show changes, Read this version and Compare. */
+  const entryItem = (e: Entry, state: string | undefined) => {
+    const li = el("li", { class: "tb-hi-entry" });
+    const slot = el("div", { class: "tb-hi-diff", hidden: true });
+    const show = el("button", { type: "button", "aria-pressed": "false", text: "Show changes" });
+    show.addEventListener("click", () => showChanges(e, slot, show));
+    const read = el("button", { type: "button", text: "Read this version" });
+    read.addEventListener("click", () => readVersion(e));
+    const cmp = el("button", {
+      type: "button",
+      text: picking ? (picking === e ? "Cancel compare" : "Compare with this") : "Compare…",
+    });
+    cmp.addEventListener("click", () => {
+      if (!picking) {
+        picking = e;
+        showTimeline();
+      } else if (picking === e) {
+        picking = null;
+        showTimeline();
+      } else {
+        const first = picking;
+        picking = null;
+        compare(first, e);
+      }
+    });
+    const actions = el("div", { class: "tb-hi-actions" }, show, read, cmp);
+    const now = newest();
+    if (!picking && now && now.sha !== e.sha) {
+      const withNow = el("button", { type: "button", text: "Compare with now" });
+      withNow.addEventListener("click", () => compare(e, now));
+      actions.append(withNow);
+    }
+    li.append(el("p", { class: "tb-hi-msg", text: e.summary }), metaLine(e, state), actions, slot);
+    return li;
+  };
+
+  const openItem = (it: OpenItem) => {
+    const li = el("li", { class: "tb-hi-entry" });
+    li.append(
+      el("p", { class: "tb-hi-msg", text: it.summary || openKind(it) }),
+      metaLine(
+        {
+          date: it.date,
+          who: it.who?.name ?? "A reader",
+          role: openRole(it, [...(page?.published ?? []), ...(page?.drafts ?? [])]),
+        },
+        `Proposed · ${openKind(it)}`,
+      ),
+      el(
+        "div",
+        { class: "tb-hi-actions" },
+        el("a", {
+          href: it.url,
+          target: "_blank",
+          rel: "noopener noreferrer",
+          text: `See #${it.number} on GitHub ↗`,
+        }),
+      ),
+    );
+    return li;
+  };
+
+  const showTimeline = () => {
+    inner.textContent = "";
+    if (!page) return;
+    if (picking)
+      inner.append(
+        el("p", {
+          class: "tb-hi-picking",
+          role: "status",
+          text: `Comparing the version of ${when(picking.date)}: pick the other version, below.`,
+        }),
+      );
+    // Being edited: what is proposed, then what is accepted but not yet published.
+    if (proposed.length || page.drafts.length) {
+      const list = el("ol", { class: "tb-hi-list" });
+      for (const it of proposed) list.append(openItem(it));
+      for (const e of page.drafts) list.append(entryItem(e, "Being edited"));
+      inner.append(
+        el(
+          "section",
+          { class: "tb-hi-band tb-hi-editing", "aria-labelledby": "tb-hi-editing" },
+          el("h2", { id: "tb-hi-editing", text: "Being edited" }),
+          el("p", {
+            text: "Proposals and notes waiting for the authors, and changes they have accepted that readers will see when the book is next published.",
+          }),
+          list,
+        ),
+      );
+    }
+    const list = el("ol", { class: "tb-hi-list" });
+    for (const row of withReleases(page.published, releases)) {
+      if ("release" in row)
+        list.append(
+          el("li", {
+            class: "tb-hi-release",
+            role: "separator",
+            "aria-label": `${releaseLabel(row.release.tag)}, ${when(row.release.date)}`,
+            text: `${releaseLabel(row.release.tag)} · ${when(row.release.date)}`,
+          }),
+        );
+      else list.append(entryItem(row.entry, undefined));
+    }
+    inner.append(
+      el(
+        "section",
+        { class: "tb-hi-band", "aria-labelledby": "tb-hi-published" },
+        el("h2", { id: "tb-hi-published", text: "Published" }),
+        el("p", {
+          text: page.published.length
+            ? "What readers have seen, newest first."
+            : "This page has no published versions yet.",
+        }),
+        list,
+      ),
+    );
+    main.scrollTop = listScroll;
   };
 
   // --- closing ---
@@ -472,17 +581,75 @@ export const openHistory = (o: HistoryOptions) => {
 
   inner.append(status("Loading this page’s history…"));
   const req = fresh();
-  getJson(o.listUrl, req.signal)
-    .then((data) => {
+  // The book's history (built with the site); a site built before it has the
+  // page's published list alone. What is proposed comes from the function, and
+  // its absence never stops the rest.
+  const fromBook = o.bookHistoryUrl
+    ? getJson(o.bookHistoryUrl, req.signal).then((data) => {
+        const h = readBookHistory(data);
+        const found = h?.pages.find((p) => p.source === o.path) ?? null;
+        if (h) releases = h.releases;
+        return found;
+      })
+    : Promise.resolve(null);
+  const api = historyApi(o.endpoint, o.path);
+  const open = api
+    ? getJson(api, req.signal)
+        .then((data) =>
+          ((data as { items?: OpenItem[] })?.items ?? []).filter(
+            (i) => i && typeof i.url === "string",
+          ),
+        )
+        .catch(() => [] as OpenItem[])
+    : Promise.resolve([] as OpenItem[]);
+  fromBook
+    .catch(() => null)
+    .then(async (found) => {
+      if (found) return found;
+      // Before history.json: the page's published revisions.
+      const list = (await getJson(o.listUrl, req.signal)) as {
+        sha: string;
+        date: string;
+        who: string;
+        message: string;
+        path: string;
+      }[];
+      return {
+        path: "",
+        source: o.path,
+        title: o.title,
+        published: (Array.isArray(list) ? list : []).map((r, i, all) => ({
+          sha: r.sha,
+          date: r.date,
+          who: r.who,
+          role: null,
+          summary: summary(r.message ?? "", i === all.length - 1),
+          ...(r.path !== o.path ? { path: r.path } : {}),
+        })),
+        drafts: [],
+        releases: {},
+      } satisfies PageHistory;
+    })
+    .then(async (found) => {
+      page = found;
+      // "a reader": anonymous proposals whose commits predate the Proposed-by
+      // trailer (the build has no GitHub access). One call asks for all their
+      // names; without it, "a reader" stands.
+      const all = [...found.published, ...found.drafts];
+      const shas = [...new Set(all.filter((e) => e.who === A_READER).map((e) => e.sha))].slice(0, MAX_NAMES);
+      const names = shas.length
+        ? getJson(revUrl({ shas: shas.join(",") }), req.signal)
+            .then((d) => (d as { names?: Record<string, unknown> } | null)?.names ?? {})
+            .catch(() => ({}) as Record<string, unknown>)
+        : Promise.resolve({} as Record<string, unknown>);
+      const [got, items] = await Promise.all([names, open]);
+      for (const e of all) {
+        const name = got[e.sha];
+        if (e.who === A_READER && typeof name === "string" && name.trim()) e.who = name.trim().slice(0, 80);
+      }
+      proposed = items;
       if (!req.current()) return;
-      revisions = (Array.isArray(data) ? data : []).filter(
-        (r): r is Revision =>
-          !!r &&
-          typeof (r as Revision).sha === "string" &&
-          typeof (r as Revision).path === "string",
-      );
-      showList();
-      askNames();
+      showTimeline();
     })
     .catch((err) => {
       if (!req.current()) return;

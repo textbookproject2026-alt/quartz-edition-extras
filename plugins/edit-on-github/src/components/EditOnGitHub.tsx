@@ -100,6 +100,8 @@ const defaultOptions: Options = {
 
 /** Where the builder writes a page's revision list (quartz-book's HISTORY_DIR). */
 export const historyUrl = (slug: string): string => `/.well-known/history/${encodePath(slug)}.json`;
+/** The book's version history (quartz-book, batch 2a): the History panel's data where the build wrote it. */
+export const BOOK_HISTORY_URL = "/.well-known/history.json";
 
 /** /api/propose-edit beside the configured /api/suggest-edit. "" if it can't be derived. */
 export const proposeEndpoint = (suggestEndpoint: string): string => {
@@ -205,6 +207,7 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
       hasSource && opts.editor && opts.suggestEndpoint ? proposeEndpoint(opts.suggestEndpoint) : "";
     const blob = hasSource ? opts.sourceBlobs[path] : undefined;
     const editHref = `https://github.com/${opts.repo}/edit/${opts.branch}/${gh}`;
+    const hasBookHistory = (allFiles ?? []).some((f) => f.slug === "history");
     const historyHref = `https://github.com/${opts.repo}/commits/${opts.branch}/${gh}`;
 
     const item = (
@@ -287,12 +290,15 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
                   ...away,
                   "data-revision-endpoint": opts.revisionEndpoint,
                   "data-history": historyUrl(slug),
+                  ...(hasBookHistory ? { "data-book-history": BOOK_HISTORY_URL } : {}),
                   "data-path": path,
                 }
               : { class: "tb-history-link", href: historyHref, ...away },
             opts.editor && opts.revisionEndpoint && slug ? "Page history" : "Page history ↗",
           )
         : null,
+      // The book's /history page (quartz-book writes it), where it has one.
+      hasBookHistory && slug !== "history" ? item("a", { class: "tb-book-history", href: `${root}history` }, "Book history") : null,
       item("button", { "data-tb-backlinks": "" }, "What links here"),
       opts.statsUrl && opts.statsHost
         ? item("a", { class: "tb-stats-page", href: statsHref(opts.statsUrl, opts.statsHost, pagePath(slug)), ...away }, "Page statistics ↗")
@@ -340,6 +346,10 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
         ]
           .filter(Boolean)
           .join(" "),
+        // The book's /history page asks the function what is proposed.
+        ...(slug === "history" && hasBookHistory && opts.revisionEndpoint
+          ? { "data-book-history": BOOK_HISTORY_URL, "data-revision-endpoint": opts.revisionEndpoint }
+          : {}),
         ...(hasSource ? { "data-source-path": path } : {}),
         ...(hasSource && opts.sourceCommit ? { "data-source-commit": opts.sourceCommit } : {}),
         ...(blob ? { "data-source-blob": blob } : {}),
@@ -739,6 +749,36 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
 .tb-credits-block p { margin: 0.2rem 0; }
 .tb-credits-foot a, .tb-credits-block a { color: var(--tb-accent, var(--secondary)); }
 @media print { .tb-credits-block a, .tb-credits-foot a { color: inherit; } }
+/* The book's /history page (quartz-book): the swimlane is a static SVG that
+   scales to the column; its lanes and dots take the book's palette. The script's
+   timeline below it is one column at any width. */
+.tb-swim { margin: 1rem 0 1.5rem; }
+.tb-swimlane { display: block; width: 100%; height: auto; font-family: var(--tb-font-ui, sans-serif); font-size: 12px; }
+.tb-swim-lane { fill: var(--tb-bg-soft, var(--lightgray)); stroke: var(--tb-bg, var(--light)); stroke-width: 2; }
+.tb-swim-name, .tb-swim-axis { fill: var(--tb-muted, var(--darkgray)); }
+.tb-swim-name { font-weight: 600; }
+.tb-swim-release { stroke: var(--tb-accent, var(--secondary)); stroke-width: 2; stroke-dasharray: 4 3; }
+.tb-swim-release-label { fill: var(--tb-accent, var(--secondary)); font-weight: 700; }
+.tb-swim-dot { fill: var(--tb-accent, var(--secondary)); fill-opacity: 0.75; stroke: var(--tb-bg, var(--light)); stroke-width: 1.5; cursor: pointer; }
+.tb-swim-dot[data-lane="0"] { fill: none; stroke: var(--tb-accent, var(--secondary)); stroke-width: 2; }
+.tb-swim-dot[data-lane="1"] { fill-opacity: 0.4; }
+.tb-swim-dot:focus-visible, .tb-swim-dot[aria-current] { stroke: var(--tb-ink, var(--dark)); stroke-width: 2.5; outline: none; }
+.tb-swim-caption { min-height: 1.4em; margin: 0.4rem 0 0; font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; color: var(--tb-muted, var(--darkgray)); overflow-wrap: anywhere; }
+.tb-bh-filters { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.5rem 0; font-family: var(--tb-font-ui, sans-serif); font-size: 0.9rem; }
+.tb-bh-filter { display: flex; flex-direction: column; gap: 0.2rem; min-width: 10rem; flex: 1 1 10rem; color: var(--tb-muted, var(--darkgray)); font-weight: 600; }
+.tb-bh-select { min-height: 2.25rem; max-width: 100%; padding: 0.2rem 0.4rem; border: 1px solid var(--tb-border, var(--lightgray)); border-radius: 6px;
+  background: var(--tb-bg, var(--light)); color: var(--tb-ink, var(--dark)); font: inherit; font-weight: 400; }
+.tb-bh-count { margin: 0.5rem 0; font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; color: var(--tb-muted, var(--darkgray)); }
+.tb-bh-list { list-style: none; margin: 0; padding: 0; }
+.tb-bh-item { margin: 0; padding: 0.7rem 0; border-bottom: 1px solid var(--tb-border, var(--lightgray)); }
+.tb-bh-item p { margin: 0.1rem 0; overflow-wrap: anywhere; }
+.tb-bh-summary { font-weight: 600; }
+.tb-bh-page, .tb-bh-meta { font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; color: var(--tb-muted, var(--darkgray)); }
+.tb-bh-state { display: inline-block; padding: 0 0.4rem; border: 1px solid var(--tb-border, var(--lightgray)); border-radius: 4px; font-size: 0.72rem;
+  font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.tb-bh-proposed { border-style: dashed; }
+.tb-bh-drafts { background: var(--tb-bg-soft, var(--lightgray)); }
+.tb-bh-published { border-color: var(--tb-accent, var(--secondary)); color: var(--tb-accent, var(--secondary)); }
 .tb-dialog {
   box-sizing: border-box;
   width: min(34rem, calc(100vw - 2rem));

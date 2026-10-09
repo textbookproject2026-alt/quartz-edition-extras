@@ -186,6 +186,19 @@ edition-integrations puts its annotation badge at the end of the row.
   all styled here. The note form says under the name that an accepted suggestion is
   credited by it, and the Contribute explainer links the contributors page's *How
   credit works* when the book has one (`data-credits`).
+- **Version history** (batch 2a). ⋯ → *Page history* is a timeline in three plain
+  states: *Being edited* (open proposals and notes from the function's
+  `/api/history`, then accepted drafts changes) above *Published* (newest first,
+  releases as milestones). Each version has *Show changes* (the word diff, inline),
+  *Read this version* (under "You are reading the version of …") and *Compare*,
+  with any other version or with now (page-revision's `base=`). The data is
+  quartz-book's `/.well-known/history.json` (`scripts/timeline.ts` reads it); a
+  site built before it falls back to the page's `/.well-known/history/<slug>.json`.
+  The book's `/history` page (built by quartz-book, a static SVG swimlane that works
+  without scripts) gets *Book history* in ⋯, and `scripts/book-history.ts` adds
+  what is proposed to the swimlane, tap-to-read dots and the whole book's timeline,
+  filterable by chapter, person and state. Events: `page_version_read`,
+  `page_versions_compared`.
 - **The links** come from Quartz's own source path, so no reverse-mapping from
   URLs: `contentDir` joined to `fileData.relativePath` (which is relative to the
   `-d` directory), encoded per segment. The Edit link keeps class

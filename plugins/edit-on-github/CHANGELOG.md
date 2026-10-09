@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Page history is a timeline: Being edited (proposed, then drafts) above Published,
+  releases as milestones, Show changes, Read this version (with a banner) and
+  Compare. Book history (⋯) and the /history page's script: proposed dots, tap to
+  read a dot, the book's timeline with filters. Dates from history.json show the
+  same day in every time zone.
+
 ### Changed
 
 - The History panel dresses as the reader's header: the --tb-* tokens (light and
