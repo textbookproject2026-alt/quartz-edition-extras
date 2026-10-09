@@ -509,7 +509,7 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
 }
 .tb-hdr-crumbs { display: flex; gap: 0.4rem; min-width: 0; overflow: hidden; white-space: nowrap; color: var(--tb-muted, var(--gray)); }
 .tb-hdr-crumbs a { min-width: 0; overflow: hidden; white-space: nowrap; text-wrap: nowrap; text-overflow: ellipsis; color: inherit; text-decoration: none; }
-.tb-hdr-crumbs a::before { content: "›"; margin-right: 0.4rem; color: var(--tb-faint, var(--gray)); }
+.tb-hdr-crumbs a::before { content: "›"; margin-right: 0.4rem; color: var(--tb-muted, var(--darkgray)); }
 .tb-hdr-title:hover, .tb-hdr-crumbs a:hover { color: var(--tb-accent, var(--secondary)); }
 /* What kind of text this is (registry type): a quiet pill after the title; the
    title keeps the room, the badge never wraps. */
@@ -518,7 +518,7 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
   padding: 0.05rem 0.45rem;
   border: 1px solid var(--lightgray);
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.75rem; /* 12px: no text under 12px (batch 2b) */
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--darkgray);
@@ -718,7 +718,7 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
   border: 1px solid var(--tb-border, var(--lightgray));
   border-radius: 999px;
   font-family: var(--tb-font-ui, sans-serif);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.5;
   letter-spacing: 0.02em;
@@ -735,7 +735,7 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
   color: var(--tb-muted, var(--darkgray));
   overflow-wrap: anywhere;
 }
-.tb-byline .tb-sep { margin: 0 0.4rem; color: var(--tb-faint, var(--gray)); }
+.tb-byline .tb-sep { margin: 0 0.4rem; color: var(--tb-muted, var(--darkgray)); }
 .tb-credits-foot, .tb-credits-block {
   margin: 2rem 0 0;
   padding: 0.75rem 0 0;
@@ -749,6 +749,54 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
 .tb-credits-block p { margin: 0.2rem 0; }
 .tb-credits-foot a, .tb-credits-block a { color: var(--tb-accent, var(--secondary)); }
 @media print { .tb-credits-block a, .tb-credits-foot a { color: inherit; } }
+/* Tables (batch 2b). In every cell at every width: a line height for short lines,
+   cells top-aligned so labels sit beside their first line, and an external link's
+   icon kept with its last word (quartz-book's tableLayout wraps them in .tb-nowrap).
+   At 640px and under, quartz-book marks each table: .tb-table-stack (a text table
+   of up to four columns) becomes blocks, each cell under its column's header,
+   drawn from data-label so no text enters the page; .tb-table-scroll (wide or
+   numeric) keeps its grid in a scroller with the first column pinned and a fade at
+   whichever edge has more. */
+article td, article th { line-height: 1.45; vertical-align: top; }
+.tb-nowrap { white-space: nowrap; }
+@media (max-width: 640px) {
+  .table-container.tb-table-stack { overflow: visible; }
+  .tb-table-stack table, .tb-table-stack tbody, .tb-table-stack tr, .tb-table-stack td { display: block; width: 100%; box-sizing: border-box; }
+  .tb-table-stack table { min-width: 0; margin: 0; border-collapse: collapse; }
+  .tb-table-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .tb-table-stack tr { padding: 0.75rem 0; border-bottom: 1px solid var(--tb-border, var(--lightgray)); }
+  .tb-table-stack tr:first-child { border-top: 1px solid var(--tb-border, var(--lightgray)); }
+  .tb-table-stack td { padding: 0.15rem 0; border: 0; text-align: left; overflow-wrap: anywhere; }
+  .tb-table-stack td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.05rem;
+    font-family: var(--tb-font-ui, sans-serif);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--tb-muted, var(--darkgray));
+  }
+  .tb-table-stack td:empty, .tb-table-stack td[data-label=""]::before { display: none; }
+  .tb-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* The fade: a shadow at an edge only while there is more that way. */
+    background:
+      linear-gradient(to right, var(--tb-bg, var(--light)) 30%, transparent) left / 2rem 100% no-repeat local,
+      linear-gradient(to left, var(--tb-bg, var(--light)) 30%, transparent) right / 2rem 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, color-mix(in srgb, var(--tb-ink, #000) 22%, transparent), transparent) left / 0.9rem 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, color-mix(in srgb, var(--tb-ink, #000) 22%, transparent), transparent) right / 0.9rem 100% no-repeat scroll;
+  }
+  .tb-table-scroll th:first-child, .tb-table-scroll td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--tb-bg, var(--light));
+    box-shadow: 1px 0 0 var(--tb-border, var(--lightgray));
+  }
+  .tb-table-scroll:focus-visible { outline: 2px solid var(--tb-accent, var(--secondary)); outline-offset: 2px; }
+}
 /* The book's /history page (quartz-book): the swimlane is a static SVG that
    scales to the column; its lanes and dots take the book's palette. The script's
    timeline below it is one column at any width. */
@@ -777,7 +825,7 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
 .tb-bh-item p { margin: 0.1rem 0; overflow-wrap: anywhere; }
 .tb-bh-summary { font-weight: 600; }
 .tb-bh-page, .tb-bh-meta { font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; color: var(--tb-muted, var(--darkgray)); }
-.tb-bh-state { display: inline-block; padding: 0 0.4rem; border: 1px solid var(--tb-border, var(--lightgray)); border-radius: 4px; font-size: 0.72rem;
+.tb-bh-state { display: inline-block; padding: 0 0.4rem; border: 1px solid var(--tb-border, var(--lightgray)); border-radius: 4px; font-size: 0.75rem;
   font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
 .tb-bh-proposed { border-style: dashed; }
 .tb-bh-drafts { background: var(--tb-bg-soft, var(--lightgray)); }
@@ -802,7 +850,7 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
 .tb-dialog a { color: var(--tb-accent, var(--secondary)); }
 .tb-dialog-x {
   position: absolute; top: 0.6rem; right: 0.7rem; border: 0; background: none;
-  color: var(--tb-faint, var(--gray)); font-size: 1.4rem; line-height: 1; cursor: pointer;
+  color: var(--tb-muted, var(--darkgray)); font-size: 1.4rem; line-height: 1; cursor: pointer;
 }
 .tb-dialog-row { display: flex; align-items: center; justify-content: flex-end; gap: 0.6rem; margin-top: 0.75rem; }
 .tb-route { padding-top: 0.1rem; }

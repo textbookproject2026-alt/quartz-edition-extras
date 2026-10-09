@@ -7449,6 +7449,19 @@ var hsl = (hex) => {
   }
   return { h: Math.round(h2 * 360), s: Math.round(s2 * 100), l: Math.round(l2 * 100) };
 };
+var luminance = (hex) => {
+  const m2 = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(hex.trim());
+  if (!m2) return 0;
+  const [r2, g2, b] = m2.slice(1).map((x2) => {
+    const v2 = parseInt(x2, 16) / 255;
+    return v2 <= 0.03928 ? v2 / 12.92 : ((v2 + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r2 + 0.7152 * g2 + 0.0722 * b;
+};
+var onAccent = (accent) => {
+  const l2 = luminance(accent);
+  return 1.05 / (l2 + 0.05) >= (l2 + 0.05) / (luminance("#141414") + 0.05) ? "#FFFFFF" : "#141414";
+};
 var colours = (p2) => {
   const accent = hsl(p2.accent);
   return `
@@ -7465,6 +7478,7 @@ var colours = (p2) => {
   --accent-s: ${accent.s}%;
   --accent-l: ${accent.l}%;
   --tb-accent: ${p2.accent};
+  --tb-on-accent: ${onAccent(p2.accent)};
   --tb-accent-hover: ${p2.accentHover};
   --tb-accent-soft: ${p2.accentSoft};
   --tb-accent-wash: ${p2.accentWash};
