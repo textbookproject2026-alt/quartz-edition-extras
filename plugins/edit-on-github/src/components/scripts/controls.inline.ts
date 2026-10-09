@@ -38,8 +38,8 @@
 /* eslint-disable no-restricted-syntax */
 import { closeIfOpen as closeEditorIfOpen, EDIT_HASH, EDITOR_STATE, openEditor, PENCIL } from "./editor";
 import { closeIfOpen as closeHistoryIfOpen, openHistory } from "./history";
-import { apa, attribution, licenceName, plain } from "./cite";
-import type { Run } from "./cite";
+import { apa, attribution, bibtex, cslJson, licenceName, plain, readCiteData, ris, scoped, STYLES } from "./cite";
+import type { CiteData, Run, Scope, StyleKey } from "./cite";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
 
@@ -52,8 +52,28 @@ const track: Tracker = (name, props) => {
   }
 };
 
-type OpenModal = ((endpoint: string, repoPath: string, trigger: HTMLElement) => void) & {
+/** A note on one paragraph: its number, the start of its text, and the page's path. */
+type About = { paragraph: number; quote: string; page: string };
+type OpenModal = ((endpoint: string, repoPath: string, trigger: HTMLElement, about?: About) => void) & {
   closeIfOpen: () => void;
+};
+
+/**
+ * The in-site editor's GitHub sign-in, if this tab has one (editor.ts keeps it
+ * in sessionStorage for 8 hours). A note sent with it names the reader as
+ * @login, so GitHub tells them when the authors close it.
+ */
+const signedIn = (): { token: string; login: string; name: string } | null => {
+  try {
+    const id = JSON.parse(sessionStorage.getItem("tb-gh-identity") ?? "null") as {
+      token?: unknown; login?: unknown; name?: unknown; at?: unknown;
+    } | null;
+    if (!id || typeof id.token !== "string" || typeof id.login !== "string") return null;
+    if (typeof id.at !== "number" || Date.now() - id.at > 8 * 60 * 60 * 1000) return null;
+    return { token: id.token, login: id.login, name: typeof id.name === "string" ? id.name : "" };
+  } catch {
+    return null;
+  }
 };
 
 const openSuggestModal: OpenModal | null = (() => {
@@ -93,6 +113,8 @@ const openSuggestModal: OpenModal | null = (() => {
 #${OVERLAY_ID} h2 { margin: 0; font-family: var(--tb-font-ui, sans-serif); font-size: 1.15rem;
   font-weight: 600; color: var(--tb-ink, #2B2B2B); }
 #${OVERLAY_ID} .tb-sg-intro { margin: 0 0 1rem; color: var(--tb-muted, #6E6E73); }
+#${OVERLAY_ID} .tb-sg-quote { margin: 0 0 1rem; padding: 0.4rem 0.75rem; border-left: 3px solid var(--tb-border, #E6E6E6);
+  color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-text, serif); }
 #${OVERLAY_ID} .tb-sg-field { margin-bottom: 0.9rem; }
 #${OVERLAY_ID} label { display: block; margin-bottom: 0.25rem; font-weight: 600; }
 #${OVERLAY_ID} .tb-sg-opt { font-weight: 400; color: var(--tb-muted, #6E6E73); }
@@ -197,7 +219,7 @@ const openSuggestModal: OpenModal | null = (() => {
     // Only one modal at a time.
     let close: (() => void) | null = null;
 
-    const open = (endpoint: string, repoPath: string, trigger: HTMLElement) => {
+    const open = (endpoint: string, repoPath: string, trigger: HTMLElement, about?: About) => {
       if (close) return;
       injectStyle();
 
@@ -220,7 +242,7 @@ const openSuggestModal: OpenModal | null = (() => {
       head.className = "tb-sg-head";
       const title = document.createElement("h2");
       title.id = TITLE_ID;
-      title.textContent = "Suggest an edit";
+      title.textContent = about ? `Note to the authors about ¶${about.paragraph}` : "Suggest an edit";
       const closeBtn = document.createElement("button");
       closeBtn.type = "button";
       closeBtn.className = "tb-sg-close";
@@ -234,14 +256,30 @@ const openSuggestModal: OpenModal | null = (() => {
 
       const intro = document.createElement("p");
       intro.className = "tb-sg-intro";
-      intro.textContent =
-        "Spotted something to fix or improve? Describe the change and it goes to the maintainers as an issue.";
+      intro.textContent = about
+        ? "Your note goes to the authors as an issue on the book's repository, with a link to this paragraph."
+        : "Spotted something to fix or improve? Describe the change and it goes to the maintainers as an issue.";
+      const quote = document.createElement("blockquote");
+      quote.className = "tb-sg-quote";
+      quote.textContent = about?.quote ?? "";
+      quote.hidden = !about?.quote;
+      const who = signedIn();
 
       const nameInput = document.createElement("input");
       nameInput.type = "text";
       nameInput.name = "name";
       nameInput.autocomplete = "name";
       const nameField = makeField("tb-sg-name", "Your name", nameInput);
+      if (who) {
+        nameInput.value = who.name || who.login;
+        const hint = document.createElement("p");
+        hint.className = "tb-sg-count";
+        hint.id = "tb-sg-who";
+        hint.textContent = `Signed in as @${who.login}: GitHub tells you when the authors answer.`;
+        nameField.wrap.append(hint);
+        nameField.hintId = hint.id;
+        describe(nameField);
+      }
 
 
       // Readonly, not disabled: focusable and copyable, so the reader sees
@@ -327,6 +365,7 @@ const openSuggestModal: OpenModal | null = (() => {
 
       form.append(
         intro,
+        quote,
         nameField.wrap,
         pathField.wrap,
         suggestionField.wrap,
@@ -483,6 +522,8 @@ const openSuggestModal: OpenModal | null = (() => {
           reasoning: reasoning.value.trim(),
           path: repoPath,
           website: hp.value,
+          ...(about ? { paragraph: about.paragraph, quote: about.quote, page: about.page } : {}),
+          ...(who ? { identity: who.token } : {}),
         };
 
         // Honeypot tripped: behave exactly like success, send nothing.
@@ -550,14 +591,14 @@ const openSuggestModal: OpenModal | null = (() => {
       document.body.style.overflow = "hidden"; // scroll lock while the modal is up
       document.body.appendChild(overlay);
       nameInput.focus();
-      track("suggest_edit_opened"); // no path prop: Plausible records the page
+      track(about ? "section_note_opened" : "suggest_edit_opened"); // no path prop: Plausible records the page
     };
 
     // A throw anywhere in open() can't escape into the click handler: the
     // half-built overlay is reaped and the page carries on.
-    const guarded = ((endpoint: string, repoPath: string, trigger: HTMLElement) => {
+    const guarded = ((endpoint: string, repoPath: string, trigger: HTMLElement, about?: About) => {
       try {
-        open(endpoint, repoPath, trigger);
+        open(endpoint, repoPath, trigger, about);
       } catch {
         close = null;
         document.getElementById(OVERLAY_ID)?.remove();
@@ -593,8 +634,22 @@ const pencilStyle = () => {
   background: var(--tb-bg-soft, #F7F7F5); }
 @media (hover: none) { [data-pnum] > button.tb-pedit { opacity: 0.5; } }
 @media (max-width: 800px) { [data-pnum] > button.tb-pedit { top: -1.55rem; right: 0; width: 1.4rem; height: 1.4rem; } }
-.popover button.tb-pedit { display: none; }
-@media print { button.tb-pedit { display: none !important; } }
+/* The note button: in the pencil's place, or just below it where there is one. */
+[data-pnum] > button.tb-pnote { position: absolute; top: 0.2em; right: -2.5rem; display: inline-flex; align-items: center;
+  justify-content: center; width: 1.75rem; height: 1.75rem; padding: 0; margin: 0; border: 1px solid transparent;
+  border-radius: 6px; background: none; color: var(--tb-faint, #9B9BA1); opacity: 0; cursor: pointer;
+  transition: opacity 0.12s; }
+[data-pnum] > button.tb-pedit + button.tb-pnote { top: calc(0.2em + 2rem); }
+[data-pnum]:hover > button.tb-pnote { opacity: 1; color: var(--tb-muted, #6E6E73); }
+[data-pnum] > button.tb-pnote:hover { color: var(--tb-accent, #7C6CF0); border-color: var(--tb-border, #E6E6E6);
+  background: var(--tb-bg-soft, #F7F7F5); }
+@media (hover: none) { [data-pnum] > button.tb-pnote { opacity: 0.5; } }
+@media (max-width: 800px) {
+  [data-pnum] > button.tb-pnote { top: -1.55rem; right: 0; width: 1.4rem; height: 1.4rem; }
+  [data-pnum] > button.tb-pedit + button.tb-pnote { top: -1.55rem; right: 1.6rem; }
+}
+.popover button.tb-pedit, .popover button.tb-pnote { display: none; }
+@media print { button.tb-pedit, button.tb-pnote { display: none !important; } }
 `;
   document.head.appendChild(style);
 };
@@ -616,6 +671,44 @@ const pencil = () => {
   svg.append(path);
   b.append(svg);
   return b;
+};
+
+// Octicon (MIT): comment.
+const NOTE_ICON =
+  "M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z";
+
+/** The start of a paragraph's text for a note: about 200 characters, cut at a word. */
+const quoteOf = (p: HTMLElement): string => {
+  const t = (p.textContent ?? "").replace(/\s+/g, " ").trim();
+  if (t.length <= 200) return t;
+  const cut = t.slice(0, 199);
+  return `${cut.slice(0, cut.lastIndexOf(" ") > 100 ? cut.lastIndexOf(" ") : 199)}…`;
+};
+
+/**
+ * "Note to the authors about ¶n" beside each numbered paragraph's pencil: the
+ * note form, about that paragraph. Like the pencil, out of the tab order and
+ * hidden from assistive tech: Contribute's Note to the authors covers the page.
+ */
+const armSectionNotes = (open: (about: About, trigger: HTMLElement) => void, howTo: string) => {
+  const paras = Array.from(document.querySelectorAll<HTMLElement>("[data-pnum]")).filter(
+    (p) => !p.closest(".popover") && !p.querySelector(":scope > button.tb-pnote"),
+  );
+  if (!paras.length) return;
+  pencilStyle();
+  const page = location.pathname.replace(/\.html$/, "").replace(/\/index$/, "/");
+  for (const p of paras) {
+    const n = Number(p.dataset.pnum);
+    const b = pencil();
+    b.className = "tb-pnote";
+    b.title = `Note to the authors about ¶${n}`;
+    b.querySelector("path")!.setAttribute("d", NOTE_ICON);
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      firstTime(b, howTo, `Continue: note on ¶${n}`, () => open({ paragraph: n, quote: quoteOf(p), page }, b));
+    });
+    p.append(b);
+  }
 };
 
 // --- the header's menus and panels -------------------------------------------------
@@ -989,6 +1082,124 @@ const pageUrl = () => {
   return location.origin + path;
 };
 
+/**
+ * The numbered paragraph the reader is on: the one the address names (#p4, or a
+ * paragraph's own id), else the first whose text is below the header and on
+ * screen. 0 when the page has none.
+ */
+const paragraphInView = (): number => {
+  const paras = Array.from(document.querySelectorAll<HTMLElement>("article [data-pnum]"));
+  if (!paras.length) return 0;
+  const id = decodeURIComponent(location.hash.slice(1));
+  const target = id ? paras.find((p) => p.id === id) : undefined;
+  if (target) return Number(target.dataset.pnum);
+  const top = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tb-hdr-bottom")) || 0;
+  const seen = paras.find((p) => {
+    const r = p.getBoundingClientRect();
+    return r.bottom > top + 8 && r.top < window.innerHeight;
+  });
+  return Number((seen ?? paras[0]!).dataset.pnum) || 0;
+};
+
+const save = (text: string, type: string, name: string) => {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = el("a", { href: url, download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+/**
+ * Cite (a book on the builder): this paragraph, this chapter or the whole book,
+ * in APA 7, Chicago, MLA or Harvard, with Copy, and BibTeX, RIS and CSL-JSON to
+ * download. Opens on the paragraph when the address names one, else the chapter.
+ * The reader's last style is kept for the next time.
+ */
+const citeDialog = (data: CiteData, header: HTMLElement, trigger: HTMLElement, attributionOf: () => Run[]) => {
+  const para = data.chapter ? paragraphInView() : 0;
+  const whole = (header.querySelector(".tb-type-badge")?.textContent ?? "book").toLowerCase();
+  const scopes: [Scope, string][] = [
+    ...(para ? [["paragraph", `This paragraph (¶${para})`] as [Scope, string]] : []),
+    ...(data.chapter ? [["chapter", "This page"] as [Scope, string]] : []),
+    ["book", `Whole ${whole}`],
+  ];
+  const named = /^#p\d+$/.test(location.hash) || document.getElementById(decodeURIComponent(location.hash.slice(1)))?.hasAttribute("data-pnum");
+  let scope: Scope = para && named ? "paragraph" : data.chapter ? "chapter" : "book";
+  let style: StyleKey = "apa";
+  try {
+    const kept = localStorage.getItem("tb-cite-style") as StyleKey | null;
+    if (kept && STYLES.some(([k]) => k === kept)) style = kept;
+  } catch {
+    /* storage blocked: APA */
+  }
+  const text = el("p", { class: "tb-cite-text", "aria-live": "polite" });
+  const said = el("span", { class: "tb-cite-said", role: "status" });
+  const now = () => scoped(data, scope, new Date(), para);
+  const draw = () => {
+    said.textContent = "";
+    text.textContent = "";
+    for (const r of now().styles[style]) text.append(r.italic ? el("i", { text: r.text }) : r.text);
+  };
+  const seg = (name: string, legend: string, options: [string, string][], get: () => string, set: (v: string) => void) => {
+    const box = el("div", { class: "tb-seg" });
+    for (const [value, label] of options) {
+      const input = el("input", { type: "radio", name, value });
+      input.checked = get() === value;
+      input.addEventListener("change", () => {
+        set(value);
+        draw();
+      });
+      box.append(el("label", {}, input, label));
+    }
+    return el("fieldset", {}, el("legend", { text: legend }), box);
+  };
+  const copyBtn = el("button", { type: "button", class: "tb-btn", text: "Copy" });
+  copyBtn.addEventListener("click", () => {
+    copy(plain(now().styles[style]), () => (said.textContent = "Copied"), () => (said.textContent = "Couldn't copy: select the text instead"));
+    track("citation_copied", { style, scope });
+  });
+  const file = (data.chapter?.URL ?? data.book.URL).replace(/\/$/, "").split("/").pop() || "citation";
+  const formats: [string, string, string, (i: ReturnType<typeof now>["item"]) => string][] = [
+    ["BibTeX", "bib", "application/x-bibtex", bibtex],
+    ["RIS", "ris", "application/x-research-info-systems", ris],
+    ["CSL-JSON", "json", "application/vnd.citationstyles.csl+json", cslJson],
+  ];
+  const downloads = el("div", { class: "tb-dialog-row tb-cite-files" }, el("span", { class: "tb-cite-said", text: "Download" }));
+  for (const [label, ext, type, make] of formats) {
+    const b = el("button", { type: "button", class: "tb-btn", text: label });
+    b.addEventListener("click", () => {
+      const { item } = now();
+      save(make(item), type, `${scope === "book" ? "book" : file}${scope === "paragraph" ? `-p${para}` : ""}.${ext}`);
+      track("citation_downloaded", { format: ext, scope });
+    });
+    downloads.append(b);
+  }
+  const lic = licenceName(header.dataset.licence ?? "");
+  const attr = el("p", { class: "tb-cite-text" });
+  for (const r of attributionOf()) attr.append(r.italic ? el("i", { text: r.text }) : r.text);
+  draw();
+  dialog(
+    "Cite",
+    trigger,
+    el("h2", { text: "Cite" }),
+    seg("tb-cite-scope", "What", scopes, () => scope, (v) => (scope = v as Scope)),
+    seg("tb-cite-style", "Style", STYLES, () => style, (v) => {
+      style = v as StyleKey;
+      try {
+        localStorage.setItem("tb-cite-style", style);
+      } catch {
+        /* not kept */
+      }
+    }),
+    text,
+    el("div", { class: "tb-dialog-row" }, said, copyBtn),
+    downloads,
+    el("h3", { text: lic ? `Attribution (${lic})` : "Attribution" }),
+    attr,
+  );
+};
+
 const cite = (header: HTMLElement, trigger: HTMLElement) => {
   const input = {
     authors: header.dataset.authors ?? "",
@@ -1011,6 +1222,8 @@ const cite = (header: HTMLElement, trigger: HTMLElement) => {
     );
     return el("section", {}, el("h3", { text: title }), runs(rs), el("div", { class: "tb-dialog-row" }, said, b));
   };
+  const data = readCiteData(document);
+  if (data) return citeDialog(data, header, trigger, () => attribution(input));
   const lic = licenceName(input.licence);
   dialog(
     "Cite this page",
@@ -1461,6 +1674,11 @@ const armHeader = (header: HTMLElement) => {
     if (suggestBtn && suggest) {
       suggestBtn.addEventListener("click", suggest);
       suggestBtn.hidden = false;
+      // After the pencils, so each note sits just below its paragraph's pencil.
+      armSectionNotes(
+        (about, trigger) => openSuggestModal!(endpoint!, suggestBtn.dataset.path ?? "", trigger, about),
+        howTo,
+      );
     }
     contribute.hidden = false;
   });

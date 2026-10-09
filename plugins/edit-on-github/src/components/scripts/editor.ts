@@ -6,7 +6,8 @@
  *   toolbar     Edit | Preview | Changes          Cancel  [Propose changes…]
  *   box         the markdown (whole page, or one paragraph with its neighbours
  *               shown faintly above and below)
- *   dialog      "Propose changes": title, description, who you are (signed in
+ *   dialog      "Propose changes": what you changed and why (required, 10-500
+ *               characters: the PR's title, commit and Summary), description, who you are (signed in
  *               with GitHub), what will happen, Propose
  *
  * Editing needs GitHub sign-in, asked for before the source loads: a reader who
@@ -65,6 +66,9 @@ interface Identity {
 export const OVERLAY_ID = "tb-editor";
 const STYLE_ID = "tb-editor-style";
 const ID_KEY = "tb-gh-identity";
+/** The edit summary's bounds ("What did you change, and why?"). */
+const SUMMARY_MIN = 10;
+const SUMMARY_MAX = 500;
 const ID_TTL = 7.5 * 60 * 60 * 1000; // under the server's 8h
 const FETCH_TIMEOUT = 20000;
 const USER_MESSAGE_MAX = 200;
@@ -208,6 +212,7 @@ ${O} .tb-ed-panel { padding: 1rem; }
 ${O} .tb-ed-preview { font-size: 1rem; line-height: 1.65; }
 ${O} .tb-ed-preview img { max-width: 100%; }
 ${O} .tb-ed-muted { color: var(--tb-muted, #6E6E73); }
+${O} .tb-ed-hint { margin: 0.3rem 0 0; font-size: 0.85em; }
 ${O} .tb-ed-diff { font-family: var(--tb-font-mono, monospace); font-size: 0.8rem; }
 ${O} .tb-ed-hunk { border-top: 1px solid var(--tb-border, #E6E6E6); }
 ${O} .tb-ed-hunk:first-child { border-top: 0; }
@@ -516,7 +521,17 @@ export const openEditor = (o: EditorOptions) => {
     const lab = el("label", { for: id, text: label }, optional ? el("span", { class: "tb-ed-opt", text: " (optional)" }) : null);
     return { wrap: el("div", { class: "tb-ed-field" }, lab, control, err), control, err };
   };
-  const titleF = field("tb-ed-msg", "Title", el("input", { type: "text", maxlength: 200, autocomplete: "off" }));
+  // The summary: the commit's subject, the PR's title and its Summary
+  // (suggest-edit-function's propose-edit). Required here; the function takes
+  // a missing one from pages built before it.
+  const titleF = field(
+    "tb-ed-msg",
+    "What did you change, and why?",
+    el("textarea", { rows: 2, maxlength: SUMMARY_MAX, autocomplete: "off", "aria-describedby": "tb-ed-msg-hint" }),
+  );
+  titleF.wrap.append(
+    el("p", { class: "tb-ed-muted tb-ed-hint", id: "tb-ed-msg-hint", text: "Signed in with GitHub, you're notified there when the authors accept or decline it." }),
+  );
   const descF = field("tb-ed-desc", "Extended description", el("textarea", { rows: 3, maxlength: 5000 }), true);
   const who = el("div", { class: "tb-ed-who" });
   const what = el("div", { class: "tb-ed-what" }, icon(BRANCH));
@@ -622,9 +637,6 @@ export const openEditor = (o: EditorOptions) => {
   titleF.control.addEventListener("input", () => clear(titleF));
 
   const openDialog = () => {
-    if (!titleF.control.value) {
-      titleF.control.value = mode === "paragraph" && pnum ? `Edit ¶${pnum} of ${fileName}` : `Update ${fileName}`;
-    }
     whatText.textContent = "";
     whatText.append(
       "This creates a new branch and opens a proposal to merge it into ",
@@ -636,7 +648,6 @@ export const openEditor = (o: EditorOptions) => {
     result.hidden = true;
     scrim.hidden = false;
     titleF.control.focus();
-    titleF.control.select();
   };
   const closeDialog = () => {
     scrim.hidden = true;
@@ -668,8 +679,9 @@ export const openEditor = (o: EditorOptions) => {
     if (busy) return;
     let bad: HTMLElement | null = null;
     clear(titleF);
-    if (!titleF.control.value.trim()) {
-      invalid(titleF, "Please give your change a short title.");
+    const said = titleF.control.value.trim().length;
+    if (said < SUMMARY_MIN || said > SUMMARY_MAX) {
+      invalid(titleF, said < SUMMARY_MIN ? `Please say what you changed and why, in at least ${SUMMARY_MIN} characters.` : `Please keep it under ${SUMMARY_MAX} characters.`);
       bad = titleF.control;
     } else if (!identity) bad = who.querySelector("button");
     if (bad) {
@@ -681,7 +693,8 @@ export const openEditor = (o: EditorOptions) => {
       mode,
       path: o.path,
       baseSha,
-      title: titleF.control.value.trim(),
+      title: mode === "paragraph" && pnum ? `Edit ¶${pnum} of ${fileName}` : `Update ${fileName}`,
+      summary: titleF.control.value.trim().replace(/\s+/g, " "),
       description: descF.control.value.trim(),
     };
     if (mode === "page") payload.content = current();
