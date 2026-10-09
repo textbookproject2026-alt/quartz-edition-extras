@@ -174,6 +174,11 @@ edition-integrations puts its annotation badge at the end of the row.
   date. Elsewhere (an edition), APA 7 from the header's data, as before. The CC
   attribution line is under both. Events: `citation_copied {style, scope}`,
   `citation_downloaded {format, scope}`.
+- **Download** (⋯). On a book built by quartz-book the page carries
+  `<script id="tb-downloads">`: the item reads *Download…* and opens a chooser,
+  this page's PDF and EPUB, the whole book's PDF, EPUB and ODT (only the files the
+  build made), and the Markdown source as before. Elsewhere it is *Download as
+  Markdown*. Event: `download {format, scope}`.
 - **The links** come from Quartz's own source path, so no reverse-mapping from
   URLs: `contentDir` joined to `fileData.relativePath` (which is relative to the
   `-d` directory), encoded per segment. The Edit link keeps class

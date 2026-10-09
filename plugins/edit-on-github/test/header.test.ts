@@ -595,6 +595,28 @@ describe("F. the ⋯ menu", () => {
     expect(scopes).toEqual(["book"]);
   });
 
+  it("Download, on a book with the builder's files: this page's PDF and EPUB, the book's three, and the Markdown", () => {
+    const files = {
+      chapter: { pdf: "/downloads/b-chapter-03-2026-10-08.pdf", epub: "/downloads/b-chapter-03-2026-10-08.epub" },
+      book: { pdf: "/downloads/b-2026-10-08.pdf", epub: "/downloads/b-2026-10-08.epub", odt: "/downloads/b-2026-10-08.odt" },
+    };
+    const w = page(`<script type="application/json" id="tb-downloads">${JSON.stringify(files)}</script>${render()}`, { explained: true });
+    const item = $<HTMLButtonElement>(w, "[data-tb-download]");
+    expect(item.textContent).toBe("Download…");
+    item.click();
+    const d = $(w, "dialog.tb-dialog");
+    expect(Array.from(d.querySelectorAll("h3")).map((h) => h.textContent)).toEqual(["This page", "Whole book", "Source"]);
+    const links = Array.from(d.querySelectorAll("a.tb-btn")).map((a) => [a.textContent, a.getAttribute("href"), a.hasAttribute("download")]);
+    expect(links).toEqual([
+      ["PDF", files.chapter.pdf, true],
+      ["EPUB", files.chapter.epub, true],
+      ["PDF", files.book.pdf, true],
+      ["EPUB", files.book.epub, true],
+      ["ODT (Word, LibreOffice)", files.book.odt, true],
+    ]);
+    expect(Array.from(d.querySelectorAll("button.tb-btn")).map((b) => b.textContent)).toEqual(["Markdown"]);
+  });
+
   it("Print prints; What links here scrolls to the backlinks, and is disabled with none", () => {
     const w = page(undefined, { explained: true });
     let printed = 0;

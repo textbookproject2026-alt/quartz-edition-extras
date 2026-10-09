@@ -1234,6 +1234,50 @@ const cite = (header: HTMLElement, trigger: HTMLElement) => {
   );
 };
 
+// --- F: download ------------------------------------------------------------------
+
+type Files = Partial<Record<"pdf" | "epub" | "odt", string>>;
+type Downloads = { chapter: Files | null; book: Files | null };
+
+/** The builder's downloads for this page (<script id="tb-downloads">), or null. */
+const readDownloads = (): Downloads | null => {
+  try {
+    const d = JSON.parse(document.getElementById("tb-downloads")?.textContent ?? "") as Downloads;
+    return d && (d.chapter || d.book) ? d : null;
+  } catch {
+    return null;
+  }
+};
+
+/** Download: this chapter (PDF, EPUB), the whole book (PDF, EPUB, ODT), the Markdown source. */
+const downloads = (d: Downloads, header: HTMLElement, trigger: HTMLElement, markdown: () => void) => {
+  const LABELS: [keyof Files, string][] = [
+    ["pdf", "PDF"],
+    ["epub", "EPUB"],
+    ["odt", "ODT (Word, LibreOffice)"],
+  ];
+  const whole = (header.querySelector(".tb-type-badge")?.textContent ?? "book").toLowerCase();
+  const row = (title: string, files: Files | null, scope: string) => {
+    const links = LABELS.filter(([ext]) => files?.[ext]).map(([ext, label]) => {
+      const a = el("a", { class: "tb-btn", href: files![ext]!, download: "", text: label });
+      a.addEventListener("click", () => track("download", { format: ext, scope }));
+      return a;
+    });
+    return links.length ? [el("h3", { text: title }), el("div", { class: "tb-dialog-row tb-cite-files" }, ...links)] : [];
+  };
+  const md = el("button", { type: "button", class: "tb-btn", text: "Markdown" });
+  md.addEventListener("click", markdown);
+  dialog(
+    "Download",
+    trigger,
+    el("h2", { text: "Download" }),
+    ...row("This page", d.chapter, "chapter"),
+    ...row(`Whole ${whole}`, d.book, "book"),
+    el("h3", { text: "Source" }),
+    el("div", { class: "tb-dialog-row tb-cite-files" }, md),
+  );
+};
+
 // --- C: the Appearance panel ------------------------------------------------------
 
 type Prefs = { get: (n: string) => string; set: (n: string, v: string) => void };
@@ -1717,19 +1761,25 @@ const armHeader = (header: HTMLElement) => {
         });
     }
     const download = $<HTMLButtonElement>("[data-tb-download]");
-    download?.addEventListener("click", () => {
-      fetch(download.dataset.tbDownload!)
+    const files = readDownloads();
+    if (download && files) {
+      // The builder's downloads: the item opens a small chooser instead.
+      const t = download.querySelector(".tb-mi-t");
+      if (t) t.textContent = "Download…";
+    }
+    const markdown = () =>
+      fetch(download!.dataset.tbDownload!)
         .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
         .then((blob) => {
           const url = URL.createObjectURL(blob);
-          const a = el("a", { href: url, download: download.dataset.file ?? "page.md" });
+          const a = el("a", { href: url, download: download!.dataset.file ?? "page.md" });
           document.body.append(a);
           a.click();
           a.remove();
           setTimeout(() => URL.revokeObjectURL(url), 1000);
         })
         .catch(() => status("That didn't download just now. View source has the same file."));
-    });
+    download?.addEventListener("click", () => (files ? downloads(files, header, more, markdown) : markdown()));
     more.hidden = false;
   });
 
