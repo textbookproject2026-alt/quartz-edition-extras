@@ -270,6 +270,14 @@ const openSuggestModal: OpenModal | null = (() => {
       nameInput.name = "name";
       nameInput.autocomplete = "name";
       const nameField = makeField("tb-sg-name", "Your name", nameInput);
+      // The name becomes public with the credit: said where it is typed.
+      const credit = document.createElement("p");
+      credit.className = "tb-sg-count";
+      credit.id = "tb-sg-credit";
+      credit.textContent = "If the authors accept your suggestion, you'll be credited by this name.";
+      nameField.wrap.append(credit);
+      nameField.hintId = credit.id;
+      describe(nameField);
       if (who) {
         nameInput.value = who.name || who.login;
         const hint = document.createElement("p");
@@ -277,7 +285,7 @@ const openSuggestModal: OpenModal | null = (() => {
         hint.id = "tb-sg-who";
         hint.textContent = `Signed in as @${who.login}: GitHub tells you when the authors answer.`;
         nameField.wrap.append(hint);
-        nameField.hintId = hint.id;
+        nameField.hintId = `${credit.id} ${hint.id}`;
         describe(nameField);
       }
 
@@ -1055,6 +1063,9 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
     }),
     ...names.map((n) => route(ROUTES[n])),
     el("p", {}, el("a", { href: howTo, text: "More about commenting and contributing" })),
+    header?.dataset.credits
+      ? el("p", {}, el("a", { href: `${header.dataset.credits}#how-credit-works`, text: "How credit works" }), ": who is named as an author, an editor or a contributor.")
+      : null,
     actions,
   );
   const close = el("button", { type: "button", class: "tb-btn", text: "Close" });

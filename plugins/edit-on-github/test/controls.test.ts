@@ -228,6 +228,13 @@ describe("Suggest an edit", () => {
     expect(w.document.activeElement).toBe($(w, "[data-tb-contribute]"));
   });
 
+  it("says, under the name, that an accepted suggestion is credited by it", () => {
+    const w = page(render(withSuggest));
+    $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
+    expect($(w, "#tb-sg-credit").textContent).toBe("If the authors accept your suggestion, you'll be credited by this name.");
+    expect($(w, "#tb-sg-name").getAttribute("aria-describedby")).toBe("tb-sg-credit");
+  });
+
   it("has the four honeypot guards and a counter with no live region", () => {
     const w = page(render(withSuggest));
     $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
