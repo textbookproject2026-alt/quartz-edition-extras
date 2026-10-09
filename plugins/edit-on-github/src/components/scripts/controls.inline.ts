@@ -38,6 +38,7 @@
 /* eslint-disable no-restricted-syntax */
 import { closeIfOpen as closeEditorIfOpen, EDIT_HASH, EDITOR_STATE, openEditor, PENCIL } from "./editor";
 import { closeIfOpen as closeHistoryIfOpen, openHistory } from "./history";
+import { mountBookHistory } from "./book-history";
 import { apa, attribution, bibtex, cslJson, licenceName, plain, readCiteData, ris, scoped, STYLES } from "./cite";
 import type { CiteData, Run, Scope, StyleKey } from "./cite";
 
@@ -1063,9 +1064,9 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
     }),
     ...names.map((n) => route(ROUTES[n])),
     el("p", {}, el("a", { href: howTo, text: "More about commenting and contributing" })),
-    header?.dataset.credits
-      ? el("p", {}, el("a", { href: `${header.dataset.credits}#how-credit-works`, text: "How credit works" }), ": who is named as an author, an editor or a contributor.")
-      : null,
+    ...(header?.dataset.credits
+      ? [el("p", {}, el("a", { href: `${header.dataset.credits}#how-credit-works`, text: "How credit works" }), ": who is named as an author, an editor or a contributor.")]
+      : []),
     actions,
   );
   const close = el("button", { type: "button", class: "tb-btn", text: "Close" });
@@ -1474,6 +1475,7 @@ const armHistory = (link: HTMLAnchorElement, endpoint: string, back: HTMLElement
     openHistory({
       endpoint,
       listUrl: link.dataset.history ?? "",
+      bookHistoryUrl: link.dataset.bookHistory,
       path: link.dataset.path ?? "",
       title: (document.querySelector("h1.article-title")?.textContent ?? "").trim(),
       githubHref: link.href,
@@ -1813,6 +1815,9 @@ const wire = () => {
       if (header.dataset.tbWired) continue;
       header.dataset.tbWired = "1";
       armHeader(header);
+      const mount = document.querySelector<HTMLElement>("[data-tb-book-history]");
+      if (mount && header.dataset.bookHistory)
+        void mountBookHistory(mount, header.dataset.bookHistory, header.dataset.revisionEndpoint ?? "").catch(() => {});
     }
   } catch {
     /* the header stays as rendered: its links still go to GitHub */
