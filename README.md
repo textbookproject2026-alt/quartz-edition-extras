@@ -179,6 +179,13 @@ edition-integrations puts its annotation badge at the end of the row.
   this page's PDF and EPUB, the whole book's PDF, EPUB and ODT (only the files the
   build made), and the Markdown source as before. Elsewhere it is *Download as
   Markdown*. Event: `download {format, scope}`.
+- **Credit** (batch 2a). The role badge (`scripts/roles.ts`, `.tb-role[data-role]`:
+  Author, Editor, Contributor) is the one shape for roles, in the History panel and
+  in what quartz-book's builder writes on the page (the byline `.tb-byline`, the
+  chapter's contributors `.tb-credits-foot`, the front page's `.tb-credits-block`),
+  all styled here. The note form says under the name that an accepted suggestion is
+  credited by it, and the Contribute explainer links the contributors page's *How
+  credit works* when the book has one (`data-credits`).
 - **The links** come from Quartz's own source path, so no reverse-mapping from
   URLs: `contentDir` joined to `fileData.relativePath` (which is relative to the
   `-d` directory), encoded per segment. The Edit link keeps class

@@ -8,6 +8,7 @@ import type { QuartzComponentProps } from "@quartz-community/types";
 import EditOnGitHub, { SUBTITLES, folderName, rootOf } from "../src/components/EditOnGitHub";
 import { apa, apaName, attribution, bibtex, citeKey, cslJson, plain, ris, scoped, splitAuthors } from "../src/components/scripts/cite";
 import type { CiteData } from "../src/components/scripts/cite";
+import { roleBadge } from "../src/components/scripts/roles";
 
 const script = EditOnGitHub({}).afterDOMLoaded as string;
 const ENDPOINT = "https://fn.example/api/suggest-edit";
@@ -742,6 +743,35 @@ describe("Cite's files and scopes (the builder's data)", () => {
   it("CSL-JSON: the item, as an array", () => {
     const item = scoped(CITE, "book", day).item;
     expect(JSON.parse(cslJson(item))).toEqual([item]);
+  });
+});
+
+describe("credit (batch 2a)", () => {
+  it("the explainer links How credit works where the book has a contributors page", () => {
+    const html = renderToString(
+      EditOnGitHub(BOOK)({
+        fileData: { relativePath: "chapters/chapter-03.md", filePath: "book/chapters/chapter-03.md", slug: "chapters/chapter-03", frontmatter: {} },
+        cfg: { pageTitle: "Ontology" },
+        allFiles: [{ slug: "community/contributors" }],
+      } as unknown as QuartzComponentProps) as never,
+    );
+    expect(html).toContain('data-credits="../community/contributors"');
+    const w = page(html);
+    $<HTMLButtonElement>(w, "[data-tb-contribute]").click();
+    const link = Array.from($(w, "dialog.tb-dialog").querySelectorAll("a")).find((a) => a.textContent === "How credit works")!;
+    expect(link.getAttribute("href")).toBe("../community/contributors#how-credit-works");
+    expect(render()).not.toContain("data-credits");
+  });
+
+  it("the role badge: one shape for each role", () => {
+    const w = page(undefined, { explained: true });
+    const real = (globalThis as { document?: unknown }).document;
+    (globalThis as { document?: unknown }).document = w.document;
+    const make = (role: string) => roleBadge(role);
+    const b = make("editor")!;
+    expect([b.className, b.dataset.role, b.textContent]).toEqual(["tb-role", "editor", "Editor"]);
+    expect(make("nobody")).toBeNull();
+    (globalThis as { document?: unknown }).document = real;
   });
 });
 

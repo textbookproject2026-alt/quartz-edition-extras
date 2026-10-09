@@ -188,7 +188,7 @@ export const SUBTITLES = {
 const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) => {
   const opts = { ...defaultOptions, ...userOpts };
 
-  const Component: QuartzComponent = ({ fileData, cfg }: QuartzComponentProps) => {
+  const Component: QuartzComponent = ({ fileData, cfg, allFiles }: QuartzComponentProps) => {
     const slug = String(fileData.slug ?? "");
     const relativePath = fileData.relativePath;
     const fm = (fileData.frontmatter ?? {}) as Record<string, unknown>;
@@ -326,6 +326,11 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
         "data-authors": opts.authors,
         "data-licence": opts.licence,
         "data-how-to": root + opts.howTo,
+        // The book's contributors page (quartz-book's gen-contributors), where it has one:
+        // the explainer links its "How credit works".
+        ...((allFiles ?? []).some((f) => f.slug === "community/contributors")
+          ? { "data-credits": `${root}community/contributors` }
+          : {}),
         // The ways to contribute this site has, for the explainer on every page:
         // a book's editor and suggest form, or an edition's GitHub link.
         "data-routes": [
@@ -693,6 +698,47 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
 @media (max-width: 800px) {
   .tb-header { gap: 0.4rem; margin-bottom: 1rem; }
 }
+/* Credit (batch 2a): the role badge, and what quartz-book's builder writes on the page:
+   the byline under the title, the chapter's contributors at its foot, the front page's
+   credits. */
+.tb-role {
+  display: inline-block;
+  margin: 0 0.15rem;
+  padding: 0 0.4rem;
+  border: 1px solid var(--tb-border, var(--lightgray));
+  border-radius: 999px;
+  font-family: var(--tb-font-ui, sans-serif);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  vertical-align: 0.1em;
+  white-space: nowrap;
+  color: var(--tb-muted, var(--darkgray));
+}
+.tb-role[data-role="author"] { border-color: var(--tb-accent, var(--secondary)); color: var(--tb-accent, var(--secondary)); }
+.tb-role[data-role="editor"] { background: var(--tb-accent-wash, var(--highlight)); border-color: transparent; color: var(--tb-ink, var(--dark)); }
+.tb-byline {
+  margin: -0.25rem 0 1rem;
+  font-family: var(--tb-font-ui, sans-serif);
+  font-size: 0.95rem;
+  color: var(--tb-muted, var(--darkgray));
+  overflow-wrap: anywhere;
+}
+.tb-byline .tb-sep { margin: 0 0.4rem; color: var(--tb-faint, var(--gray)); }
+.tb-credits-foot, .tb-credits-block {
+  margin: 2rem 0 0;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid var(--tb-border, var(--lightgray));
+  font-family: var(--tb-font-ui, sans-serif);
+  font-size: 0.9rem;
+  color: var(--tb-muted, var(--darkgray));
+  overflow-wrap: anywhere;
+}
+.tb-credits-block { margin: 0 0 1.5rem; padding: 0.75rem 1rem; border: 1px solid var(--tb-border, var(--lightgray)); border-radius: 10px; }
+.tb-credits-block p { margin: 0.2rem 0; }
+.tb-credits-foot a, .tb-credits-block a { color: var(--tb-accent, var(--secondary)); }
+@media print { .tb-credits-block a, .tb-credits-foot a { color: inherit; } }
 .tb-dialog {
   box-sizing: border-box;
   width: min(34rem, calc(100vw - 2rem));
