@@ -273,7 +273,7 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
     ];
 
     const more = [
-      item("button", { "data-tb-cite": "" }, "Cite this page"),
+      item("button", { "data-tb-cite": "" }, "Cite"),
       item("button", { "data-tb-print": "" }, "Print / save as PDF"),
       // With a revision endpoint the page script opens the History panel; the
       // href stays GitHub's history of the file, the fallback.
@@ -655,21 +655,21 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
 .tb-mi-t { font-weight: 600; }
 .tb-mi-s { max-width: 21rem; color: var(--tb-muted, var(--gray)); font-size: 0.8rem; line-height: 1.35; white-space: normal; }
 .tb-panel { width: 17rem; padding: 0.75rem 0.85rem; }
-.tb-panel fieldset { margin: 0 0 0.7rem; padding: 0; border: 0; }
+.tb-panel fieldset, .tb-dialog fieldset { margin: 0 0 0.7rem; padding: 0; border: 0; min-width: 0; }
 .tb-panel fieldset:last-of-type { margin-bottom: 0; }
-.tb-panel legend { margin-bottom: 0.3rem; padding: 0; font-weight: 700; color: var(--tb-ink, var(--dark)); }
-.tb-panel .tb-seg { display: flex; flex-wrap: wrap; gap: 0.25rem; }
-.tb-panel .tb-seg label {
+.tb-panel legend, .tb-dialog legend { margin-bottom: 0.3rem; padding: 0; font-weight: 700; color: var(--tb-ink, var(--dark)); }
+.tb-panel .tb-seg, .tb-dialog .tb-seg { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.tb-panel .tb-seg label, .tb-dialog .tb-seg label {
   display: inline-flex; align-items: center; gap: 0.3rem;
   padding: 0.25rem 0.55rem; border: 1px solid var(--tb-border, var(--lightgray)); border-radius: 999px;
   color: var(--tb-ink, var(--dark)); cursor: pointer;
 }
-.tb-panel .tb-seg label:has(input:checked) {
+.tb-panel .tb-seg label:has(input:checked), .tb-dialog .tb-seg label:has(input:checked) {
   border-color: var(--tb-accent, var(--secondary));
   background: var(--tb-accent-wash, var(--highlight));
   color: var(--tb-accent, var(--secondary));
 }
-.tb-panel .tb-seg input { margin: 0; accent-color: var(--tb-accent, var(--secondary)); }
+.tb-panel .tb-seg input, .tb-dialog .tb-seg input { margin: 0; accent-color: var(--tb-accent, var(--secondary)); }
 .tb-panel .tb-panel-note { margin: 0.4rem 0 0; color: var(--tb-muted, var(--gray)); }
 .tb-panel .tb-panel-note button { margin-left: 0.3rem; }
 .tb-hdr-status:empty { display: none; }
@@ -714,6 +714,8 @@ ${iconsOnly(".tb-header.tb-hdr-icons")}
 .tb-route { padding-top: 0.1rem; }
 .tb-cite-text { padding: 0.6rem 0.75rem; border-radius: 8px; background: var(--tb-bg-soft, var(--lightgray)); overflow-wrap: anywhere; }
 .tb-cite-said { color: var(--tb-muted, var(--gray)); }
+.tb-cite-files { flex-wrap: wrap; justify-content: flex-start; }
+.tb-cite-files .tb-btn { font-weight: 400; }
 .tb-btn {
   padding: 0.35rem 0.9rem; border: 1px solid var(--tb-border, var(--lightgray)); border-radius: 6px;
   background: var(--tb-bg, var(--light)); color: var(--tb-ink, var(--dark)); font: inherit; font-weight: 600; cursor: pointer;

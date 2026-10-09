@@ -6,7 +6,8 @@ import { Window } from "happy-dom";
 import { renderToString } from "preact-render-to-string";
 import type { QuartzComponentProps } from "@quartz-community/types";
 import EditOnGitHub, { SUBTITLES, folderName, rootOf } from "../src/components/EditOnGitHub";
-import { apa, apaName, attribution, plain, splitAuthors } from "../src/components/scripts/cite";
+import { apa, apaName, attribution, bibtex, citeKey, cslJson, plain, ris, scoped, splitAuthors } from "../src/components/scripts/cite";
+import type { CiteData } from "../src/components/scripts/cite";
 
 const script = EditOnGitHub({}).afterDOMLoaded as string;
 const ENDPOINT = "https://fn.example/api/suggest-edit";
@@ -491,7 +492,7 @@ describe("F. the ⋯ menu", () => {
     const w = page(undefined, { explained: true });
     const list = items(w, "#tb-more-menu");
     expect(list.map((i) => i.querySelector(".tb-mi-t")!.textContent)).toEqual([
-      "Cite this page",
+      "Cite",
       "Print / save as PDF",
       "Page history ↗",
       "What links here",
@@ -538,6 +539,62 @@ describe("F. the ⋯ menu", () => {
     expect(Array.from(d.querySelectorAll("button")).filter((b) => b.textContent === "Copy")).toHaveLength(2);
   });
 
+  it("Cite, on a book with the builder's data: scope, style, copy, files; the attribution kept", async () => {
+    const w = page(undefined, { explained: true });
+    w.document.head.insertAdjacentHTML("beforeend", `<script type="application/json" id="tb-cite">${JSON.stringify(CITE)}</script>`);
+    $<HTMLButtonElement>(w, "[data-tb-cite]").click();
+    const d = $(w, "dialog.tb-dialog");
+    const radios = (name: string) => Array.from(d.querySelectorAll<HTMLInputElement>(`input[name=${name}]`));
+    const labels = (name: string) => radios(name).map((r) => r.parentElement!.textContent);
+    expect(labels("tb-cite-scope")).toEqual(["This paragraph (¶1)", "This page", "Whole book"]);
+    expect(labels("tb-cite-style")).toEqual(["APA 7", "Chicago", "MLA", "Harvard"]);
+    expect(radios("tb-cite-scope").find((r) => r.checked)!.value).toBe("chapter");
+    const text = () => d.querySelector(".tb-cite-text")!.textContent;
+    expect(text()).toBe("Sommer, B. (2026). Introduction. In Ontology. Confused for Now. https://book.example.org/chapters/chapter-03");
+    expect(d.querySelector(".tb-cite-text i")!.textContent).toBe("Ontology");
+    const pick = (name: string, value: string) => {
+      const r = radios(name).find((x) => x.value === value)!;
+      r.checked = true;
+      r.dispatchEvent(new w.Event("change") as never);
+    };
+    pick("tb-cite-style", "harvard");
+    const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    expect(text()).toBe(`Sommer, B. (2026) ‘Introduction’, Ontology. Available at: https://book.example.org/chapters/chapter-03 (Accessed: ${today}).`);
+    expect(w.localStorage.getItem("tb-cite-style")).toBe("harvard");
+    pick("tb-cite-scope", "paragraph");
+    expect(text()).toContain("https://book.example.org/chapters/chapter-03#p1 (para. 1) (Accessed:");
+    pick("tb-cite-scope", "book");
+    expect(text()).toMatch(/^Sommer, B\. \(2026\) Ontology\. Available at: https:\/\/book\.example\.org\/ /);
+    // Files, made here from the CSL-JSON, named by the page and scope.
+    const saved: string[] = [];
+    const create = w.document.createElement.bind(w.document);
+    (w.document as unknown as { createElement: unknown }).createElement = (t: string) => {
+      const n = create(t);
+      if (t === "a") n.addEventListener("click", (e: Event) => (saved.push((n as HTMLAnchorElement).download), e.preventDefault()));
+      return n;
+    };
+    const files = Array.from(d.querySelectorAll(".tb-cite-files button")) as unknown as HTMLButtonElement[];
+    expect(files.map((b) => b.textContent)).toEqual(["BibTeX", "RIS", "CSL-JSON"]);
+    pick("tb-cite-scope", "paragraph");
+    for (const b of files) b.click();
+    expect(saved).toEqual(["chapter-03-p1.bib", "chapter-03-p1.ris", "chapter-03-p1.json"]);
+    expect(Array.from(d.querySelectorAll("h3")).map((h) => h.textContent)).toEqual(["Attribution (CC BY-SA 4.0)"]);
+  });
+
+  it("Cite opens on the paragraph the address names; the front page has only the book", () => {
+    const w = page(undefined, { explained: true });
+    w.history.replaceState(null, "", "#p1");
+    w.document.head.insertAdjacentHTML("beforeend", `<script type="application/json" id="tb-cite">${JSON.stringify(CITE)}</script>`);
+    $<HTMLButtonElement>(w, "[data-tb-cite]").click();
+    const checked = (w.document.querySelector("dialog input[name=tb-cite-scope]:checked") as unknown as HTMLInputElement).value;
+    expect(checked).toBe("paragraph");
+    const front = page(undefined, { explained: true });
+    front.document.head.insertAdjacentHTML("beforeend", `<script type="application/json" id="tb-cite">${JSON.stringify({ ...CITE, chapter: null, styles: { book: CITE.styles.book } })}</script>`);
+    $<HTMLButtonElement>(front, "[data-tb-cite]").click();
+    const scopes = Array.from(front.document.querySelectorAll("dialog input[name=tb-cite-scope]")).map((r) => (r as unknown as HTMLInputElement).value);
+    expect(scopes).toEqual(["book"]);
+  });
+
   it("Print prints; What links here scrolls to the backlinks, and is disabled with none", () => {
     const w = page(undefined, { explained: true });
     let printed = 0;
@@ -572,6 +629,97 @@ describe("F. the ⋯ menu", () => {
     await tick(50);
     expect(asked).toEqual([`https://raw.githubusercontent.com/o/r/${SHA}/chapters/chapter-03.md`]);
     expect(saved).toBe("chapter-03.md");
+  });
+});
+
+const R = (text: string, italic = false) => (italic ? { text, italic } : { text });
+const CHAPTER_URL = "https://book.example.org/chapters/chapter-03";
+const CITE: CiteData = {
+  version: 1,
+  chapter: {
+    id: CHAPTER_URL, type: "chapter", title: "Introduction", URL: CHAPTER_URL,
+    author: [{ family: "Sommer", given: "Brandon" }], publisher: "Confused for Now",
+    issued: { "date-parts": [[2026, 10, 8]] }, language: "en", "container-title": "Ontology",
+    keyword: "realism, ontology", license: "https://creativecommons.org/licenses/by-sa/4.0/",
+  },
+  book: {
+    id: "https://book.example.org/", type: "book", title: "Ontology", URL: "https://book.example.org/",
+    author: [{ family: "Sommer", given: "Brandon" }], publisher: "Confused for Now", issued: { "date-parts": [[2026, 10, 8]] },
+  },
+  styles: {
+    chapter: {
+      apa: [R("Sommer, B. (2026). Introduction. In "), R("Ontology", true), R(`. Confused for Now. ${CHAPTER_URL}`)],
+      chicago: [R("Sommer, Brandon. 2026. “Introduction.” In "), R("Ontology", true), R(`. Confused for Now. ${CHAPTER_URL}.`)],
+      mla: [R("Sommer, Brandon. “Introduction.” "), R("Ontology", true), R(`, Confused for Now, 2026, ${CHAPTER_URL}.`)],
+      harvard: [R("Sommer, B. (2026) ‘Introduction’, "), R("Ontology", true), R(`. Available at: ${CHAPTER_URL} (Accessed: {accessed}).`)],
+    },
+    book: {
+      apa: [R("Sommer, B. (2026). "), R("Ontology", true), R(". Confused for Now. https://book.example.org/")],
+      chicago: [R("Sommer, Brandon. 2026. "), R("Ontology", true), R(". Confused for Now. https://book.example.org/.")],
+      mla: [R("Sommer, Brandon. "), R("Ontology", true), R(". Confused for Now, 2026, https://book.example.org/.")],
+      harvard: [R("Sommer, B. (2026) "), R("Ontology", true), R(". Available at: https://book.example.org/ (Accessed: {accessed}).")],
+    },
+  },
+};
+
+describe("Cite's files and scopes (the builder's data)", () => {
+  const day = new Date(2026, 9, 9);
+  it("a paragraph is the chapter at #p<n>, with (para. n); the access date filled in", () => {
+    const p = scoped(CITE, "paragraph", day, 4);
+    expect(p.item.URL).toBe(`${CHAPTER_URL}#p4`);
+    expect(p.item.note).toBe("para. 4");
+    expect(p.item.accessed).toEqual({ "date-parts": [[2026, 10, 9]] });
+    expect(plain(p.styles.harvard)).toBe(`Sommer, B. (2026) ‘Introduction’, Ontology. Available at: ${CHAPTER_URL}#p4 (para. 4) (Accessed: 9 October 2026).`);
+    expect(plain(scoped(CITE, "book", day).styles.apa)).toBe("Sommer, B. (2026). Ontology. Confused for Now. https://book.example.org/");
+    // No chapter (the front page): every scope is the book.
+    expect(scoped({ ...CITE, chapter: null }, "paragraph", day, 4).item.URL).toBe("https://book.example.org/");
+  });
+  it("BibTeX: an incollection Zotero imports as a book section; values escaped, the url verbatim", () => {
+    const item = { ...scoped(CITE, "paragraph", day, 4).item, title: "Costs & 50% of {it}_" };
+    expect(bibtex(item)).toBe(
+      [
+        "@incollection{sommer2026costs,",
+        "  author = {Sommer, Brandon},",
+        "  title = {Costs \\& 50\\% of \\{it\\}\\_},",
+        "  booktitle = {Ontology},",
+        "  publisher = {Confused for Now},",
+        "  year = {2026},",
+        "  date = {2026-10-08},",
+        `  url = {${CHAPTER_URL}#p4},`,
+        "  urldate = {2026-10-09},",
+        "  language = {en},",
+        "  note = {para. 4},",
+        "  keywords = {realism, ontology}",
+        "}",
+        "",
+      ].join("\n"),
+    );
+    expect(bibtex(CITE.book)).toMatch(/^@book\{sommer2026ontology,\n/);
+    expect(citeKey({ ...CITE.book, author: [{ literal: "UNESCO" }], issued: undefined, title: "Ä über" })).toBe("unescouber");
+  });
+  it("RIS: CHAP with the book as T2, one AU and KW each, CRLF, ER last", () => {
+    const text = ris(scoped(CITE, "chapter", day).item);
+    expect(text.split("\r\n")).toEqual([
+      "TY  - CHAP",
+      "TI  - Introduction",
+      "AU  - Sommer, Brandon",
+      "T2  - Ontology",
+      "PB  - Confused for Now",
+      "PY  - 2026",
+      "DA  - 2026/10/08",
+      `UR  - ${CHAPTER_URL}`,
+      "Y2  - 2026/10/09",
+      "LA  - en",
+      "KW  - realism",
+      "KW  - ontology",
+      "ER  - ",
+      "",
+    ]);
+    expect(ris(CITE.book)).toMatch(/^TY {2}- BOOK\r\n/);
+  });
+  it("CSL-JSON: the item, as an array", () => {
+    const item = scoped(CITE, "book", day).item;
+    expect(JSON.parse(cslJson(item))).toEqual([item]);
   });
 });
 

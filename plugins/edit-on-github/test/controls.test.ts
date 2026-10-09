@@ -87,6 +87,69 @@ const fill = (w: Page, website = "") => {
   $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
 };
 
+describe("a note to the authors on one paragraph", () => {
+  const LONG = "Consider a situation that will be familiar to anyone who has spent time in the literature of any contested field. Two research teams investigate the same phenomenon, and both seemingly do everything right, and more besides.";
+  const notePage = (signed = false) => {
+    const w = new Window({ url: "https://book.example.org/chapters/chapter-03" }) as unknown as Page;
+    w.document.write(`<html><head></head><body>${render(withSuggest)}<article><p data-pnum="1" id="p1">Short one.</p><p data-pnum="2" id="p2">${LONG}</p></article></body></html>`);
+    w.calls = [];
+    w.eval("window.tbTrack = function () { window.calls.push([].slice.call(arguments)) }");
+    w.localStorage.setItem("tb-contribute-explained", "1");
+    if (signed) w.sessionStorage.setItem("tb-gh-identity", JSON.stringify({ token: "tok", login: "ada-l", id: 42, name: "Ada", at: Date.now() }));
+    const posts: Record<string, unknown>[] = [];
+    (w as unknown as { fetch: unknown }).fetch = async (_u: string, init: { body: string }) => {
+      posts.push(JSON.parse(init.body));
+      return { ok: true, status: 201, json: async () => ({ issueUrl: "https://github.com/o/r/issues/8" }) };
+    };
+    w.eval(script);
+    w.document.dispatchEvent(new w.CustomEvent("nav"));
+    opened.push(w);
+    return { w, posts };
+  };
+
+  it("sits after each paragraph's pencil, out of the tab order like it", () => {
+    const { w } = notePage();
+    const b = $<HTMLButtonElement>(w, "#p2 > button.tb-pnote");
+    expect(b.previousElementSibling?.className).toBe("tb-pedit");
+    expect(b.tabIndex).toBe(-1);
+    expect(b.getAttribute("aria-hidden")).toBe("true");
+    expect(b.title).toBe("Note to the authors about ¶2");
+    expect(b.textContent).toBe("");
+  });
+
+  it("opens the note form about that paragraph and files it with ¶, quote and page", async () => {
+    const { w, posts } = notePage();
+    $<HTMLButtonElement>(w, "#p2 > button.tb-pnote").click();
+    expect($(w, "#tb-suggest-title").textContent).toBe("Note to the authors about ¶2");
+    const quote = $(w, ".tb-sg-quote").textContent!;
+    expect(quote.length).toBeLessThanOrEqual(200);
+    expect(quote.endsWith("…") && LONG.startsWith(quote.slice(0, -1))).toBe(true);
+    $<HTMLInputElement>(w, "#tb-sg-name").value = "A Reader";
+    $<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value = "This needs a source.";
+    $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
+    await tick();
+    expect(posts[0]).toMatchObject({ name: "A Reader", path: "chapters/chapter-03.md", paragraph: 2, quote, page: "/chapters/chapter-03" });
+    expect(posts[0]).not.toHaveProperty("identity");
+    expect(w.calls.map((c) => c[0])).toContain("section_note_opened");
+    // A short paragraph is quoted whole.
+    $<HTMLButtonElement>(w, "#tb-suggest-overlay .tb-sg-quiet, #tb-suggest-overlay button.tb-sg-close").click();
+    $<HTMLButtonElement>(w, "#p1 > button.tb-pnote").click();
+    expect($(w, ".tb-sg-quote").textContent).toBe("Short one.");
+  });
+
+  it("signed in with the editor's GitHub sign-in: the name filled in, and the sign-in sent", async () => {
+    const { w, posts } = notePage(true);
+    $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
+    expect($<HTMLInputElement>(w, "#tb-sg-name").value).toBe("Ada");
+    expect($(w, "#tb-sg-who").textContent).toContain("@ada-l");
+    $<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value = "A note on the page.";
+    $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
+    await tick();
+    expect(posts[0]).toMatchObject({ identity: "tok" });
+    expect(posts[0]).not.toHaveProperty("paragraph");
+  });
+});
+
 describe("the Edit and History links", () => {
   it("built from the repo root, point at the file's repo path", () => {
     const html = render({ repo: "o/r", contentDir: "" });
@@ -353,6 +416,12 @@ describe("the in-site editor", () => {
       .find((b) => b.textContent === "Propose changes…")!
       .dispatchEvent(new w.MouseEvent("click") as never);
   };
+  /** The Propose dialog's "What did you change, and why?". */
+  const summarise = (w: Page, text: string) => {
+    const ta = $<HTMLTextAreaElement>(w, "#tb-ed-msg");
+    ta.value = text;
+    ta.dispatchEvent(new w.Event("input") as never);
+  };
   const type = (w: Page, text: string) => {
     const ta = $<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text");
     ta.value = text;
@@ -375,6 +444,17 @@ describe("the in-site editor", () => {
     propose(w);
     expect($(w, "#tb-editor .tb-ed-who").textContent).toContain("@reader");
     expect(w.document.querySelector("#tb-ed-name, #tb-ed-email, #tb-ed-website")).toBeNull();
+    // The summary is required: 10 to 500 characters, said before anything is sent.
+    expect($(w, "label[for=tb-ed-msg]").textContent).toBe("What did you change, and why?");
+    expect($(w, "#tb-ed-msg-hint").textContent).toMatch(/notified .* accept or decline/);
+    $<HTMLFormElement>(w, "#tb-editor form").requestSubmit();
+    summarise(w, "too short");
+    $<HTMLFormElement>(w, "#tb-editor form").requestSubmit();
+    await tick();
+    expect(sent).toHaveLength(0);
+    expect($(w, "#tb-ed-msg-err").textContent).toMatch(/at least 10 characters/);
+    expect(w.document.activeElement).toBe($(w, "#tb-ed-msg"));
+    summarise(w, "  Fixed the spelling of\n receive.  ");
     $<HTMLFormElement>(w, "#tb-editor form").requestSubmit();
     await tick();
     expect(sent[0]).toEqual({
@@ -386,6 +466,7 @@ describe("the in-site editor", () => {
       replacement: "Second paragraph, receive.",
       paragraph: 2,
       title: "Edit ¶2 of chapter-03.md",
+      summary: "Fixed the spelling of receive.",
       description: "",
       identity: ID.token,
     });
@@ -486,6 +567,7 @@ describe("the in-site editor", () => {
     await tick();
     type(w, "# T\n\nchanged\n");
     propose(w);
+    summarise(w, "Changed the body text.");
     $<HTMLFormElement>(w, "#tb-editor form").requestSubmit();
     await tick();
     expect(sent).toHaveLength(1);

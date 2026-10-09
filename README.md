@@ -145,8 +145,9 @@ edition-integrations puts its annotation badge at the end of the row.
   `suggestEndpoint` set and `editor` on (the default), the Edit link reads **Edit
   this page** and opens a GitHub-style editor over the page: a breadcrumb to the
   file on the drafts branch, **Edit / Preview / Changes** tabs, and a **Propose
-  changes** dialog (title, description, and either *Sign in with GitHub* or name +
-  email). Every numbered paragraph also gets a pencil in its right margin that
+  changes** dialog (a required *What did you change, and why?*, 10–500 characters,
+  which becomes the PR's title tail, its commit subject and its Summary; an optional
+  description; and *Sign in with GitHub*). Every numbered paragraph also gets a pencil in its right margin that
   opens the same editor on just that paragraph, found in the source by its words
   (`findParagraph`; if it can't be found, the whole page opens with a note).
   Proposals go to the function's `/api/propose-edit` (derived from
@@ -156,6 +157,23 @@ edition-integrations puts its annotation badge at the end of the row.
   out of the tab order; keyboard and screen-reader users have Edit this page.
   Editions have no endpoint, so they keep the plain GitHub link.
 
+- **Notes on a paragraph.** Where Note to the authors is armed, each numbered
+  paragraph also gets a note button just below its pencil (in the pencil's place
+  where there is none; above the paragraph on a phone, as the pencil). It opens the
+  note form titled *Note to the authors about ¶n*, quoting the paragraph's first
+  ~200 characters, and sends `paragraph`, `quote` and `page` with the note; the
+  function files it with the `#p<n>` permalink and the label `section-note`. Any
+  note carries the editor's GitHub sign-in when the tab has one, so the issue
+  names the reader as @login. Event: `section_note_opened`.
+- **Cite** (⋯). On a book built by quartz-book the page carries
+  `<script id="tb-cite">` (the page's and the book's CSL-JSON and their citations,
+  formatted at build time): the dialog offers *This paragraph (¶n)* (the one the
+  address names, else the first on screen), *This page* and *Whole book*; APA 7,
+  Chicago, MLA and Harvard (the reader's last choice kept); Copy; and BibTeX, RIS
+  and CSL-JSON made from the CSL-JSON (`scripts/cite.ts`), with the reader's access
+  date. Elsewhere (an edition), APA 7 from the header's data, as before. The CC
+  attribution line is under both. Events: `citation_copied {style, scope}`,
+  `citation_downloaded {format, scope}`.
 - **The links** come from Quartz's own source path, so no reverse-mapping from
   URLs: `contentDir` joined to `fileData.relativePath` (which is relative to the
   `-d` directory), encoded per segment. The Edit link keeps class
