@@ -467,6 +467,11 @@ ${scope} .tb-menu, ${scope} .tb-panel { left: 0; right: 0; width: auto; max-widt
    their weight and come later. */
 .page > #quartz-body > .sidebar.left,
 .page > #quartz-body > .sidebar.right { z-index: 1; }
+/* The right sidebar's empty padding lies over the paragraphs' right margin, where
+   the pencil and the note button sit (on a 1280px window, half of each was under
+   it and couldn't be clicked): only its content takes the pointer. */
+.page > #quartz-body > .sidebar.right { pointer-events: none; }
+.page > #quartz-body > .sidebar.right > * { pointer-events: auto; }
 .page > #quartz-body > .sidebar:has(.search-container.active, .global-graph-outer.active),
 html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
 @media (max-width: 800px) {
