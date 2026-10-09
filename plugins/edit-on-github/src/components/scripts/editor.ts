@@ -248,7 +248,8 @@ ${O} .tb-ed-who { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6r
 ${O} .tb-ed-who img { width: 28px; height: 28px; border-radius: 50%; }
 ${O} .tb-ed-who > span { flex: 1 1 14rem; min-width: 0; }
 ${O} .tb-ed-gh { display: inline-flex; align-items: center; gap: 0.45rem; }
-${O} .tb-ed-link { border: 0; background: none; padding: 0; color: var(--tb-accent, #7C6CF0); text-decoration: underline; }
+${O} .tb-ed-link { border: 0; background: none; padding: 0; color: var(--tb-accent, #7C6CF0); text-decoration: underline;
+  min-height: 24px; min-width: 24px; } /* a 24px target at least (batch 2b) */
 ${O} .tb-ed-what { display: flex; gap: 0.6rem; margin: 0.25rem 0 1rem; color: var(--tb-muted, #6E6E73); }
 ${O} .tb-ed-what svg { flex: none; margin-top: 0.2rem; }
 ${O} .tb-ed-what code, ${O} .tb-ed-note code { font-family: var(--tb-font-mono, monospace); font-size: 0.85em;
