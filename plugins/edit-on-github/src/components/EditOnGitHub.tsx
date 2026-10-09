@@ -702,6 +702,11 @@ html.mobile-no-scroll .page > #quartz-body > .sidebar.left { z-index: 3; }
    sidebar), or one whose controls don't fit: icons only. */
 @container tb-header (max-width: 640px) {${iconsOnly("")}
 }
+/* A phone's header: the book's title before the type badge. With a long title the
+   badge left the title a sliver too thin to tap (batch 2b's audit, 360px). */
+@container tb-header (max-width: 320px) {
+  .tb-type-badge { display: none; }
+}
 ${iconsOnly(".tb-header.tb-hdr-icons")}
 .tb-header.tb-hdr-tight .tb-hdr-btn { padding-left: 0.2rem; padding-right: 0.2rem; }
 .tb-header.tb-hdr-tight .tb-hdr-where { min-width: 2rem; }
