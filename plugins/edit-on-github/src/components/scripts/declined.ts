@@ -143,11 +143,11 @@ export const declinedDetails = (d: DeclinedItem, endpoint: string): HTMLElement 
 export const declinedCss = (scope: string) => `
 ${scope} .tb-dc { margin-top: 0.4rem; }
 ${scope} .tb-dc p { margin: 0.15rem 0; overflow-wrap: anywhere; }
-${scope} .tb-dc-who, ${scope} .tb-dc-cmeta, ${scope} .tb-dc-chead { font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; color: var(--tb-muted, #6E6E73); }
+${scope} .tb-dc-who, ${scope} .tb-dc-cmeta, ${scope} .tb-dc-chead { font-family: var(--tb-font-ui, sans-serif); font-size: 0.9rem; color: var(--tb-muted, #6E6E73); }
 ${scope} .tb-dc-chead { margin-top: 0.6rem !important; font-weight: 700; }
 ${scope} .tb-dc-reason { margin: 0.4rem 0; padding: 0.4rem 0.75rem; border-left: 3px solid var(--tb-border, #E6E6E6); white-space: pre-line; overflow-wrap: anywhere; }
 ${scope} .tb-dc-none { color: var(--tb-muted, #6E6E73); font-style: italic; }
-${scope} .tb-dc-label { font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; font-weight: 700; font-style: normal; color: var(--tb-muted, #6E6E73); }
+${scope} .tb-dc-label { font-family: var(--tb-font-ui, sans-serif); font-size: 0.9rem; font-weight: 700; font-style: normal; color: var(--tb-muted, #6E6E73); }
 ${scope} .tb-dc-comments { list-style: none; margin: 0; padding: 0; }
 ${scope} .tb-dc-comment { margin: 0.35rem 0; padding: 0.35rem 0.75rem; border-radius: 6px; background: var(--tb-bg-soft, #F7F7F5); }
 ${scope} .tb-dc-ctext { white-space: pre-line; }
