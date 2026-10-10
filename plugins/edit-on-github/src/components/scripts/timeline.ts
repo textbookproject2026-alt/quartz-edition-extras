@@ -35,6 +35,8 @@ export interface BookHistory {
   version: number;
   releases: Release[];
   pages: PageHistory[];
+  /** Since batch 2c; absent in a build before it. */
+  declined?: DeclinedItem[];
 }
 export interface OpenItem {
   kind: "edit" | "note" | "suggestion";
@@ -46,6 +48,47 @@ export interface OpenItem {
   paragraph?: number;
   files?: string[];
 }
+
+/** A member's comment on a declined item (batch 2c). */
+export interface DeclinedComment {
+  id: number;
+  member: string;
+  name: string;
+  date: string;
+  text: string;
+}
+/**
+ * A proposal, note or suggestion the authors declined (batch 2c), from the
+ * function's /api/history?declined=1 (and the build's copy in history.json).
+ * `date` is when it was declined; `proposed` when it was sent.
+ */
+export interface DeclinedItem {
+  kind: "edit" | "note" | "suggestion";
+  number: number;
+  url: string;
+  date: string;
+  proposed: string;
+  summary: string;
+  who: { name: string; github?: string } | null;
+  files?: string[];
+  paragraph?: number;
+  reason: string | null;
+  decliner: string | null;
+  comments: DeclinedComment[];
+}
+
+/** Only well-formed declined items: anything else in an answer is dropped. */
+export const readDeclined = (data: unknown): DeclinedItem[] =>
+  (Array.isArray(data) ? data : []).filter(
+    (d): d is DeclinedItem =>
+      !!d &&
+      Number.isInteger(d.number) &&
+      typeof d.date === "string" &&
+      typeof d.url === "string" &&
+      /^https:\/\/github\.com\//.test(d.url) &&
+      ["edit", "note", "suggestion"].includes(d.kind) &&
+      Array.isArray(d.comments),
+  );
 
 /** The book's history file, or null when it isn't one (an edition, a site built before it). */
 export const readBookHistory = (data: unknown): BookHistory | null => {
@@ -60,12 +103,17 @@ export const releaseLabel = (tag: string): string => {
 };
 
 /** /api/history beside the configured /api/page-revision, with its book. "" if it can't be derived. */
-export const historyApi = (revisionEndpoint: string, path = ""): string => {
+export const historyApi = (
+  revisionEndpoint: string,
+  path = "",
+  extra: Record<string, string> = {},
+): string => {
   try {
     const rev = new URL(revisionEndpoint, "https://x.invalid");
     const url = new URL("history", rev);
     url.searchParams.set("book", rev.searchParams.get("book") ?? "");
     if (path) url.searchParams.set("path", path);
+    for (const [k, v] of Object.entries(extra)) url.searchParams.set(k, v);
     return revisionEndpoint.startsWith("http") ? url.toString() : `${url.pathname}${url.search}`;
   } catch {
     return "";
@@ -131,7 +179,7 @@ export const bookRows = (h: BookHistory): BookRow[] =>
 export interface Filter {
   page: string;
   person: string;
-  state: "" | "proposed" | "drafts" | "published";
+  state: "" | "proposed" | "drafts" | "published" | "declined";
 }
 export const matchesFilter = (
   f: Filter,

@@ -23,16 +23,18 @@
  */
 import { OVERLAY_ID, el, injectStyle, safeUserMessage, sanitise } from "./editor";
 import { body, renderRichDiff } from "./rich-diff";
+import { declinedCss, declinedDetails, declinedKind } from "./declined";
 import { roleBadge } from "./roles";
 import {
   historyApi,
   openKind,
   openRole,
   readBookHistory,
+  readDeclined,
   releaseLabel,
   withReleases,
 } from "./timeline";
-import type { Entry, OpenItem, PageHistory } from "./timeline";
+import type { DeclinedItem, Entry, OpenItem, PageHistory } from "./timeline";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
 
@@ -58,6 +60,45 @@ const STYLE_ID = "tb-history-style";
 const MAX_NAMES = 30;
 const FETCH_TIMEOUT = 20000;
 const A_READER = "a reader";
+
+/**
+ * What changed (rich-diff.ts), and the timeline's action buttons and diff box,
+ * scoped by `S`: the panel's overlay, or the book's /history page (batch 2c, a
+ * declined proposal's Show changes there).
+ */
+export const diffCss = (S: string) => `
+/* What changed (rich-diff.ts): the text as the page shows it, removed and added
+   lines and words marked. The colours mix into the page's own background, so
+   they hold in dark mode. */
+${S} .tb-rd { padding: 0.5rem 0; font-family: var(--tb-font-text, serif); font-size: 1rem; line-height: 1.6;
+  color: var(--tb-ink, #2B2B2B); }
+${S} .tb-rd-line { display: grid; grid-template-columns: 1.75rem 1fr; padding: 0.1rem 1rem 0.1rem 0; }
+${S} .tb-rd-sign { text-align: center; color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-ui, sans-serif); user-select: none; }
+${S} .tb-rd-text { min-width: 0; overflow-wrap: anywhere; }
+${S} .tb-rd-blank { min-height: 0.6rem; padding: 0; }
+${S} .tb-rd-h1 .tb-rd-text { font-size: 1.5rem; font-weight: 700; line-height: 1.3; }
+${S} .tb-rd-h2 .tb-rd-text { font-size: 1.3rem; font-weight: 700; line-height: 1.3; }
+${S} .tb-rd-h3 .tb-rd-text { font-size: 1.15rem; font-weight: 700; }
+${S} :is(.tb-rd-h4, .tb-rd-h5, .tb-rd-h6) .tb-rd-text { font-weight: 700; }
+${S} :is(.tb-rd-li, .tb-rd-note) .tb-rd-text { padding-left: 1.4rem; text-indent: -1.4rem; }
+${S} .tb-rd-marker { display: inline-block; min-width: 1.4rem; text-indent: 0; color: var(--tb-muted, #6E6E73); }
+${S} .tb-rd-note { font-size: 0.9rem; }
+${S} .tb-rd-quote .tb-rd-text { padding-left: 0.8rem; border-left: 3px solid var(--tb-border, #E6E6E6); font-style: italic; }
+${S} .tb-rd-rule .tb-rd-text { align-self: center; border-top: 1px solid var(--tb-border, #E6E6E6); }
+${S} .tb-rd-link { color: var(--tb-accent, #7C6CF0); }
+${S} .tb-rd code { font-family: var(--tb-font-mono, monospace); font-size: 0.88em; }
+${S} .tb-rd-gap { padding: 0.3rem 0; text-align: center; color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-ui, sans-serif); }
+${S} .tb-ed-del { background: color-mix(in srgb, #D1242F 12%, var(--tb-bg, #FFFFFF)); }
+${S} .tb-ed-add { background: color-mix(in srgb, #1A7F37 12%, var(--tb-bg, #FFFFFF)); }
+${S} .tb-ed-del del { background: color-mix(in srgb, #D1242F 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: line-through; border-radius: 2px; }
+${S} .tb-ed-add ins { background: color-mix(in srgb, #1A7F37 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: none; border-radius: 2px; }
+${S} .tb-hi-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+${S} .tb-hi-actions button, ${S} .tb-hi-actions a { min-height: 2rem; padding: 0.2rem 0.6rem; border: 1px solid var(--tb-border, #E6E6E6);
+  border-radius: 6px; background: var(--tb-bg, #FFFFFF); color: var(--tb-ink, #2B2B2B); font: inherit; font-size: 0.85rem; font-weight: 600;
+  text-decoration: none; cursor: pointer; }
+${S} .tb-hi-actions button[aria-pressed="true"] { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0); }
+${S} .tb-hi-diff { margin-top: 0.6rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 8px; overflow: hidden; }
+`;
 
 const historyStyle = () => {
   if (document.getElementById(STYLE_ID)) return;
@@ -99,31 +140,8 @@ ${H} .tb-ed-bar { background: var(--tb-bg, #FFFFFF); padding: 0 0.5rem; }
 ${H} [role="tab"] { border: 0; border-bottom: 2px solid transparent; border-radius: 0; margin-bottom: -1px; padding: 0.6rem 0.75rem;
   color: var(--tb-muted, #6E6E73); font-weight: 600; }
 ${H} [role="tab"][aria-selected="true"] { border-bottom-color: var(--tb-accent, #7C6CF0); background: none; color: var(--tb-ink, #2B2B2B); }
-/* What changed (rich-diff.ts): the text as the page shows it, removed and added
-   lines and words marked. The colours mix into the page's own background, so
-   they hold in dark mode. */
-${H} .tb-rd { padding: 0.5rem 0; font-family: var(--tb-font-text, serif); font-size: 1rem; line-height: 1.6;
-  color: var(--tb-ink, #2B2B2B); }
-${H} .tb-rd-line { display: grid; grid-template-columns: 1.75rem 1fr; padding: 0.1rem 1rem 0.1rem 0; }
-${H} .tb-rd-sign { text-align: center; color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-ui, sans-serif); user-select: none; }
-${H} .tb-rd-text { min-width: 0; overflow-wrap: anywhere; }
-${H} .tb-rd-blank { min-height: 0.6rem; padding: 0; }
-${H} .tb-rd-h1 .tb-rd-text { font-size: 1.5rem; font-weight: 700; line-height: 1.3; }
-${H} .tb-rd-h2 .tb-rd-text { font-size: 1.3rem; font-weight: 700; line-height: 1.3; }
-${H} .tb-rd-h3 .tb-rd-text { font-size: 1.15rem; font-weight: 700; }
-${H} :is(.tb-rd-h4, .tb-rd-h5, .tb-rd-h6) .tb-rd-text { font-weight: 700; }
-${H} :is(.tb-rd-li, .tb-rd-note) .tb-rd-text { padding-left: 1.4rem; text-indent: -1.4rem; }
-${H} .tb-rd-marker { display: inline-block; min-width: 1.4rem; text-indent: 0; color: var(--tb-muted, #6E6E73); }
-${H} .tb-rd-note { font-size: 0.9rem; }
-${H} .tb-rd-quote .tb-rd-text { padding-left: 0.8rem; border-left: 3px solid var(--tb-border, #E6E6E6); font-style: italic; }
-${H} .tb-rd-rule .tb-rd-text { align-self: center; border-top: 1px solid var(--tb-border, #E6E6E6); }
-${H} .tb-rd-link { color: var(--tb-accent, #7C6CF0); }
-${H} .tb-rd code { font-family: var(--tb-font-mono, monospace); font-size: 0.88em; }
-${H} .tb-rd-gap { padding: 0.3rem 0; text-align: center; color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-ui, sans-serif); }
-${H} .tb-ed-del { background: color-mix(in srgb, #D1242F 12%, var(--tb-bg, #FFFFFF)); }
-${H} .tb-ed-add { background: color-mix(in srgb, #1A7F37 12%, var(--tb-bg, #FFFFFF)); }
-${H} .tb-ed-del del { background: color-mix(in srgb, #D1242F 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: line-through; border-radius: 2px; }
-${H} .tb-ed-add ins { background: color-mix(in srgb, #1A7F37 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: none; border-radius: 2px; }
+${diffCss(H)}
+${declinedCss(H)}
 ${H} .tb-ed-preview { font-family: var(--tb-font-text, serif); }
 ${H} .tb-hi-gh { color: var(--tb-accent, #7C6CF0); font-weight: 600; }
 /* The timeline (batch 2a): bands for what is being edited and what is published,
@@ -138,12 +156,6 @@ ${H} .tb-hi-entry { padding: 0.75rem 0.25rem; border-bottom: 1px solid var(--tb-
 ${H} .tb-hi-entry:last-child { border-bottom: 0; }
 ${H} .tb-hi-state { display: inline-block; margin-right: 0.4rem; padding: 0 0.4rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700;
   letter-spacing: 0.02em; text-transform: uppercase; color: var(--tb-muted, #6E6E73); border: 1px solid var(--tb-border, #E6E6E6); }
-${H} .tb-hi-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
-${H} .tb-hi-actions button, ${H} .tb-hi-actions a { min-height: 2rem; padding: 0.2rem 0.6rem; border: 1px solid var(--tb-border, #E6E6E6);
-  border-radius: 6px; background: var(--tb-bg, #FFFFFF); color: var(--tb-ink, #2B2B2B); font: inherit; font-size: 0.85rem; font-weight: 600;
-  text-decoration: none; cursor: pointer; }
-${H} .tb-hi-actions button[aria-pressed="true"] { border-color: var(--tb-accent, #7C6CF0); color: var(--tb-accent, #7C6CF0); }
-${H} .tb-hi-diff { margin-top: 0.6rem; border: 1px solid var(--tb-border, #E6E6E6); border-radius: 8px; overflow: hidden; }
 ${H} .tb-hi-release { display: flex; align-items: center; gap: 0.6rem; margin: 0.9rem 0; color: var(--tb-accent, #7C6CF0);
   font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; font-weight: 700; list-style: none; }
 ${H} .tb-hi-release::before, ${H} .tb-hi-release::after { content: ""; flex: 1 1 auto; border-top: 2px solid currentColor; opacity: 0.35; }
@@ -269,6 +281,8 @@ export const openHistory = (o: HistoryOptions) => {
   let page: PageHistory | null = null;
   let releases: { tag: string; date: string }[] = [];
   let proposed: OpenItem[] = [];
+  /** What the authors declined on this page: the function's answer, else the build's copy. */
+  let declined: DeclinedItem[] = [];
   let picking: Entry | null = null; // Compare: the first version picked
 
   const revUrl = (params: Record<string, string>) => {
@@ -318,12 +332,22 @@ export const openHistory = (o: HistoryOptions) => {
     const timer = setTimeout(() => c.abort(), FETCH_TIMEOUT);
     getJson(revUrl({ sha: e.sha, path: pathOf(e) }), c.signal)
       .then((data) => {
-        const d = data as { before?: unknown; after?: unknown; status?: unknown; previousPath?: unknown };
+        const d = data as {
+          before?: unknown;
+          after?: unknown;
+          status?: unknown;
+          previousPath?: unknown;
+        };
         const before = typeof d.before === "string" ? d.before : "";
         const after = typeof d.after === "string" ? d.after : "";
         slot.textContent = "";
         if (d.status === "added")
-          slot.append(el("p", { class: "tb-ed-panel tb-ed-muted", text: "This is the page’s first published version." }));
+          slot.append(
+            el("p", {
+              class: "tb-ed-panel tb-ed-muted",
+              text: "This is the page’s first published version.",
+            }),
+          );
         const moved = typeof d.previousPath === "string" && d.previousPath !== pathOf(e);
         if (moved)
           slot.append(
@@ -394,7 +418,8 @@ export const openHistory = (o: HistoryOptions) => {
   /** Compare two versions: the older on the left of the diff, the newer after it. */
   const compare = (a: Entry, b: Entry) => {
     const [older, newer] = a.date <= b.date ? [a, b] : [b, a];
-    const label = (v: Entry) => `the version of ${when(v.date)}${v === newest() ? " (the one you read now)" : ""}`;
+    const label = (v: Entry) =>
+      `the version of ${when(v.date)}${v === newest() ? " (the one you read now)" : ""}`;
     const box = view("Compare versions", `Changes from ${label(older)} to ${label(newer)}.`);
     box.append(status("Loading the two versions…"));
     o.track("page_versions_compared");
@@ -485,6 +510,21 @@ export const openHistory = (o: HistoryOptions) => {
     return li;
   };
 
+  /** A declined proposal, note or suggestion (batch 2c), at the date it was declined. */
+  const declinedEntry = (d: DeclinedItem) =>
+    el(
+      "li",
+      { class: "tb-hi-entry tb-hi-declined-entry" },
+      el("p", { class: "tb-hi-msg", text: d.summary || declinedKind(d) }),
+      el(
+        "p",
+        { class: "tb-hi-meta" },
+        el("span", { class: "tb-hi-state tb-hi-declined", text: "Declined" }),
+        `${declinedKind(d).replace(/^Declined /, "")} · ${when(d.date)}`,
+      ),
+      declinedDetails(d, o.endpoint),
+    );
+
   const showTimeline = () => {
     inner.textContent = "";
     if (!page) return;
@@ -514,7 +554,11 @@ export const openHistory = (o: HistoryOptions) => {
       );
     }
     const list = el("ol", { class: "tb-hi-list" });
+    // Declined items fall where they were declined, among the published versions.
+    const pending = [...declined].sort((a, b) => b.date.localeCompare(a.date));
     for (const row of withReleases(page.published, releases)) {
+      const at = "release" in row ? row.release.date : row.entry.date;
+      while (pending.length && pending[0]!.date > at) list.append(declinedEntry(pending.shift()!));
       if ("release" in row)
         list.append(
           el("li", {
@@ -526,15 +570,23 @@ export const openHistory = (o: HistoryOptions) => {
         );
       else list.append(entryItem(row.entry, undefined));
     }
+    for (const d of pending) list.append(declinedEntry(d));
     inner.append(
       el(
         "section",
         { class: "tb-hi-band", "aria-labelledby": "tb-hi-published" },
-        el("h2", { id: "tb-hi-published", text: "Published" }),
+        el("h2", {
+          id: "tb-hi-published",
+          text: declined.length ? "Published and declined" : "Published",
+        }),
         el("p", {
           text: page.published.length
-            ? "What readers have seen, newest first."
-            : "This page has no published versions yet.",
+            ? declined.length
+              ? "What readers have seen, and what the authors declined and why, newest first."
+              : "What readers have seen, newest first."
+            : declined.length
+              ? "This page has no published versions yet. What the authors declined, and why:"
+              : "This page has no published versions yet.",
         }),
         list,
       ),
@@ -589,17 +641,20 @@ export const openHistory = (o: HistoryOptions) => {
         const h = readBookHistory(data);
         const found = h?.pages.find((p) => p.source === o.path) ?? null;
         if (h) releases = h.releases;
+        if (h && !declined.length)
+          declined = readDeclined(h.declined).filter((d) => d.files?.includes(o.path));
         return found;
       })
     : Promise.resolve(null);
-  const api = historyApi(o.endpoint, o.path);
+  const api = historyApi(o.endpoint, o.path, { declined: "1" });
   const open = api
     ? getJson(api, req.signal)
-        .then((data) =>
-          ((data as { items?: OpenItem[] })?.items ?? []).filter(
+        .then((data) => {
+          declined = readDeclined((data as { declined?: unknown })?.declined);
+          return ((data as { items?: OpenItem[] })?.items ?? []).filter(
             (i) => i && typeof i.url === "string",
-          ),
-        )
+          );
+        })
         .catch(() => [] as OpenItem[])
     : Promise.resolve([] as OpenItem[]);
   fromBook
@@ -636,7 +691,10 @@ export const openHistory = (o: HistoryOptions) => {
       // trailer (the build has no GitHub access). One call asks for all their
       // names; without it, "a reader" stands.
       const all = [...found.published, ...found.drafts];
-      const shas = [...new Set(all.filter((e) => e.who === A_READER).map((e) => e.sha))].slice(0, MAX_NAMES);
+      const shas = [...new Set(all.filter((e) => e.who === A_READER).map((e) => e.sha))].slice(
+        0,
+        MAX_NAMES,
+      );
       const names = shas.length
         ? getJson(revUrl({ shas: shas.join(",") }), req.signal)
             .then((d) => (d as { names?: Record<string, unknown> } | null)?.names ?? {})
@@ -645,7 +703,8 @@ export const openHistory = (o: HistoryOptions) => {
       const [got, items] = await Promise.all([names, open]);
       for (const e of all) {
         const name = got[e.sha];
-        if (e.who === A_READER && typeof name === "string" && name.trim()) e.who = name.trim().slice(0, 80);
+        if (e.who === A_READER && typeof name === "string" && name.trim())
+          e.who = name.trim().slice(0, 80);
       }
       proposed = items;
       if (!req.current()) return;

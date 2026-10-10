@@ -5,20 +5,33 @@
  * empty first lane (from the function's /api/history), shows a dot's summary
  * under the swimlane on tap or focus (a phone has no hover), and replaces the
  * plain list with the whole book's timeline, filterable by chapter, person and
- * state. Server text goes in with textContent only.
+ * state. Declined (batch 2c): the build drew what was declined then, as crossed
+ * rings in the fourth lane; this adds any declined since, and lists each with who
+ * declined it, why, Show changes and the book's people's comments.
+ * Server text goes in with textContent only.
  */
 import { el } from "./editor";
-import { getJson, when } from "./history";
+import { declinedCss, declinedDetails, declinedKind } from "./declined";
+import { diffCss, getJson, when } from "./history";
 import { roleBadge } from "./roles";
-import { bookRows, historyApi, matchesFilter, openKind, readBookHistory } from "./timeline";
-import type { Filter, OpenItem } from "./timeline";
+import {
+  bookRows,
+  historyApi,
+  matchesFilter,
+  openKind,
+  readBookHistory,
+  readDeclined,
+} from "./timeline";
+import type { DeclinedItem, Filter, OpenItem } from "./timeline";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const STATE_LABELS = {
   proposed: "Proposed",
   drafts: "Being edited",
   published: "Published",
+  declined: "Declined",
 } as const;
+const STYLE_ID = "tb-bh-style";
 
 interface Row {
   date: string;
@@ -30,6 +43,7 @@ interface Row {
   pageTitle: string;
   href: string;
   ref: string;
+  declined?: DeclinedItem;
 }
 
 /** A dot's summary in the caption under the swimlane: tap, click or focus. */
@@ -76,6 +90,52 @@ const addProposed = (svg: SVGSVGElement, items: OpenItem[]) => {
   }
 };
 
+/** Declined since the build: crossed rings in lane 3, beside the build's own. */
+const addDeclined = (svg: SVGSVGElement, items: DeclinedItem[]) => {
+  const axis = Array.from(svg.querySelectorAll<SVGTextElement>(".tb-swim-axis"));
+  const lane = svg.querySelector<SVGRectElement>('.tb-swim-lane[data-lane="3"]');
+  if (axis.length < 2 || !lane) return;
+  const [a, b] = axis.map((t) => ({
+    t: Date.parse(t.textContent ?? ""),
+    x: Number(t.getAttribute("x")),
+  }));
+  if (!Number.isFinite(a!.t) || !Number.isFinite(b!.t) || b!.t <= a!.t) return;
+  const y = Number(lane.getAttribute("y")) + Number(lane.getAttribute("height")) / 2;
+  const drawn = new Set(
+    Array.from(svg.querySelectorAll(".tb-swim-declined")).map((g) => g.getAttribute("data-number")),
+  );
+  for (const d of items) {
+    if (drawn.has(String(d.number))) continue;
+    const cx =
+      a!.x +
+      ((Math.min(Math.max(Date.parse(d.date), a!.t), b!.t) - a!.t) / (b!.t - a!.t)) * (b!.x - a!.x);
+    const g = document.createElementNS(SVG_NS, "g");
+    for (const [k, v] of Object.entries({
+      class: "tb-swim-dot tb-swim-declined",
+      "data-lane": "3",
+      "data-number": String(d.number),
+      tabindex: "0",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "1.5",
+    }))
+      g.setAttribute(k, v);
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = `${d.date} · declined: ${d.summary} (${d.who?.name ?? "a reader"})`;
+    const ring = document.createElementNS(SVG_NS, "circle");
+    ring.setAttribute("cx", cx.toFixed(1));
+    ring.setAttribute("cy", String(y));
+    ring.setAttribute("r", "5");
+    const cross = document.createElementNS(SVG_NS, "path");
+    cross.setAttribute(
+      "d",
+      `M${(cx - 3).toFixed(1)} ${y - 3}L${(cx + 3).toFixed(1)} ${y + 3}M${(cx + 3).toFixed(1)} ${y - 3}L${(cx - 3).toFixed(1)} ${y + 3}`,
+    );
+    g.append(title, ring, cross);
+    svg.append(g);
+  }
+};
+
 const select = (
   label: string,
   key: keyof Filter,
@@ -111,16 +171,27 @@ export const mountBookHistory = async (
   const h = readBookHistory(await getJson(historyUrl, c.signal).catch(() => null));
   if (!h) return;
   const api = revisionEndpoint ? historyApi(revisionEndpoint) : "";
+  if (!document.getElementById(STYLE_ID))
+    document.head.append(
+      el("style", { id: STYLE_ID, text: diffCss(".tb-bh-list") + declinedCss(".tb-bh-list") }),
+    );
+  // What the build knew was declined, until the function says what is declined now.
+  let declined = readDeclined(h.declined);
   const proposed: OpenItem[] = api
-    ? await getJson(api, c.signal)
-        .then((d) =>
-          ((d as { items?: OpenItem[] })?.items ?? []).filter(
+    ? await getJson(historyApi(revisionEndpoint, "", { declined: "1" }), c.signal)
+        .then((d) => {
+          const now = (d as { declined?: unknown })?.declined;
+          if (Array.isArray(now)) declined = readDeclined(now);
+          return ((d as { items?: OpenItem[] })?.items ?? []).filter(
             (i) => i && typeof i.url === "string",
-          ),
-        )
+          );
+        })
         .catch(() => [])
     : [];
-  if (svg) addProposed(svg, proposed);
+  if (svg) {
+    addProposed(svg, proposed);
+    addDeclined(svg, declined);
+  }
 
   const byPath = new Map(h.pages.map((p) => [p.source, p]));
   const rows: Row[] = [
@@ -138,6 +209,21 @@ export const mountBookHistory = async (
         ref: `#${it.number}`,
       };
     }),
+    ...declined.map((d) => {
+      const page = d.files?.map((f) => byPath.get(f)).find(Boolean);
+      return {
+        date: d.date,
+        who: d.who?.name ?? "A reader",
+        role: "contributor",
+        summary: d.summary || declinedKind(d),
+        state: "declined" as const,
+        page: page?.source ?? "",
+        pageTitle: page?.title ?? "",
+        href: d.url,
+        ref: `#${d.number}`,
+        declined: d,
+      };
+    }),
     ...bookRows(h).map((r) => ({
       date: r.date,
       who: r.who,
@@ -149,7 +235,7 @@ export const mountBookHistory = async (
       href: r.page.path,
       ref: r.pr ? `#${r.pr}` : "",
     })),
-  ];
+  ].sort((a, b) => b.date.localeCompare(a.date));
 
   const filter: Filter = { page: "", person: "", state: "" };
   const list = el("ol", { class: "tb-bh-list" });
@@ -186,10 +272,13 @@ export const mountBookHistory = async (
             ? el(
                 "p",
                 { class: "tb-bh-page" },
-                r.state === "proposed" ? r.pageTitle : el("a", { href: r.href, text: r.pageTitle }),
+                r.state === "proposed" || r.state === "declined"
+                  ? r.pageTitle
+                  : el("a", { href: r.href, text: r.pageTitle }),
               )
             : null,
           meta,
+          r.declined ? declinedDetails(r.declined, revisionEndpoint) : null,
         ),
       );
     }
