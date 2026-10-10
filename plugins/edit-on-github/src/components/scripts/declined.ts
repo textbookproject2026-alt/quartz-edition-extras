@@ -48,7 +48,8 @@ const getJson = async (url: string, signal: AbortSignal) => {
 export const declinedDetails = (d: DeclinedItem, endpoint: string): HTMLElement => {
   const box = el("div", { class: "tb-dc" });
   box.append(
-    el("p", {
+    // Metadata, not prose (the book's 16px body text is for prose): a div.
+    el("div", {
       class: "tb-dc-who",
       text: `Proposed by ${d.who?.name ?? "a reader"} on ${dayOf(d.proposed)}. Declined${d.decliner ? ` by ${d.decliner}` : ""} on ${dayOf(d.date)}.`,
     }),
@@ -130,11 +131,11 @@ export const declinedDetails = (d: DeclinedItem, endpoint: string): HTMLElement 
         el(
           "li",
           { class: "tb-dc-comment" },
-          el("p", { class: "tb-dc-cmeta", text: `${c.name} · ${dayOf(c.date)}` }),
+          el("div", { class: "tb-dc-cmeta", text: `${c.name} · ${dayOf(c.date)}` }),
           el("p", { class: "tb-dc-ctext", text: c.text }),
         ),
       );
-    box.append(el("p", { class: "tb-dc-chead", text: "Comments from the book’s people" }), list);
+    box.append(el("div", { class: "tb-dc-chead", text: "Comments from the book’s people" }), list);
   }
   return box;
 };
@@ -142,7 +143,7 @@ export const declinedDetails = (d: DeclinedItem, endpoint: string): HTMLElement 
 /** The declined items' own CSS (both places), scoped by `scope`. */
 export const declinedCss = (scope: string) => `
 ${scope} .tb-dc { margin-top: 0.4rem; }
-${scope} .tb-dc p { margin: 0.15rem 0; overflow-wrap: anywhere; }
+${scope} .tb-dc p, ${scope} .tb-dc-who, ${scope} .tb-dc-cmeta { margin: 0.15rem 0; overflow-wrap: anywhere; }
 ${scope} .tb-dc-who, ${scope} .tb-dc-cmeta, ${scope} .tb-dc-chead { font-family: var(--tb-font-ui, sans-serif); font-size: 0.9rem; color: var(--tb-muted, #6E6E73); }
 ${scope} .tb-dc-chead { margin-top: 0.6rem !important; font-weight: 700; }
 ${scope} .tb-dc-reason { margin: 0.4rem 0; padding: 0.4rem 0.75rem; border-left: 3px solid var(--tb-border, #E6E6E6); white-space: pre-line; overflow-wrap: anywhere; }
