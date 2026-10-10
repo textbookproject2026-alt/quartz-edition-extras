@@ -70,7 +70,12 @@ export interface Options {
 }
 
 /** The header badge's words for each registry `type`. */
-export const TYPE_LABELS: Record<string, string> = { book: "Book", paper: "Paper", report: "Report", article: "Article" };
+export const TYPE_LABELS: Record<string, string> = {
+  book: "Book",
+  paper: "Paper",
+  report: "Report",
+  article: "Article",
+};
 
 /** The dashboard filtered to a hostname and, given one, a page path ("/chapters/x"). */
 export const statsHref = (base: string, host: string, page?: string): string =>
@@ -260,13 +265,23 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
               "Edit this page",
               SUBTITLES.edit,
             )
-          : item("a", { class: "edit-on-github", href: editHref, ...away }, "Edit on GitHub ↗", SUBTITLES.github)
+          : item(
+              "a",
+              { class: "edit-on-github", href: editHref, ...away },
+              "Edit on GitHub ↗",
+              SUBTITLES.github,
+            )
         : null,
       // Hidden until the script arms the form, so it is never a dead control.
       hasSource && opts.suggestEndpoint
         ? item(
             "button",
-            { class: "tb-suggest-btn", hidden: true, "data-endpoint": opts.suggestEndpoint, "data-path": path },
+            {
+              class: "tb-suggest-btn",
+              hidden: true,
+              "data-endpoint": opts.suggestEndpoint,
+              "data-path": path,
+            },
             "Note to the authors",
             SUBTITLES.note,
           )
@@ -298,13 +313,27 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
           )
         : null,
       // The book's /history page (quartz-book writes it), where it has one.
-      hasBookHistory && slug !== "history" ? item("a", { class: "tb-book-history", href: `${root}history` }, "Book history") : null,
+      hasBookHistory && slug !== "history"
+        ? item("a", { class: "tb-book-history", href: `${root}history` }, "Book history")
+        : null,
       item("button", { "data-tb-backlinks": "" }, "What links here"),
       opts.statsUrl && opts.statsHost
-        ? item("a", { class: "tb-stats-page", href: statsHref(opts.statsUrl, opts.statsHost, pagePath(slug)), ...away }, "Page statistics ↗")
+        ? item(
+            "a",
+            {
+              class: "tb-stats-page",
+              href: statsHref(opts.statsUrl, opts.statsHost, pagePath(slug)),
+              ...away,
+            },
+            "Page statistics ↗",
+          )
         : null,
       opts.statsUrl && opts.statsHost && slug === "index"
-        ? item("a", { class: "tb-stats-book", href: statsHref(opts.statsUrl, opts.statsHost), ...away }, "Book statistics ↗")
+        ? item(
+            "a",
+            { class: "tb-stats-book", href: statsHref(opts.statsUrl, opts.statsHost), ...away },
+            "Book statistics ↗",
+          )
         : null,
       // Reader mode is a header button; here instead only when the header is short of room.
       item("button", { "data-tb-reader-item": "", hidden: true }, "Reader mode"),
@@ -319,7 +348,11 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
           )
         : null,
       hasSource
-        ? item("a", { href: `https://github.com/${opts.repo}/blob/${sha}/${gh}`, ...away }, "View source ↗")
+        ? item(
+            "a",
+            { href: `https://github.com/${opts.repo}/blob/${sha}/${gh}`, ...away },
+            "View source ↗",
+          )
         : null,
     ];
 
@@ -348,7 +381,10 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
           .join(" "),
         // The book's /history page asks the function what is proposed.
         ...(slug === "history" && hasBookHistory && opts.revisionEndpoint
-          ? { "data-book-history": BOOK_HISTORY_URL, "data-revision-endpoint": opts.revisionEndpoint }
+          ? {
+              "data-book-history": BOOK_HISTORY_URL,
+              "data-revision-endpoint": opts.revisionEndpoint,
+            }
           : {}),
         ...(hasSource ? { "data-source-path": path } : {}),
         ...(hasSource && opts.sourceCommit ? { "data-source-commit": opts.sourceCommit } : {}),
@@ -358,14 +394,19 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
       // Close while the drawer is open. The page script moves it to the row's start.
       btn(
         { "data-tb-menu": "", "aria-expanded": "false" },
-        [h("span", { class: "tb-ic-open" }, SVG(MENU)), h("span", { class: "tb-ic-close" }, SVG(CLOSE))],
+        [
+          h("span", { class: "tb-ic-open" }, SVG(MENU)),
+          h("span", { class: "tb-ic-close" }, SVG(CLOSE)),
+        ],
         "Menu",
       ),
       h(
         "div",
         { class: "tb-hdr-where" },
         h("a", { class: "tb-hdr-title", href: root }, cfg?.pageTitle ?? ""),
-        TYPE_LABELS[opts.type] ? h("span", { class: "tb-type-badge" }, TYPE_LABELS[opts.type]) : null,
+        TYPE_LABELS[opts.type]
+          ? h("span", { class: "tb-type-badge" }, TYPE_LABELS[opts.type])
+          : null,
         crumbs.length
           ? h("nav", { class: "tb-hdr-crumbs", "aria-label": "Breadcrumb" }, ...crumbs)
           : null,
@@ -373,7 +414,11 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
       h(
         "div",
         { class: "tb-hdr-actions" },
-        btn({ "data-tb-search": "", "aria-keyshortcuts": "Control+K Meta+K" }, SVG(SEARCH), "Search"),
+        btn(
+          { "data-tb-search": "", "aria-keyshortcuts": "Control+K Meta+K" },
+          SVG(SEARCH),
+          "Search",
+        ),
         h(
           "div",
           { class: "tb-hdr-wrap" },
@@ -391,7 +436,10 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
         ),
         btn(
           { "data-tb-annotate": "" },
-          [h("span", { class: "tb-ic-open" }, SVG(COMMENT)), h("span", { class: "tb-ic-close" }, SVG(CLOSE))],
+          [
+            h("span", { class: "tb-ic-open" }, SVG(COMMENT)),
+            h("span", { class: "tb-ic-close" }, SVG(CLOSE)),
+          ],
           "Annotate",
         ),
         btn({ "data-tb-reader": "", "aria-pressed": "false" }, SVG(BOOK), "Reader mode"),
@@ -399,17 +447,32 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
           "div",
           { class: "tb-hdr-wrap" },
           btn(
-            { "data-tb-appearance": "", "aria-expanded": "false", "aria-controls": "tb-appearance" },
+            {
+              "data-tb-appearance": "",
+              "aria-expanded": "false",
+              "aria-controls": "tb-appearance",
+            },
             h("span", { class: "tb-hdr-glyph", "aria-hidden": "true" }, "Aa"),
             "Appearance",
           ),
-          h("div", { class: "tb-panel", id: "tb-appearance", role: "dialog", "aria-label": "Appearance", hidden: true }),
+          h("div", {
+            class: "tb-panel",
+            id: "tb-appearance",
+            role: "dialog",
+            "aria-label": "Appearance",
+            hidden: true,
+          }),
         ),
         h(
           "div",
           { class: "tb-hdr-wrap" },
           btn(
-            { "data-tb-more": "", "aria-haspopup": "menu", "aria-expanded": "false", "aria-controls": "tb-more-menu" },
+            {
+              "data-tb-more": "",
+              "aria-haspopup": "menu",
+              "aria-expanded": "false",
+              "aria-controls": "tb-more-menu",
+            },
             h("span", { class: "tb-hdr-glyph", "aria-hidden": "true" }, "⋯"),
             "More",
           ),
@@ -423,7 +486,11 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
             "noscript",
             null,
             h("a", { class: "tb-hdr-plain", href: editHref, ...away }, "Edit on GitHub ↗"),
-            h("a", { class: "tb-hdr-plain", href: historyHref, ...away }, "View revision history ↗"),
+            h(
+              "a",
+              { class: "tb-hdr-plain", href: historyHref, ...away },
+              "View revision history ↗",
+            ),
           )
         : null,
     );
@@ -819,6 +886,10 @@ article td, article th { line-height: 1.45; vertical-align: top; }
 .tb-swim-dot[data-lane="0"] { fill: none; stroke: var(--tb-accent, var(--secondary)); stroke-width: 2; }
 .tb-swim-dot[data-lane="1"] { fill-opacity: 0.4; }
 .tb-swim-dot:focus-visible, .tb-swim-dot[aria-current] { stroke: var(--tb-ink, var(--dark)); stroke-width: 2.5; outline: none; }
+/* Declined (batch 2c): a ring with a cross, never filled, so it differs by shape as well as colour. */
+.tb-swim-dot.tb-swim-declined { fill: none; fill-opacity: 1; stroke: var(--tb-muted, var(--darkgray)); stroke-width: 1.75; }
+.tb-swim-dot.tb-swim-declined:focus-visible, .tb-swim-dot.tb-swim-declined[aria-current] { stroke: var(--tb-ink, var(--dark)); stroke-width: 2.5; }
+.tb-bh-declined { border-style: dotted; }
 .tb-swim-caption { min-height: 1.4em; margin: 0.4rem 0 0; font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; color: var(--tb-muted, var(--darkgray)); overflow-wrap: anywhere; }
 .tb-bh-filters { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0.5rem 0; font-family: var(--tb-font-ui, sans-serif); font-size: 0.9rem; }
 .tb-bh-filter { display: flex; flex-direction: column; gap: 0.2rem; min-width: 10rem; flex: 1 1 10rem; color: var(--tb-muted, var(--darkgray)); font-weight: 600; }

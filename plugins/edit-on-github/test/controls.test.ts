@@ -88,18 +88,31 @@ const fill = (w: Page, website = "") => {
 };
 
 describe("a note to the authors on one paragraph", () => {
-  const LONG = "Consider a situation that will be familiar to anyone who has spent time in the literature of any contested field. Two research teams investigate the same phenomenon, and both seemingly do everything right, and more besides.";
+  const LONG =
+    "Consider a situation that will be familiar to anyone who has spent time in the literature of any contested field. Two research teams investigate the same phenomenon, and both seemingly do everything right, and more besides.";
   const notePage = (signed = false) => {
-    const w = new Window({ url: "https://book.example.org/chapters/chapter-03" }) as unknown as Page;
-    w.document.write(`<html><head></head><body>${render(withSuggest)}<article><p data-pnum="1" id="p1">Short one.</p><p data-pnum="2" id="p2">${LONG}</p></article></body></html>`);
+    const w = new Window({
+      url: "https://book.example.org/chapters/chapter-03",
+    }) as unknown as Page;
+    w.document.write(
+      `<html><head></head><body>${render(withSuggest)}<article><p data-pnum="1" id="p1">Short one.</p><p data-pnum="2" id="p2">${LONG}</p></article></body></html>`,
+    );
     w.calls = [];
     w.eval("window.tbTrack = function () { window.calls.push([].slice.call(arguments)) }");
     w.localStorage.setItem("tb-contribute-explained", "1");
-    if (signed) w.sessionStorage.setItem("tb-gh-identity", JSON.stringify({ token: "tok", login: "ada-l", id: 42, name: "Ada", at: Date.now() }));
+    if (signed)
+      w.sessionStorage.setItem(
+        "tb-gh-identity",
+        JSON.stringify({ token: "tok", login: "ada-l", id: 42, name: "Ada", at: Date.now() }),
+      );
     const posts: Record<string, unknown>[] = [];
     (w as unknown as { fetch: unknown }).fetch = async (_u: string, init: { body: string }) => {
       posts.push(JSON.parse(init.body));
-      return { ok: true, status: 201, json: async () => ({ issueUrl: "https://github.com/o/r/issues/8" }) };
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({ issueUrl: "https://github.com/o/r/issues/8" }),
+      };
     };
     w.eval(script);
     w.document.dispatchEvent(new w.CustomEvent("nav"));
@@ -128,11 +141,20 @@ describe("a note to the authors on one paragraph", () => {
     $<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value = "This needs a source.";
     $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
     await tick();
-    expect(posts[0]).toMatchObject({ name: "A Reader", path: "chapters/chapter-03.md", paragraph: 2, quote, page: "/chapters/chapter-03" });
+    expect(posts[0]).toMatchObject({
+      name: "A Reader",
+      path: "chapters/chapter-03.md",
+      paragraph: 2,
+      quote,
+      page: "/chapters/chapter-03",
+    });
     expect(posts[0]).not.toHaveProperty("identity");
     expect(w.calls.map((c) => c[0])).toContain("section_note_opened");
     // A short paragraph is quoted whole.
-    $<HTMLButtonElement>(w, "#tb-suggest-overlay .tb-sg-quiet, #tb-suggest-overlay button.tb-sg-close").click();
+    $<HTMLButtonElement>(
+      w,
+      "#tb-suggest-overlay .tb-sg-quiet, #tb-suggest-overlay button.tb-sg-close",
+    ).click();
     $<HTMLButtonElement>(w, "#p1 > button.tb-pnote").click();
     expect($(w, ".tb-sg-quote").textContent).toBe("Short one.");
   });
@@ -181,10 +203,18 @@ describe("the Edit and History links", () => {
       render({ repo: "o/r" }, ""),
       render({ repo: "o/r" }, "tags/index.md", null), // a tag listing
       render({ repo: "" }),
-      render({ repo: "o/r" }, "how-to-comment.md", "book/how-to-comment.md", { tbBuilderPage: true }),
+      render({ repo: "o/r" }, "how-to-comment.md", "book/how-to-comment.md", {
+        tbBuilderPage: true,
+      }),
     ]) {
       expect(html).toContain('class="tb-header tb-page-controls"');
-      for (const needsSource of ["edit-on-github", "tb-history-link", "data-tb-download", "View source", "data-source-path"])
+      for (const needsSource of [
+        "edit-on-github",
+        "tb-history-link",
+        "data-tb-download",
+        "View source",
+        "data-source-path",
+      ])
         expect(html, needsSource).not.toContain(needsSource);
       expect(html).toContain("data-tb-cite");
     }
@@ -231,7 +261,9 @@ describe("Suggest an edit", () => {
   it("says, under the name, that an accepted suggestion is credited by it", () => {
     const w = page(render(withSuggest));
     $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
-    expect($(w, "#tb-sg-credit").textContent).toBe("If the authors accept your suggestion, you'll be credited by this name.");
+    expect($(w, "#tb-sg-credit").textContent).toBe(
+      "If the authors accept your suggestion, you'll be credited by this name.",
+    );
     expect($(w, "#tb-sg-name").getAttribute("aria-describedby")).toBe("tb-sg-credit");
   });
 
@@ -274,7 +306,9 @@ describe("Suggest an edit", () => {
     await tick();
     expect(posts[0]![0]).toBe(ENDPOINT);
     // No email is asked for or sent: the issue shows the name only.
-    expect(w.document.querySelector('#tb-suggest-overlay input[type="email"], #tb-sg-email')).toBeNull();
+    expect(
+      w.document.querySelector('#tb-suggest-overlay input[type="email"], #tb-sg-email'),
+    ).toBeNull();
     expect(JSON.parse(posts[0]![1].body)).toEqual({
       name: "A Reader",
       suggestion: '"recieve" should be "receive"',
@@ -408,10 +442,18 @@ describe("the in-site editor", () => {
     (w as unknown as { fetch: unknown }).fetch = async (u: string, init?: { body?: string }) => {
       if (!init?.body) {
         gets.push(u);
-        return { ok: true, status: 200, json: async () => ({ content: SOURCE, sha: SHA, branch: "drafts" }) };
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ content: SOURCE, sha: SHA, branch: "drafts" }),
+        };
       }
       sent.push(JSON.parse(init.body));
-      return { ok: true, status: 201, json: async () => ({ prUrl: "https://github.com/o/r/pull/1" }) };
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({ prUrl: "https://github.com/o/r/pull/1" }),
+      };
     };
     w.eval(script);
     w.document.dispatchEvent(new w.CustomEvent("nav"));
@@ -491,17 +533,29 @@ describe("the in-site editor", () => {
     const gate = $(w, "#tb-editor .tb-ed-gate");
     expect(gate.textContent).toContain("Sign in to edit");
     expect(gate.textContent).toContain("No GitHub account?");
-    const btn = [...gate.querySelectorAll("button")].find((b) => b.textContent === "Sign in with GitHub")!;
+    const btn = [...gate.querySelectorAll("button")].find(
+      (b) => b.textContent === "Sign in with GitHub",
+    )!;
     expect(w.document.activeElement).toBe(btn);
     btn.click();
     expect(popupUrl).toBe(
       "https://fn.example/api/github-auth?origin=" + encodeURIComponent("https://book.example.org"),
     );
     // A message from anywhere but the function is ignored.
-    w.dispatchEvent(new w.MessageEvent("message", { origin: "https://evil.example", data: { type: "tb-github-identity", ...ID } }) as never);
+    w.dispatchEvent(
+      new w.MessageEvent("message", {
+        origin: "https://evil.example",
+        data: { type: "tb-github-identity", ...ID },
+      }) as never,
+    );
     await tick();
     expect(gets).toEqual([]);
-    w.dispatchEvent(new w.MessageEvent("message", { origin: "https://fn.example", data: { type: "tb-github-identity", ...ID } }) as never);
+    w.dispatchEvent(
+      new w.MessageEvent("message", {
+        origin: "https://fn.example",
+        data: { type: "tb-github-identity", ...ID },
+      }) as never,
+    );
     await tick();
     expect(gets).toEqual(["https://fn.example/api/propose-edit?path=chapters%2Fchapter-03.md"]);
     expect($<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text").value).toBe(
@@ -559,7 +613,9 @@ describe("the in-site editor", () => {
     expect(w.document.getElementById("tb-editor")).not.toBeNull();
     expect(w.location.hash).toBe("#edit");
     expect($(w, "#tb-editor .tb-ed-discard").hidden).toBe(false);
-    expect($<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text").value).toBe("# T\n\nchanged\n");
+    expect($<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text").value).toBe(
+      "# T\n\nchanged\n",
+    );
     [...w.document.querySelectorAll<HTMLButtonElement>("#tb-editor .tb-ed-discard button")]
       .find((b) => b.textContent === "Discard")!
       .click();
@@ -602,7 +658,9 @@ describe("the in-site editor", () => {
 
   it("a reload of its own entry reopens in place, with no second page entry", async () => {
     // The page, then the editor's entry on it (what a reload of #edit-2 finds).
-    const w = new Window({ url: "https://book.example.org/chapters/chapter-03" }) as unknown as Page;
+    const w = new Window({
+      url: "https://book.example.org/chapters/chapter-03",
+    }) as unknown as Page;
     signedIn(w);
     w.history.pushState({ tbEditor: true }, "", "#edit-2");
     w.document.write(
@@ -627,7 +685,11 @@ describe("the in-site editor", () => {
   });
 
   it("stamps what the page was built from, and says when drafts has moved on", async () => {
-    const built = { ...withSuggest, sourceCommit: "c".repeat(40), sourceBlobs: { "chapters/chapter-03.md": "b".repeat(40) } };
+    const built = {
+      ...withSuggest,
+      sourceCommit: "c".repeat(40),
+      sourceBlobs: { "chapters/chapter-03.md": "b".repeat(40) },
+    };
     const html = render(built as unknown as Record<string, string>);
     expect(html).toContain('data-source-path="chapters/chapter-03.md"');
     expect(html).toContain(`data-source-commit="${"c".repeat(40)}"`);
@@ -636,17 +698,21 @@ describe("the in-site editor", () => {
     const moved = editorPage(built);
     $<HTMLAnchorElement>(moved.w, "a.edit-on-github").click();
     await tick();
-    const note = [...moved.w.document.querySelectorAll<HTMLElement>("#tb-editor .tb-ed-note")].find((n) =>
-      n.textContent!.includes("waiting for review"),
+    const note = [...moved.w.document.querySelectorAll<HTMLElement>("#tb-editor .tb-ed-note")].find(
+      (n) => n.textContent!.includes("waiting for review"),
     )!;
-    expect(note.textContent).toBe("This page has changes waiting for review; you’re editing the latest draft.");
+    expect(note.textContent).toBe(
+      "This page has changes waiting for review; you’re editing the latest draft.",
+    );
     expect(note.hidden).toBe(false);
 
     const same = editorPage({ ...built, sourceBlobs: { "chapters/chapter-03.md": SHA } });
     $<HTMLAnchorElement>(same.w, "a.edit-on-github").click();
     await tick();
     expect(
-      [...same.w.document.querySelectorAll<HTMLElement>("#tb-editor .tb-ed-note")].every((n) => n.hidden),
+      [...same.w.document.querySelectorAll<HTMLElement>("#tb-editor .tb-ed-note")].every(
+        (n) => n.hidden,
+      ),
     ).toBe(true);
   });
 });
@@ -706,6 +772,52 @@ describe("the History panel", () => {
     throw new Error("no page");
   };
 
+  it("shows what the authors declined on this page where it was declined, with the reason, decliner and comments (batch 2c)", async () => {
+    const w = page(renderPage(withHistory), async (url) => {
+      if (String(url).endsWith(".json")) return ok(LIST);
+      if (String(url).includes("shas=")) return ok({ names: {} });
+      if (String(url).includes("/api/history"))
+        return ok({
+          items: [],
+          declined: [
+            {
+              kind: "suggestion",
+              number: 6,
+              url: "https://github.com/o/r/issues/6",
+              date: "2099-01-02",
+              proposed: "2099-01-01",
+              summary: "Make it weirder",
+              who: { name: "Ann" },
+              files: ["chapters/chapter-03.md"],
+              reason: "Not this edition.",
+              decliner: "Alec Gordon",
+              comments: [
+                {
+                  id: 3,
+                  member: "m-0a1b2c3d4e",
+                  name: "Mo",
+                  date: "2099-01-03T00:00:00Z",
+                  text: "Agreed.",
+                },
+              ],
+            },
+          ],
+        });
+      return ok({});
+    });
+    w0 = () => w;
+    $<HTMLAnchorElement>(w, "a.tb-history-link").click();
+    await tick();
+    expect($(w, "#tb-editor #tb-hi-published").textContent).toBe("Published and declined");
+    const rows = entries();
+    expect(rows[0]).toContain("Make it weirder"); // the newest: declined after every version
+    expect(rows[0]).toContain("Declined");
+    expect(rows[0]).toContain("Declined by Alec Gordon");
+    expect(rows[0]).toContain("Why it was declined: Not this edition.");
+    expect(rows[0]).toContain("Agreed.");
+    $<HTMLButtonElement>(w, "#tb-editor .tb-hi-x").click();
+  });
+
   it("lists the page's versions (a build without history.json), names readers, and opens one", async () => {
     const urls: string[] = [];
     const w = page(renderPage(withHistory), async (url) => {
@@ -738,14 +850,22 @@ describe("the History panel", () => {
     const names = new URL(urls.find((u) => u.includes("shas="))!);
     expect(Object.fromEntries(names.searchParams)).toEqual({ book: "b", shas: "b".repeat(40) });
     const open = new URL(urls.find((u) => u.includes("/api/history"))!);
-    expect(Object.fromEntries(open.searchParams)).toEqual({ book: "b", path: "chapters/chapter-03.md" });
+    expect(Object.fromEntries(open.searchParams)).toEqual({
+      book: "b",
+      path: "chapters/chapter-03.md",
+      declined: "1",
+    });
 
     // Show changes: the diff inline, from page-revision.
     btn(w, "Show changes").click();
     await tick();
     const rev = new URL(urls.at(-1)!);
     expect(rev.origin + rev.pathname).toBe("https://fn.example/api/page-revision");
-    expect(Object.fromEntries(rev.searchParams)).toEqual({ book: "b", sha: "b".repeat(40), path: "chapters/chapter-03.md" });
+    expect(Object.fromEntries(rev.searchParams)).toEqual({
+      book: "b",
+      sha: "b".repeat(40),
+      path: "chapters/chapter-03.md",
+    });
     expect($(w, "#tb-editor .tb-ed-del").textContent).toContain("old");
     expect($(w, "#tb-editor .tb-ed-add").textContent).toContain("new");
     // The older version was at its old path.
@@ -756,7 +876,9 @@ describe("the History panel", () => {
     // Read this version: the page as it was, sanitised, under a banner.
     btn(w, "Read this version", 1).click();
     await tick();
-    expect($(w, "#tb-editor .tb-hi-banner").textContent).toMatch(/^You are reading the version of (1 September|September 1,) 2026\.$/);
+    expect($(w, "#tb-editor .tb-hi-banner").textContent).toMatch(
+      /^You are reading the version of (1 September|September 1,) 2026\.$/,
+    );
     expect($(w, "#tb-editor .tb-ed-preview").innerHTML).toBe("<p>new line</p>");
     btn(w, "← Page history").click();
     expect(entries()[0]).toContain("Jo Reader");
@@ -781,10 +903,32 @@ describe("the History panel", () => {
           source: "chapters/chapter-03.md",
           title: "Three",
           published: [
-            { sha: "c".repeat(40), date: "2026-09-03", who: "Ann", role: "author", summary: "Clearer", pr: 7 },
-            { sha: "a".repeat(40), date: "2026-09-01", who: "Cy", role: "editor", summary: "First", path: "chapters/ch3.md" },
+            {
+              sha: "c".repeat(40),
+              date: "2026-09-03",
+              who: "Ann",
+              role: "author",
+              summary: "Clearer",
+              pr: 7,
+            },
+            {
+              sha: "a".repeat(40),
+              date: "2026-09-01",
+              who: "Cy",
+              role: "editor",
+              summary: "First",
+              path: "chapters/ch3.md",
+            },
           ],
-          drafts: [{ sha: "d".repeat(40), date: "2026-09-05", who: "Bo", role: "contributor", summary: "A typo" }],
+          drafts: [
+            {
+              sha: "d".repeat(40),
+              date: "2026-09-05",
+              who: "Bo",
+              role: "contributor",
+              summary: "A typo",
+            },
+          ],
           releases: {},
         },
       ],
@@ -792,7 +936,11 @@ describe("the History panel", () => {
     const urls: string[] = [];
     const html = renderToString(
       EditOnGitHub(withHistory)({
-        fileData: { relativePath: "chapters/chapter-03.md", filePath: "x", slug: "chapters/chapter-03" },
+        fileData: {
+          relativePath: "chapters/chapter-03.md",
+          filePath: "x",
+          slug: "chapters/chapter-03",
+        },
         allFiles: [{ slug: "history" }],
       } as unknown as QuartzComponentProps) as never,
     );
@@ -804,7 +952,14 @@ describe("the History panel", () => {
       if (String(url).includes("/api/history"))
         return ok({
           items: [
-            { kind: "edit", number: 9, url: "https://github.com/o/r/pull/9", date: "2026-09-06", summary: "Fix a date", who: { name: "Dee" } },
+            {
+              kind: "edit",
+              number: 9,
+              url: "https://github.com/o/r/pull/9",
+              date: "2026-09-06",
+              summary: "Fix a date",
+              who: { name: "Dee" },
+            },
           ],
         });
       return ok({ before: "old\n", after: "new\n", status: "modified" });
@@ -815,14 +970,22 @@ describe("the History panel", () => {
     expect(urls.some((u) => u.endsWith("/chapters/chapter-03.json"))).toBe(false); // history.json had it
     const band = $(w, "#tb-editor .tb-hi-editing");
     const editing = [...band.querySelectorAll(".tb-hi-entry")].map((li) => li.textContent ?? "");
-    expect(editing[0]).toMatch(/Fix a date.*Proposed · Proposed edit.*Dee.*Contributor.*See #9 on GitHub/);
+    expect(editing[0]).toMatch(
+      /Fix a date.*Proposed · Proposed edit.*Dee.*Contributor.*See #9 on GitHub/,
+    );
     expect(editing[1]).toMatch(/A typo.*Being edited.*Bo/);
     const published = $(w, "#tb-editor #tb-hi-published").closest("section")!;
     expect(
       [...published.querySelectorAll(".tb-hi-list > li")].map((li) =>
-        li.classList.contains("tb-hi-release") ? li.textContent : li.querySelector(".tb-hi-msg")!.textContent,
+        li.classList.contains("tb-hi-release")
+          ? li.textContent
+          : li.querySelector(".tb-hi-msg")!.textContent,
       ),
-    ).toEqual(["Clearer", expect.stringMatching(/^2026 edition · (2 September|September 2,) 2026$/), "First"]);
+    ).toEqual([
+      "Clearer",
+      expect.stringMatching(/^2026 edition · (2 September|September 2,) 2026$/),
+      "First",
+    ]);
     expect(published.textContent).toContain("Editor");
     // Compare with now: the older version as base.
     btn(w, "Compare with now", 1).click(); // the oldest version (0 is the drafts change)
@@ -922,8 +1085,12 @@ describe("the History panel's plain words", () => {
     expect(summary("Edit ¶12 of introduction.md", false)).toBe("Paragraph 12 changed");
     expect(summary("Update introduction.md (#3)", false)).toBe("Text changed");
     expect(summary("Ontology: a new book from request #2", true)).toBe("First published");
-    expect(summary("Ontology: a new book from request #2", false)).toBe("Ontology: a new book from request #2");
-    expect(summary("Revise introduction for clarity", false)).toBe("Revise introduction for clarity");
+    expect(summary("Ontology: a new book from request #2", false)).toBe(
+      "Ontology: a new book from request #2",
+    );
+    expect(summary("Revise introduction for clarity", false)).toBe(
+      "Revise introduction for clarity",
+    );
     expect(summary("", false)).toBe("Changed (no description given)");
   });
 });
