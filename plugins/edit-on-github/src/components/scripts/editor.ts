@@ -30,6 +30,7 @@
  */
 import { findParagraph, hunks, diff, tokens } from "./source";
 import type { Block } from "./source";
+import { sendWrite, WAIT_MESSAGE } from "./write";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
 
@@ -714,11 +715,12 @@ export const openEditor = (o: EditorOptions) => {
     dlgSubmit.textContent = "Proposing…";
     const c = (controller = new AbortController());
     const timer = setTimeout(() => c.abort(), FETCH_TIMEOUT);
-    fetch(o.endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    sendWrite(o.endpoint, JSON.stringify(payload), {
       signal: c.signal,
+      onWait: () => {
+        clearTimeout(timer);
+        dlgSubmit.textContent = WAIT_MESSAGE;
+      },
     })
       .then(async (res) => {
         let data: unknown = null;

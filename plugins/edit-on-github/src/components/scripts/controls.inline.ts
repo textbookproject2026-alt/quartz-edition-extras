@@ -39,6 +39,7 @@
 import { closeIfOpen as closeEditorIfOpen, EDIT_HASH, EDITOR_STATE, openEditor, PENCIL } from "./editor";
 import { closeIfOpen as closeHistoryIfOpen, openHistory } from "./history";
 import { mountBookHistory } from "./book-history";
+import { sendWrite, WAIT_MESSAGE } from "./write";
 import { apa, attribution, bibtex, cslJson, licenceName, plain, readCiteData, ris, scoped, STYLES } from "./cite";
 import type { CiteData, Run, Scope, StyleKey } from "./cite";
 
@@ -544,11 +545,12 @@ const openSuggestModal: OpenModal | null = (() => {
         setBusy(true);
         const c = (controller = new AbortController());
         const timer = setTimeout(() => c.abort(), FETCH_TIMEOUT);
-        fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+        sendWrite(endpoint, JSON.stringify(payload), {
           signal: c.signal,
+          onWait: () => {
+            clearTimeout(timer);
+            submitBtn.textContent = WAIT_MESSAGE;
+          },
         })
           .then(async (res) => {
             // The body may be empty or not JSON on an error path.
