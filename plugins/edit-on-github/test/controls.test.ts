@@ -304,7 +304,9 @@ describe("Suggest an edit", () => {
     });
     fill(w);
     await tick();
-    expect(posts[0]![0]).toBe(ENDPOINT);
+    const sent = new URL(String(posts[0]![0]));
+    expect(sent.origin + sent.pathname).toBe(ENDPOINT);
+    expect(sent.searchParams.get("write_key")).toMatch(/^[0-9a-f]{32}$/);
     // No email is asked for or sent: the issue shows the name only.
     expect(
       w.document.querySelector('#tb-suggest-overlay input[type="email"], #tb-sg-email'),
