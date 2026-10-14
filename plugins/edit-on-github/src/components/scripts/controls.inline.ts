@@ -54,8 +54,12 @@ const track: Tracker = (name, props) => {
   }
 };
 
-/** A note on one paragraph: its number, the start of its text, and the page's path. */
-type About = { paragraph: number; quote: string; page: string };
+/**
+ * A note on one paragraph: its number, the start of its text, and the page's path.
+ * `text` is what the suggestion box starts with: the paragraph, or the selection
+ * the form was opened from, for the reader to edit in place.
+ */
+type About = { paragraph: number; quote: string; page: string; text?: string };
 type OpenModal = ((endpoint: string, repoPath: string, trigger: HTMLElement, about?: About) => void) & {
   closeIfOpen: () => void;
 };
@@ -264,7 +268,9 @@ const openSuggestModal: OpenModal | null = (() => {
       const quote = document.createElement("blockquote");
       quote.className = "tb-sg-quote";
       quote.textContent = about?.quote ?? "";
-      quote.hidden = !about?.quote;
+      // The box holds the text itself, so the quote would only repeat it.
+      const original = about?.text ?? "";
+      quote.hidden = !about?.quote || Boolean(original);
       const who = signedIn();
 
       const nameInput = document.createElement("input");
@@ -305,6 +311,7 @@ const openSuggestModal: OpenModal | null = (() => {
       suggestion.name = "suggestion";
       suggestion.rows = 6;
       suggestion.maxLength = MAX_SUGGESTION;
+      suggestion.value = original;
       const suggestionField = makeField("tb-sg-suggestion", "Your suggested change", suggestion);
       const count = document.createElement("p");
       count.className = "tb-sg-count";
@@ -328,7 +335,7 @@ const openSuggestModal: OpenModal | null = (() => {
       const reasoning = document.createElement("textarea");
       reasoning.name = "reasoning";
       reasoning.rows = 3;
-      const reasoningField = makeField("tb-sg-reasoning", "Why", reasoning, true);
+      const reasoningField = makeField("tb-sg-reasoning", "Comment", reasoning, true);
 
       nameField.control.addEventListener("input", () => clearInvalid(nameField));
 
@@ -372,6 +379,22 @@ const openSuggestModal: OpenModal | null = (() => {
       cancelBtn.className = "tb-sg-quiet";
       cancelBtn.textContent = "Cancel";
       actions.append(submitBtn, cancelBtn);
+      // The text as it came, with no comment, is nothing to send: Send waits, saying why.
+      const same = () => suggestion.value.replace(/\s+/g, " ").trim() === original.replace(/\s+/g, " ").trim();
+      const empty = () => same() && !reasoning.value.trim();
+      const whyNot = document.createElement("p");
+      whyNot.className = "tb-sg-count";
+      whyNot.id = "tb-sg-why-not";
+      whyNot.textContent = original
+        ? "Change the text above, or add a comment, to send."
+        : "Describe the change, or add a comment, to send.";
+      submitBtn.setAttribute("aria-describedby", whyNot.id);
+      const gate = () => {
+        whyNot.hidden = !empty();
+        if (!submitting) submitBtn.disabled = empty();
+      };
+      suggestion.addEventListener("input", gate);
+      reasoning.addEventListener("input", gate);
 
       form.append(
         intro,
@@ -381,8 +404,10 @@ const openSuggestModal: OpenModal | null = (() => {
         suggestionField.wrap,
         reasoningField.wrap,
         hpWrap,
+        whyNot,
         actions,
       );
+      gate();
 
       // Result panes replace the form in place (hidden, not destroyed), so a
       // failed send can go back with every field intact.
@@ -504,7 +529,7 @@ const openSuggestModal: OpenModal | null = (() => {
         };
         for (const f of [nameField, suggestionField]) clearInvalid(f);
         if (!nameInput.value.trim()) fail(nameField, "Please add your name.");
-        if (!suggestion.value.trim())
+        if (!suggestion.value.trim() && !same())
           fail(suggestionField, "Please describe the change you would like.");
         else if (suggestion.value.length > MAX_SUGGESTION) {
           fail(
@@ -518,18 +543,20 @@ const openSuggestModal: OpenModal | null = (() => {
 
       const setBusy = (busy: boolean) => {
         submitting = busy;
-        submitBtn.disabled = busy;
+        submitBtn.disabled = busy || empty();
         submitBtn.textContent = busy ? "Sending…" : "Send suggestion";
       };
 
       form.addEventListener("submit", (e) => {
         e.preventDefault();
-        if (submitting || !validate()) return;
+        if (submitting || empty() || !validate()) return;
 
+        // The text unchanged with a comment: a note to the authors, the comment its text.
+        const note = same();
         const payload = {
           name: nameInput.value.trim(),
-          suggestion: suggestion.value.trim(),
-          reasoning: reasoning.value.trim(),
+          suggestion: (note ? reasoning : suggestion).value.trim(),
+          reasoning: note ? "" : reasoning.value.trim(),
           path: repoPath,
           website: hp.value,
           ...(about ? { paragraph: about.paragraph, quote: about.quote, page: about.page } : {}),
@@ -688,9 +715,26 @@ const pencil = () => {
 const NOTE_ICON =
   "M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z";
 
+/** A paragraph's text as a reader sees it, on one line. */
+const textOf = (p: HTMLElement): string => (p.textContent ?? "").replace(/\s+/g, " ").trim();
+
+/**
+ * The page's selected text, if any, with the numbered paragraph it starts in:
+ * Contribute's form starts from it.
+ */
+const selectedAbout = (): About | undefined => {
+  const sel = window.getSelection?.();
+  const text = sel && !sel.isCollapsed ? sel.toString().replace(/\s+/g, " ").trim() : "";
+  const node = text ? sel!.anchorNode : null;
+  const p = (node instanceof Element ? node : node?.parentElement)?.closest<HTMLElement>("article [data-pnum]");
+  if (!p || p.closest(".popover")) return undefined;
+  const page = location.pathname.replace(/\.html$/, "").replace(/\/index$/, "/");
+  return { paragraph: Number(p.dataset.pnum), quote: quoteOf(p), page, text };
+};
+
 /** The start of a paragraph's text for a note: about 200 characters, cut at a word. */
 const quoteOf = (p: HTMLElement): string => {
-  const t = (p.textContent ?? "").replace(/\s+/g, " ").trim();
+  const t = textOf(p);
   if (t.length <= 200) return t;
   const cut = t.slice(0, 199);
   return `${cut.slice(0, cut.lastIndexOf(" ") > 100 ? cut.lastIndexOf(" ") : 199)}…`;
@@ -716,7 +760,7 @@ const armSectionNotes = (open: (about: About, trigger: HTMLElement) => void, how
     b.querySelector("path")!.setAttribute("d", NOTE_ICON);
     b.addEventListener("click", (e) => {
       e.stopPropagation();
-      firstTime(b, howTo, `Continue: note on ¶${n}`, () => open({ paragraph: n, quote: quoteOf(p), page }, b));
+      firstTime(b, howTo, `Continue: note on ¶${n}`, () => open({ paragraph: n, quote: quoteOf(p), page, text: textOf(p) }, b));
     });
     p.append(b);
   }
@@ -974,7 +1018,7 @@ const ROUTES = {
   note: {
     title: "Note to the authors",
     short: "send the authors a note",
-    what: "Tell the authors about a mistake or an idea, in a short form.",
+    what: "Reword a paragraph where it stands, or tell the authors about a mistake or an idea, in a short form.",
     who: "The authors. It becomes a public issue on the book's GitHub repository, showing your name. It doesn't appear on this page.",
     account: "None. You give your name.",
   },
@@ -1713,7 +1757,7 @@ const armHeader = (header: HTMLElement) => {
     const endpoint = suggestBtn?.dataset.endpoint;
     const suggest =
       suggestBtn && endpoint && openSuggestModal
-        ? () => openSuggestModal(endpoint, suggestBtn.dataset.path ?? "", contribute)
+        ? () => openSuggestModal(endpoint, suggestBtn.dataset.path ?? "", contribute, selectedAbout())
         : undefined;
     const edit = $<HTMLAnchorElement>("a.edit-on-github");
     const editEndpoint = edit?.dataset.editEndpoint;
