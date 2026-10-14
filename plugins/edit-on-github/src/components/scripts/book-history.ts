@@ -15,14 +15,16 @@ import { declinedCss, declinedDetails, declinedKind } from "./declined";
 import { diffCss, getJson, when } from "./history";
 import { roleBadge } from "./roles";
 import {
+  anchorOf,
   bookRows,
   historyApi,
+  itemState,
   matchesFilter,
   openKind,
   readBookHistory,
   readDeclined,
 } from "./timeline";
-import type { DeclinedItem, Filter, OpenItem } from "./timeline";
+import type { DeclinedItem, Filter, ItemState, OpenItem } from "./timeline";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const STATE_LABELS = {
@@ -43,6 +45,10 @@ interface Row {
   pageTitle: string;
   href: string;
   ref: string;
+  /** The entry's stable anchor (#issue-<n>, #pr-<n>): a reader's follow link. */
+  anchor: string;
+  /** A line of its own under the entry (an item the build hasn't drawn yet). */
+  note?: string;
   declined?: DeclinedItem;
 }
 
@@ -207,6 +213,7 @@ export const mountBookHistory = async (
         pageTitle: page?.title ?? "",
         href: it.url,
         ref: `#${it.number}`,
+        anchor: anchorOf(it.kind, it.number),
       };
     }),
     ...declined.map((d) => {
@@ -221,6 +228,7 @@ export const mountBookHistory = async (
         pageTitle: page?.title ?? "",
         href: d.url,
         ref: `#${d.number}`,
+        anchor: anchorOf(d.kind, d.number),
         declined: d,
       };
     }),
@@ -234,6 +242,7 @@ export const mountBookHistory = async (
       pageTitle: r.page.title,
       href: r.page.path,
       ref: r.pr ? `#${r.pr}` : "",
+      anchor: r.pr ? anchorOf("pr", r.pr) : r.issue ? anchorOf("issue", r.issue) : "",
     })),
   ].sort((a, b) => b.date.localeCompare(a.date));
 
@@ -244,13 +253,18 @@ export const mountBookHistory = async (
     list.textContent = "";
     const shown = rows.filter((r) => matchesFilter(filter, r));
     count.textContent = `${shown.length} change${shown.length === 1 ? "" : "s"}`;
+    const anchored = new Set<string>();
     for (const r of shown) {
       const meta = el(
         "p",
         { class: "tb-bh-meta" },
         el("span", { class: `tb-bh-state tb-bh-${r.state}`, text: STATE_LABELS[r.state] }),
-        ` ${when(r.date)} · ${r.who}`,
+        // Nobody named for the platform's own housekeeping.
+        ` ${when(r.date)}${r.who ? ` · ${r.who}` : ""}`,
       );
+      // One entry per anchor: a proposal over several pages is followed to its newest.
+      const id = r.anchor && !anchored.has(r.anchor) ? r.anchor : false;
+      if (id) anchored.add(id);
       const badge = roleBadge(r.role);
       if (badge) meta.append(" ", badge);
       if (r.state === "proposed")
@@ -266,7 +280,7 @@ export const mountBookHistory = async (
       list.append(
         el(
           "li",
-          { class: "tb-bh-item" },
+          { class: "tb-bh-item", id, tabindex: id ? "-1" : false },
           el("p", { class: "tb-bh-summary", text: r.summary }),
           r.pageTitle
             ? el(
@@ -278,6 +292,7 @@ export const mountBookHistory = async (
               )
             : null,
           meta,
+          r.note ? el("p", { class: "tb-bh-note", text: r.note }) : null,
           r.declined ? declinedDetails(r.declined, revisionEndpoint) : null,
         ),
       );
@@ -287,7 +302,9 @@ export const mountBookHistory = async (
     Object.assign(filter, { [k]: v });
     draw();
   };
-  const people = [...new Set(rows.map((r) => r.who))].sort((a, b) => a.localeCompare(b));
+  const people = [...new Set(rows.map((r) => r.who).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b),
+  );
   const pages = h.pages
     .filter((p) => p.published.length || p.drafts.length)
     .map((p) => [p.source, p.title] as [string, string]);
@@ -310,4 +327,53 @@ export const mountBookHistory = async (
   );
   document.querySelector(".tb-history-static")?.setAttribute("hidden", "");
   draw();
+
+  // A reader's follow link (/history#issue-<n>, #pr-<n>): to its entry, drawn above
+  // from what the function says now. One the build hasn't drawn yet (accepted since,
+  // or declined but not listed) is asked for on its own, so the link works at once.
+  const follow = async () => {
+    const m = /^#((?:issue|pr)-(\d+))$/.exec(location.hash);
+    if (!m) return;
+    const anchor = m[1]!;
+    if (!document.getElementById(anchor) && revisionEndpoint) {
+      const url = new URL(revisionEndpoint, location.href);
+      url.searchParams.set("mode", "item");
+      url.searchParams.set("number", m[2]!);
+      const it = (await getJson(url.toString(), AbortSignal.timeout(15000)).catch(
+        () => null,
+      )) as ItemState | null;
+      if (it && it.number === Number(m[2]) && anchorOf(it.kind, it.number) === anchor) {
+        const state = itemState(it);
+        const page = it.files?.map((f) => byPath.get(f)).find(Boolean);
+        rows.unshift({
+          date: String((state === "proposed" ? it.created : it.closed) ?? it.created).slice(0, 10),
+          who: it.who?.name ?? "A reader",
+          role: "contributor",
+          summary: it.summary || openKind(it as unknown as OpenItem),
+          state,
+          page: page?.source ?? "",
+          pageTitle: page?.title ?? "",
+          href: state === "drafts" && page ? page.path : it.url,
+          ref: `#${it.number}`,
+          anchor,
+          note:
+            state === "drafts"
+              ? "The authors accepted this. It shows as Published once the book is next published."
+              : state === "declined"
+                ? "The authors declined this."
+                : undefined,
+        });
+        Object.assign(filter, { page: "", person: "", state: "" });
+        for (const s of Array.from(mount.querySelectorAll<HTMLSelectElement>(".tb-bh-select")))
+          s.value = "";
+        draw();
+      }
+    }
+    const target = document.getElementById(anchor);
+    if (!target) return;
+    target.scrollIntoView({ block: "start" });
+    target.focus({ preventScroll: true });
+  };
+  window.addEventListener("hashchange", () => void follow());
+  void follow();
 };

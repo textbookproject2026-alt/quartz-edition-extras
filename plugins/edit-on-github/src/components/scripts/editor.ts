@@ -31,6 +31,7 @@
 import { findParagraph, blocks, pairRuns, unchangedLabel } from "./source";
 import type { Block } from "./source";
 import { sendWrite, WAIT_MESSAGE } from "./write";
+import { followUrl } from "./timeline";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
 
@@ -660,6 +661,9 @@ export const openEditor = (o: EditorOptions) => {
     if (!overlay.isConnected) return;
     result.textContent = "";
     result.append(el("h2", { text: title }), el("p", { text: message }));
+    // The follow link (8a), beside GitHub's own notice: the entry on the book's /history.
+    const follow = followUrl(link?.href, location.origin);
+    if (follow) result.append(el("p", { class: "tb-ed-follow" }, "Follow your suggestion: ", el("a", { href: follow, text: follow })));
     if (link) {
       result.append(el("p", {}, el("a", { href: link.href, target: "_blank", rel: "noopener", text: link.text })));
     }

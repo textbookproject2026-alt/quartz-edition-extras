@@ -1,6 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import {
+  anchorOf,
+  followUrl,
+  itemState,
   bookRows,
   historyApi,
   matchesFilter,
@@ -302,5 +305,125 @@ describe("declined (batch 2c)", () => {
     } finally {
       globalThis.fetch = real;
     }
+  });
+});
+
+describe("follow links (8a)", () => {
+  it("an item's GitHub URL becomes its entry on the book's /history", () => {
+    const o = "https://book.example";
+    expect(followUrl("https://github.com/o/r/issues/12", o)).toBe("https://book.example/history#issue-12");
+    expect(followUrl("https://github.com/o/r/pull/7", o)).toBe("https://book.example/history#pr-7");
+    // The honeypot's answer (no number), and anything else: no link.
+    expect(followUrl("https://github.com/o/r/issues", o)).toBeNull();
+    expect(followUrl("https://evil.example/o/r/issues/1", o)).toBeNull();
+    expect(followUrl(undefined, o)).toBeNull();
+  });
+  it("anchors: a proposal is pr-<n>, a note or suggestion issue-<n>", () => {
+    expect(anchorOf("edit", 3)).toBe("pr-3");
+    expect(anchorOf("note", 3)).toBe("issue-3");
+    expect(anchorOf("suggestion", 3)).toBe("issue-3");
+  });
+  it("an item the build hasn't drawn: proposed while open, being edited once accepted, else declined", () => {
+    const base = { number: 1, kind: "note" as const, url: "u", summary: "s", created: "2026-10-14" };
+    expect(itemState({ ...base, state: "open" })).toBe("proposed");
+    expect(itemState({ ...base, state: "open", accepted: true })).toBe("drafts");
+    expect(itemState({ ...base, state: "closed", reason: "completed" })).toBe("drafts");
+    expect(itemState({ ...base, kind: "edit", state: "closed", merged: true })).toBe("drafts");
+    expect(itemState({ ...base, state: "closed", reason: "not_planned" })).toBe("declined");
+    expect(itemState({ ...base, kind: "edit", state: "closed", merged: false })).toBe("declined");
+  });
+});
+
+describe("the follow link on /history (8a)", () => {
+  const built: BookHistory = {
+    version: 1,
+    releases: [],
+    declined: [],
+    pages: [
+      {
+        path: "/chapters/one",
+        source: "chapters/one.md",
+        title: "Chapter 1",
+        published: [
+          { sha: "p1", date: "2026-10-14", who: "Dee", role: "contributor", summary: "missing word", pr: 75 },
+          { sha: "p0", date: "2026-10-01", who: "", role: null, summary: "Housekeeping" },
+        ],
+        drafts: [],
+        releases: {},
+      },
+    ],
+  };
+  const declinedNow = {
+    kind: "note",
+    number: 81,
+    url: "https://github.com/o/b/issues/81",
+    date: "2026-10-14",
+    proposed: "2026-10-14",
+    summary: "Needs a source",
+    who: { name: "Reader R" },
+    files: ["chapters/one.md"],
+    reason: "We cite it in chapter 2.",
+    decliner: "Alec Gordon",
+    comments: [],
+  };
+  const mount = async (hash: string, api: { items?: OpenItem[]; declined?: unknown[] }, item?: unknown) => {
+    document.body.innerHTML = `<div data-tb-book-history></div>`;
+    window.history.replaceState(null, "", `/history${hash}`);
+    const asked: string[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (url: string) => {
+      asked.push(String(url));
+      const body = String(url).includes("mode=item")
+        ? item
+        : String(url).includes("/api/history")
+          ? { items: [], declined: [], ...api }
+          : built;
+      return new Response(JSON.stringify(body ?? {}), { status: body ? 200 : 404 });
+    }) as typeof fetch;
+    try {
+      await mountBookHistory(document.querySelector("[data-tb-book-history]")!, "/.well-known/history.json", "/api/page-revision?book=b");
+      await new Promise((r) => setTimeout(r, 0));
+    } finally {
+      globalThis.fetch = real;
+    }
+    return asked;
+  };
+  const entry = (id: string) => document.getElementById(id);
+
+  it("a new suggestion resolves before the next build: drawn from the function's open list", async () => {
+    const asked = await mount("#issue-80", {
+      items: [{ kind: "note", number: 80, url: "https://github.com/o/b/issues/80", date: "2026-10-14", summary: "Typo here", who: { name: "Reader R" }, files: ["chapters/one.md"] }],
+    });
+    expect(entry("issue-80")!.querySelector(".tb-bh-state")!.textContent).toBe("Proposed");
+    expect(entry("issue-80")!.querySelector(".tb-bh-summary")!.textContent).toBe("Typo here");
+    expect(document.activeElement).toBe(entry("issue-80"));
+    expect(asked.some((u) => u.includes("mode=item"))).toBe(false);
+  });
+
+  it("after declining, the same link shows the decision and the reason", async () => {
+    await mount("#issue-81", { declined: [declinedNow] });
+    const li = entry("issue-81")!;
+    expect(li.querySelector(".tb-bh-state")!.textContent).toBe("Declined");
+    expect(li.querySelector(".tb-dc-who")!.textContent).toMatch(/Declined by Alec Gordon/);
+    expect(li.querySelector(".tb-dc-reason")!.textContent).toBe("Why it was declined: We cite it in chapter 2.");
+  });
+
+  it("accepted and published: Published, linking to the live page; nobody named for housekeeping", async () => {
+    await mount("#pr-75", {});
+    const li = entry("pr-75")!;
+    expect(li.querySelector(".tb-bh-state")!.textContent).toBe("Published");
+    expect(li.querySelector<HTMLAnchorElement>(".tb-bh-page a")!.getAttribute("href")).toBe("/chapters/one");
+    const meta = [...document.querySelectorAll(".tb-bh-meta")].map((m) => m.textContent);
+    expect(meta.some((t) => /· $|the platform/.test(t ?? ""))).toBe(false);
+    const people = [...document.querySelectorAll<HTMLSelectElement>(".tb-bh-select")[1]!.options].map((o) => o.value);
+    expect(people).toEqual(["", "Dee"]);
+  });
+
+  it("accepted since the build: asked for on its own, shown as being edited", async () => {
+    const asked = await mount("#pr-90", {}, { number: 90, kind: "edit", url: "https://github.com/o/b/pull/90", summary: "Better word", state: "closed", created: "2026-10-14T09:00:00Z", closed: "2026-10-14T10:00:00Z", merged: true, reason: null, accepted: false, who: { name: "Reader R" }, files: ["chapters/one.md"] });
+    expect(new URL(asked.find((u) => u.includes("mode=item"))!, "https://x").searchParams.get("number")).toBe("90");
+    const li = entry("pr-90")!;
+    expect(li.querySelector(".tb-bh-state")!.textContent).toBe("Being edited");
+    expect(li.querySelector(".tb-bh-note")!.textContent).toMatch(/Published once the book is next published/);
   });
 });

@@ -305,7 +305,7 @@ export const openHistory = (o: HistoryOptions) => {
   ) => {
     const p = el("p", { class: "tb-hi-meta" });
     if (state) p.append(el("span", { class: "tb-hi-state", text: state }));
-    p.append(`${when(e.date)} · ${e.who}`);
+    p.append(`${when(e.date)}${e.who ? ` · ${e.who}` : ""}`);
     const badge = roleBadge(e.role);
     if (badge) p.append(" ", badge);
     if (e.pr && o.githubHref)
