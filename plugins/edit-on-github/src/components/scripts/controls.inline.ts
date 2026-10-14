@@ -1018,7 +1018,7 @@ const ROUTES = {
   note: {
     title: "Note to the authors",
     short: "send the authors a note",
-    what: "Tell the authors about a mistake or an idea, in a short form.",
+    what: "Reword a paragraph where it stands, or tell the authors about a mistake or an idea, in a short form.",
     who: "The authors. It becomes a public issue on the book's GitHub repository, showing your name. It doesn't appear on this page.",
     account: "None. You give your name.",
   },
