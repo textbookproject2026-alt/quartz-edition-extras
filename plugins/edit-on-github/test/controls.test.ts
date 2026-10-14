@@ -159,6 +159,74 @@ describe("a note to the authors on one paragraph", () => {
     expect($(w, ".tb-sg-quote").textContent).toBe("Short one.");
   });
 
+  it("starts the box with the paragraph's text; unchanged, Send waits and says why", () => {
+    const { w } = notePage();
+    $<HTMLButtonElement>(w, "#p2 > button.tb-pnote").click();
+    expect($<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value).toBe(LONG);
+    expect($(w, ".tb-sg-quote").hidden).toBe(true);
+    const send = $<HTMLButtonElement>(w, "#tb-suggest-overlay button.tb-sg-btn");
+    const why = $(w, "#tb-sg-why-not");
+    expect(send.disabled).toBe(true);
+    expect(why.hidden).toBe(false);
+    expect(why.textContent).toBe("Change the text above, or add a comment, to send.");
+    expect(why.compareDocumentPosition(send) & 4).toBeTruthy(); // above Send
+    const box = $<HTMLTextAreaElement>(w, "#tb-sg-suggestion");
+    box.value = LONG.replace("familiar", "known");
+    box.dispatchEvent(new w.Event("input"));
+    expect(send.disabled).toBe(false);
+    expect(why.hidden).toBe(true);
+  });
+
+  it("unchanged with a comment: filed as a note, the comment its text", async () => {
+    const { w, posts } = notePage();
+    $<HTMLButtonElement>(w, "#p2 > button.tb-pnote").click();
+    $<HTMLInputElement>(w, "#tb-sg-name").value = "A Reader";
+    const comment = $<HTMLTextAreaElement>(w, "#tb-sg-reasoning");
+    comment.value = "This needs a source.";
+    comment.dispatchEvent(new w.Event("input"));
+    expect($<HTMLButtonElement>(w, "#tb-suggest-overlay button.tb-sg-btn").disabled).toBe(false);
+    $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
+    await tick();
+    expect(posts[0]).toMatchObject({
+      suggestion: "This needs a source.",
+      reasoning: "",
+      paragraph: 2,
+      page: "/chapters/chapter-03",
+    });
+  });
+
+  it("changed, with a comment: the edited text, the comment as the reason", async () => {
+    const { w, posts } = notePage();
+    $<HTMLButtonElement>(w, "#p1 > button.tb-pnote").click();
+    $<HTMLInputElement>(w, "#tb-sg-name").value = "A Reader";
+    $<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value = "Short two.";
+    $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "Typo.";
+    $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
+    await tick();
+    expect(posts[0]).toMatchObject({ suggestion: "Short two.", reasoning: "Typo.", paragraph: 1 });
+  });
+
+  it("from Contribute with text selected in a paragraph: the box starts with the selection", () => {
+    const { w } = notePage();
+    const text = $(w, "#p2").firstChild!;
+    const range = w.document.createRange();
+    range.setStart(text as never, 0);
+    range.setEnd(text as never, 22);
+    w.getSelection()!.removeAllRanges();
+    w.getSelection()!.addRange(range);
+    $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
+    expect($(w, "#tb-suggest-title").textContent).toBe("Note to the authors about ¶2");
+    expect($<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value).toBe("Consider a situation t");
+  });
+
+  it("from Contribute with nothing selected: an empty box, and Send waits for text or a comment", () => {
+    const { w } = notePage();
+    $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
+    expect($<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value).toBe("");
+    expect($<HTMLButtonElement>(w, "#tb-suggest-overlay button.tb-sg-btn").disabled).toBe(true);
+    expect($(w, "#tb-sg-why-not").textContent).toBe("Describe the change, or add a comment, to send.");
+  });
+
   it("signed in with the editor's GitHub sign-in: the name filled in, and the sign-in sent", async () => {
     const { w, posts } = notePage(true);
     $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
@@ -410,7 +478,7 @@ describe("the in-site editor", () => {
 
   it("stays the plain GitHub link with no endpoint (editions), or with editor: false", () => {
     for (const html of [render({ repo: "o/r" }), render({ ...withSuggest, editor: false })]) {
-      expect(html).toContain(">Edit on GitHub ↗</a>");
+      expect(html).toContain(">Edit on GitHub ↗</span>");
       expect(html).not.toContain("data-edit-endpoint");
     }
   });
@@ -759,8 +827,21 @@ describe("the History panel", () => {
   });
 
   it("stays GitHub's history without an endpoint (editions) or with editor: false", () => {
-    expect(renderPage(withSuggest)).toContain("View revision history ↗");
-    expect(renderPage({ ...withHistory, editor: false })).toContain("View revision history ↗");
+    expect(renderPage(withSuggest)).toContain("Page history ↗");
+    expect(renderPage({ ...withHistory, editor: false })).toContain("Page history ↗");
+  });
+
+  it("without scripts links the book's /history page, never GitHub", () => {
+    const noscript = (html: string) => /<noscript>(.*?)<\/noscript>/.exec(html)?.[1] ?? "";
+    const props = (allFiles: unknown[]) =>
+      ({
+        fileData: { relativePath: "chapters/chapter-03.md", filePath: "x", slug: "chapters/chapter-03" },
+        allFiles,
+      }) as unknown as QuartzComponentProps;
+    const html = renderToString(EditOnGitHub(withHistory)(props([{ slug: "history" }])) as never);
+    expect(noscript(html)).toBe('<a class="tb-hdr-plain" href="../history">Book history</a>');
+    // No /history page: nothing, rather than a GitHub link.
+    expect(renderToString(EditOnGitHub(withHistory)(props([])) as never)).not.toContain("<noscript>");
   });
 
   const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });

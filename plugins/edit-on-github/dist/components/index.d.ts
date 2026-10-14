@@ -71,7 +71,7 @@ interface Options {
  * history, What links here, Download as Markdown and View source. Annotate and
  * Appearance are run by edition-integrations' window.tbAnnotations and
  * window.tbPrefs; every button stays hidden until its script arms it, and a
- * reader without scripts gets the plain GitHub links.
+ * reader without scripts gets a link to the book's /history page.
  *
  * The root keeps class "tb-page-controls" and the data-source-* stamp, and Edit
  * keeps class "edit-on-github" and its href shape: book two's post-build form,

@@ -184,7 +184,7 @@ export const SUBTITLES = {
  * history, What links here, Download as Markdown and View source. Annotate and
  * Appearance are run by edition-integrations' window.tbAnnotations and
  * window.tbPrefs; every button stays hidden until its script arms it, and a
- * reader without scripts gets the plain GitHub links.
+ * reader without scripts gets a link to the book's /history page.
  *
  * The root keeps class "tb-page-controls" and the data-source-* stamp, and Edit
  * keeps class "edit-on-github" and its href shape: book two's post-build form,
@@ -480,17 +480,13 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
         ),
         h("span", { class: "tb-hdr-status", role: "status" }),
       ),
-      // Without scripts the menus can't open: the plain links, as the row had.
-      hasSource
+      // Without scripts the menus can't open, and editing and a page's history
+      // need them: the book's /history page, which works without, is the link.
+      hasSource && hasBookHistory && slug !== "history"
         ? h(
             "noscript",
             null,
-            h("a", { class: "tb-hdr-plain", href: editHref, ...away }, "Edit on GitHub ↗"),
-            h(
-              "a",
-              { class: "tb-hdr-plain", href: historyHref, ...away },
-              "View revision history ↗",
-            ),
+            h("a", { class: "tb-hdr-plain", href: `${root}history` }, "Book history"),
           )
         : null,
     );
