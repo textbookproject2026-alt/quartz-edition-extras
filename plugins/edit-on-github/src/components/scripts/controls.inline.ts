@@ -425,6 +425,17 @@ const openSuggestModal: OpenModal | null = (() => {
       suggestion.addEventListener("input", gate);
       reasoning.addEventListener("input", gate);
 
+      // Before sending: what is sent is published, and where that is explained.
+      const privacy = document.querySelector<HTMLElement>(".tb-page-controls")?.dataset.privacy;
+      const published = document.createElement("p");
+      published.className = "tb-sg-count tb-sg-published";
+      published.append("Your name and text are published openly, under the book's licence. ");
+      if (privacy) {
+        const a = document.createElement("a");
+        a.href = privacy;
+        a.textContent = "How contributions are handled";
+        published.append(a);
+      }
       form.append(
         intro,
         quote,
@@ -434,6 +445,7 @@ const openSuggestModal: OpenModal | null = (() => {
         reasoningField.wrap,
         hpWrap,
         whyNot,
+        ...(privacy ? [published] : []),
         actions,
       );
       gate();
