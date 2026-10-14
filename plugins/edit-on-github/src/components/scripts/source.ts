@@ -171,36 +171,60 @@ export const diff = (a: string[], b: string[]): Op[] => {
 /** Words and the whitespace between them, so a word diff re-joins exactly. */
 export const tokens = (line: string): string[] => line.split(/(\s+)/).filter((t) => t !== "");
 
-export interface Hunk {
-  /** 1-based line numbers where the hunk starts, before and after. */
-  a: number;
-  b: number;
-  ops: Op[];
-}
+/**
+ * A line diff in runs: `same` holds unchanged paragraphs, shown collapsed as
+ * "N unchanged paragraphs"; `ops` holds a run of changed lines, word-diffed. Every
+ * comparison view renders these (the editor's Changes, What changed in History, and
+ * the author site's copy in site/lib/diff.js). Blank lines are dropped: they only
+ * separate paragraphs. ponytail: a change of blank lines alone shows as no change.
+ */
+export type DiffBlock = { same: string[] } | { ops: Op[] };
+export const blocks = (before: string, after: string): DiffBlock[] => {
+  const out: DiffBlock[] = [];
+  for (const op of diff(before.split("\n"), after.split("\n"))) {
+    const last = out[out.length - 1];
+    if (!op.v.trim()) continue;
+    if (op.t === "=") {
+      if (last && "same" in last) last.same.push(op.v);
+      else out.push({ same: [op.v] });
+    } else if (last && "ops" in last) last.ops.push(op);
+    else out.push({ ops: [op] });
+  }
+  return out.some((b) => "ops" in b) ? out : [];
+};
 
-/** Line diff grouped into hunks with `context` unchanged lines around each change. */
-export const hunks = (before: string, after: string, context = 2): Hunk[] => {
-  const ops = diff(before.split("\n"), after.split("\n"));
-  const out: Hunk[] = [];
-  let la = 1;
-  let lb = 1;
-  let current: Hunk | null = null;
-  let trailing = 0;
-  ops.forEach((op, k) => {
-    const changedNear = ops.slice(Math.max(0, k - context), k + context + 1).some((o) => o.t !== "=");
-    if (changedNear) {
-      if (!current || (op.t === "=" && trailing > 2 * context)) {
-        current = { a: la, b: lb, ops: [] };
-        out.push(current);
-      }
-      current.ops.push(op);
-      trailing = op.t === "=" ? trailing + 1 : 0;
-    } else {
-      current = null;
-      trailing = 0;
+/** "1 unchanged paragraph", "3 unchanged paragraphs". */
+export const unchangedLabel = (n: number) => `${n} unchanged paragraph${n === 1 ? "" : "s"}`;
+
+export type Word = { v: string; changed: boolean };
+/**
+ * Runs of removed lines then added ones, paired line by line and word-diffed: each
+ * line's tokens marked kept or changed. Unpaired lines are changed throughout.
+ */
+export const pairRuns = (ops: Op[]): { t: "-" | "+"; words: Word[] }[] => {
+  const out: { t: "-" | "+"; words: Word[] }[] = [];
+  for (let k = 0; k < ops.length; ) {
+    const dels: string[] = [];
+    const adds: string[] = [];
+    while (ops[k]?.t === "=") k++;
+    while (ops[k]?.t === "-") dels.push(ops[k++]!.v);
+    while (ops[k]?.t === "+") adds.push(ops[k++]!.v);
+    const d = dels.map((v) => ({ t: "-" as const, words: [{ v, changed: true }] }));
+    const a = adds.map((v) => ({ t: "+" as const, words: [{ v, changed: true }] }));
+    for (let i = 0; i < Math.min(dels.length, adds.length); i++) {
+      const w = diff(tokens(dels[i]!), tokens(adds[i]!));
+      d[i]!.words = w.filter((o) => o.t !== "+").map((o) => ({ v: o.v, changed: o.t === "-" }));
+      a[i]!.words = w.filter((o) => o.t !== "-").map((o) => ({ v: o.v, changed: o.t === "+" }));
     }
-    if (op.t !== "+") la++;
-    if (op.t !== "-") lb++;
-  });
+    // Neighbouring words with the same mark join, so a changed phrase is one <del>/<ins>.
+    for (const r of [...d, ...a])
+      r.words = r.words.reduce<Word[]>((ws, w) => {
+        const last = ws[ws.length - 1];
+        if (last && last.changed === w.changed) last.v += w.v;
+        else ws.push({ ...w });
+        return ws;
+      }, []);
+    out.push(...d, ...a);
+  }
   return out;
 };

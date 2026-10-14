@@ -39,6 +39,13 @@ describe("the History panel's What changed, as the page shows it", () => {
     expect([...box.querySelectorAll("ins")].map((d) => d.textContent)).toContain("new");
   });
 
+  it("collapses each run of unchanged paragraphs into one line", () => {
+    const box = renderRichDiff("One.\n\nTwo.\n\nOld end.\n", "One.\n\nTwo.\n\nNew end.\n");
+    expect([...box.querySelectorAll("details > summary")].map((s) => s.textContent)).toEqual(["2 unchanged paragraphs"]);
+    expect(box.querySelector("del")?.textContent).toBe("Old");
+    expect(box.querySelector("ins")?.textContent).toBe("New");
+  });
+
   it("says when only the front matter changed", () => {
     expect(renderRichDiff(`${FM}Text\n`, `---\ntitle: "X"\n---\nText\n`).textContent).toBe(
       "Only the page’s details (such as its title or topic) changed; the text is the same.",
