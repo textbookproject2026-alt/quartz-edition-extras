@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diff, findParagraph, hunks, splitBlocks, tokens } from "../src/components/scripts/source";
+import { blocks, diff, findParagraph, pairRuns, splitBlocks, tokens, unchangedLabel } from "../src/components/scripts/source";
 
 const SRC = [
   "---",
@@ -56,10 +56,29 @@ describe("diffing", () => {
     expect(ops.filter((o) => o.t !== "-").map((o) => o.v).join("")).toBe("the dog sat");
   });
 
-  it("groups line changes into hunks with context", () => {
-    const a = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj";
-    const hs = hunks(a, a.replace("b", "B").replace("i", "I"), 1);
-    expect(hs.map((h) => h.b)).toEqual([1, 8]);
-    expect(hunks(a, a)).toEqual([]);
+  it("splits a diff into unchanged paragraphs and changed runs", () => {
+    const a = "One.\n\nTwo.\n\nThree here.\n\nFour.\n\nFive.";
+    expect(blocks(a, a.replace("Three here.", "Three there."))).toEqual([
+      { same: ["One.", "Two."] },
+      { ops: [{ t: "-", v: "Three here." }, { t: "+", v: "Three there." }] },
+      { same: ["Four.", "Five."] },
+    ]);
+    expect(blocks(a, a)).toEqual([]);
+    expect(unchangedLabel(1)).toBe("1 unchanged paragraph");
+    expect(unchangedLabel(3)).toBe("3 unchanged paragraphs");
+  });
+
+  it("pairs removed and added lines and marks only the changed words", () => {
+    const rs = pairRuns([{ t: "-", v: "the cat sat" }, { t: "+", v: "the dog sat" }, { t: "+", v: "New." }]);
+    expect(rs.map((r) => r.t)).toEqual(["-", "+", "+"]);
+    expect(rs[0]!.words.filter((w) => w.changed).map((w) => w.v)).toEqual(["cat"]);
+    expect(rs[1]!.words.filter((w) => w.changed).map((w) => w.v)).toEqual(["dog"]);
+    expect(rs[1]!.words.map((w) => w.v).join("")).toBe("the dog sat");
+    expect(rs[2]!.words).toEqual([{ v: "New.", changed: true }]);
+    expect(pairRuns([{ t: "-", v: "a b c" }, { t: "+", v: "a x y c" }])[1]!.words).toEqual([
+      { v: "a ", changed: false },
+      { v: "x y", changed: true },
+      { v: " c", changed: false },
+    ]);
   });
 });

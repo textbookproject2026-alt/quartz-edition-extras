@@ -28,7 +28,7 @@
  *
  * Every failure path keeps what the reader typed until they close the editor.
  */
-import { findParagraph, hunks, diff, tokens } from "./source";
+import { findParagraph, blocks, pairRuns, unchangedLabel } from "./source";
 import type { Block } from "./source";
 import { sendWrite, WAIT_MESSAGE } from "./write";
 
@@ -217,6 +217,7 @@ ${O} .tb-ed-hint { margin: 0.3rem 0 0; font-size: 0.85em; }
 ${O} .tb-ed-diff { font-family: var(--tb-font-mono, monospace); font-size: 0.8rem; }
 ${O} .tb-ed-hunk { border-top: 1px solid var(--tb-border, #E6E6E6); }
 ${O} .tb-ed-hunk:first-child { border-top: 0; }
+${O} .tb-ed-same + .tb-ed-hunk, ${O} .tb-ed-hunk + .tb-ed-same { border-top: 1px solid var(--tb-border, #E6E6E6); }
 ${O} .tb-ed-hh { padding: 0.25rem 0.75rem; background: var(--tb-accent-wash, #EEEBFD); color: var(--tb-muted, #6E6E73); }
 ${O} .tb-ed-line { display: grid; grid-template-columns: 1.5rem 1fr; white-space: pre-wrap; overflow-wrap: anywhere; }
 ${O} .tb-ed-line > span:first-child { text-align: center; color: var(--tb-muted, #6E6E73); user-select: none; }
@@ -225,8 +226,14 @@ ${O} .tb-ed-line > span:last-child { padding-right: 0.75rem; }
    mode (fixed light greens put light text on a light ground there: batch 2b). */
 ${O} .tb-ed-del { background: color-mix(in srgb, #D1242F 12%, var(--tb-bg, #FFFFFF)); }
 ${O} .tb-ed-add { background: color-mix(in srgb, #1A7F37 12%, var(--tb-bg, #FFFFFF)); }
-${O} .tb-ed-del del { background: color-mix(in srgb, #D1242F 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: none; border-radius: 2px; }
-${O} .tb-ed-add ins { background: color-mix(in srgb, #1A7F37 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: none; border-radius: 2px; }
+${O} .tb-ed-del del { background: color-mix(in srgb, #D1242F 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: line-through; border-radius: 2px; }
+${O} .tb-ed-add ins { background: color-mix(in srgb, #1A7F37 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: underline; text-underline-offset: 0.15em; border-radius: 2px; }
+/* Not colour alone: removed words struck, added words underlined, and named for screen readers. */
+${O} :is(del, ins)::before, ${O} :is(del, ins)::after { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+${O} del::before { content: " [removed: "; }
+${O} ins::before { content: " [added: "; }
+${O} :is(del, ins)::after { content: "] "; }
+${O} .tb-ed-same > summary { padding: 0.3rem 1rem; color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; cursor: pointer; }
 ${O} .tb-ed-foot { margin: 0.75rem 0 0; color: var(--tb-muted, #6E6E73); }
 ${O} .tb-ed-discard { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.6rem 1.25rem;
   border-bottom: 1px solid var(--tb-border, #E6E6E6); background: #FFF8C5; }
@@ -308,8 +315,8 @@ export const sanitise = (html: string): DocumentFragment => {
 
 export const renderDiff = (before: string, after: string): HTMLElement => {
   const box = el("div", { class: "tb-ed-diff" });
-  const hs = hunks(before, after);
-  if (!hs.length) {
+  const bs = blocks(before, after);
+  if (!bs.length) {
     box.append(el("p", { class: "tb-ed-panel tb-ed-muted", text: "No changes yet." }));
     return box;
   }
@@ -318,34 +325,20 @@ export const renderDiff = (before: string, after: string): HTMLElement => {
     const text = el("span");
     if (typeof content === "string") text.textContent = content || " ";
     else text.append(...content);
-    row.append(el("span", { text: kind === "=" ? " " : kind }), text);
+    row.append(el("span", { "aria-hidden": "true", text: kind === "=" ? " " : kind === "-" ? "−" : "+" }), text);
     return row;
   };
-  for (const h of hs) {
-    const hunk = el("div", { class: "tb-ed-hunk" }, el("div", { class: "tb-ed-hh", text: `Line ${h.b}` }));
-    for (let k = 0; k < h.ops.length; ) {
-      const op = h.ops[k]!;
-      if (op.t === "=") {
-        hunk.append(line("=", op.v));
-        k++;
-        continue;
-      }
-      // A run of removals then additions: pair them up line by line, word-diffed.
-      const dels: string[] = [];
-      const adds: string[] = [];
-      while (h.ops[k]?.t === "-") dels.push(h.ops[k++]!.v);
-      while (h.ops[k]?.t === "+") adds.push(h.ops[k++]!.v);
-      const paired = Math.min(dels.length, adds.length);
-      const words = dels.map((d, i) => (i < paired ? diff(tokens(d), tokens(adds[i]!)) : null));
-      dels.forEach((d, i) => {
-        const w = words[i];
-        hunk.append(line("-", w ? w.filter((o) => o.t !== "+").map((o) => (o.t === "-" ? el("del", { text: o.v }) : document.createTextNode(o.v))) : d));
-      });
-      adds.forEach((a, i) => {
-        const w = words[i];
-        hunk.append(line("+", w ? w.filter((o) => o.t !== "-").map((o) => (o.t === "+" ? el("ins", { text: o.v }) : document.createTextNode(o.v))) : a));
-      });
+  for (const b of bs) {
+    if ("same" in b) {
+      const same = el("details", { class: "tb-ed-same" }, el("summary", { text: unchangedLabel(b.same.length) }));
+      same.append(...b.same.map((v) => line("=", v)));
+      box.append(same);
+      continue;
     }
+    // Removed lines then added ones, paired up and word-diffed.
+    const hunk = el("div", { class: "tb-ed-hunk" });
+    for (const r of pairRuns(b.ops))
+      hunk.append(line(r.t, r.words.map((w) => (w.changed ? el(r.t === "-" ? "del" : "ins", { text: w.v }) : document.createTextNode(w.v)))));
     box.append(hunk);
   }
   return box;

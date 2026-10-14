@@ -87,11 +87,16 @@ ${S} .tb-rd-quote .tb-rd-text { padding-left: 0.8rem; border-left: 3px solid var
 ${S} .tb-rd-rule .tb-rd-text { align-self: center; border-top: 1px solid var(--tb-border, #E6E6E6); }
 ${S} .tb-rd-link { color: var(--tb-accent, #7C6CF0); }
 ${S} .tb-rd code { font-family: var(--tb-font-mono, monospace); font-size: 0.88em; }
-${S} .tb-rd-gap { padding: 0.3rem 0; text-align: center; color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-ui, sans-serif); }
+/* Not colour alone: removed words struck, added words underlined, and named for screen readers. */
+${S} :is(del, ins)::before, ${S} :is(del, ins)::after { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+${S} del::before { content: " [removed: "; }
+${S} ins::before { content: " [added: "; }
+${S} :is(del, ins)::after { content: "] "; }
+${S} .tb-rd-same > summary { padding: 0.3rem 1rem; color: var(--tb-muted, #6E6E73); font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; cursor: pointer; }
 ${S} .tb-ed-del { background: color-mix(in srgb, #D1242F 12%, var(--tb-bg, #FFFFFF)); }
 ${S} .tb-ed-add { background: color-mix(in srgb, #1A7F37 12%, var(--tb-bg, #FFFFFF)); }
 ${S} .tb-ed-del del { background: color-mix(in srgb, #D1242F 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: line-through; border-radius: 2px; }
-${S} .tb-ed-add ins { background: color-mix(in srgb, #1A7F37 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: none; border-radius: 2px; }
+${S} .tb-ed-add ins { background: color-mix(in srgb, #1A7F37 32%, var(--tb-bg, #FFFFFF)); color: inherit; text-decoration: underline; text-underline-offset: 0.15em; border-radius: 2px; }
 ${S} .tb-hi-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
 ${S} .tb-hi-actions button, ${S} .tb-hi-actions a { min-height: 2rem; padding: 0.2rem 0.6rem; border: 1px solid var(--tb-border, #E6E6E6);
   border-radius: 6px; background: var(--tb-bg, #FFFFFF); color: var(--tb-ink, #2B2B2B); font: inherit; font-size: 0.85rem; font-weight: 600;

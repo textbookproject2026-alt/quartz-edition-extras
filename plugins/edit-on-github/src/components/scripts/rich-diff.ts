@@ -10,7 +10,7 @@
  * block) shows line by line as text, not as the rendered block.
  */
 import { el } from "./editor";
-import { diff, hunks, tokens } from "./source";
+import { blocks, diff, tokens, unchangedLabel } from "./source";
 
 /** The page's text without its front matter (the --- block at the top). */
 export const body = (md: string): string => {
@@ -169,21 +169,30 @@ export const renderRichDiff = (before: string, after: string): HTMLElement => {
   const box = el("div", { class: "tb-ed-diff tb-rd" });
   const a = body(before);
   const b = body(after);
-  if (a === b) {
+  const bs = blocks(a, b);
+  if (!bs.length) {
     box.append(
       el("p", {
         class: "tb-ed-panel tb-ed-muted",
         text:
-          before === after
+          a !== b || before === after
             ? "No changes to the text."
             : "Only the page’s details (such as its title or topic) changed; the text is the same.",
       }),
     );
     return box;
   }
-  hunks(a, b).forEach((h, n) => {
-    if (n > 0) box.append(el("div", { class: "tb-rd-gap", "aria-hidden": "true", text: "⋯" }));
-    const ops = h.ops;
+  for (const bl of bs) {
+    if ("same" in bl) {
+      const same = el("details", { class: "tb-rd-same" }, el("summary", { text: unchangedLabel(bl.same.length) }));
+      for (const v of bl.same) {
+        const line = parseLine(v);
+        same.append(row("=", line, whole(line.runs, false)));
+      }
+      box.append(same);
+      continue;
+    }
+    const ops = bl.ops;
     for (let k = 0; k < ops.length; ) {
       const op = ops[k]!;
       if (op.t === "=") {
@@ -221,6 +230,6 @@ export const renderRichDiff = (before: string, after: string): HTMLElement => {
       dels.forEach((l, p) => box.append(row("-", l, delParts[p]!)));
       adds.forEach((l, p) => box.append(row("+", l, addParts[p]!)));
     }
-  });
+  }
   return box;
 };
