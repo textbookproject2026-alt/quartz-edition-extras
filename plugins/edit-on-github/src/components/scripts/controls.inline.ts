@@ -40,6 +40,7 @@ import { closeIfOpen as closeEditorIfOpen, EDIT_HASH, EDITOR_STATE, openEditor, 
 import { closeIfOpen as closeHistoryIfOpen, openHistory } from "./history";
 import { mountBookHistory } from "./book-history";
 import { sendWrite, WAIT_MESSAGE } from "./write";
+import { followUrl } from "./timeline";
 import { apa, attribution, bibtex, cslJson, licenceName, plain, readCiteData, ris, scoped, STYLES } from "./cite";
 import type { CiteData, Run, Scope, StyleKey } from "./cite";
 
@@ -439,6 +440,18 @@ const openSuggestModal: OpenModal | null = (() => {
         const p = document.createElement("p");
         p.textContent = message;
         pane.append(t, p);
+        // The follow link (8a): this item's entry on the book's /history, which shows
+        // its state now and, once the authors decide, their decision and reason.
+        const follow = followUrl(link, location.origin);
+        if (follow) {
+          const a = document.createElement("a");
+          a.href = follow;
+          a.textContent = follow;
+          const f = document.createElement("p");
+          f.className = "tb-sg-follow";
+          f.append("Follow your suggestion: ", a);
+          pane.append(f);
+        }
         if (link) {
           const a = document.createElement("a");
           a.href = link;
@@ -602,7 +615,7 @@ const openSuggestModal: OpenModal | null = (() => {
             const issueUrl = (data as { issueUrl?: unknown } | null)?.issueUrl;
             showPane(
               "Thank you — suggestion sent",
-              "A maintainer will pick this up. You can follow it here:",
+              "A maintainer will pick this up. Keep this link to see what they decide:",
               typeof issueUrl === "string" ? issueUrl : null,
             );
           })

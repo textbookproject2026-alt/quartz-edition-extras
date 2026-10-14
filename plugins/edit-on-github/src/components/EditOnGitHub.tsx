@@ -902,6 +902,9 @@ article td, article th { line-height: 1.45; vertical-align: top; }
 .tb-bh-proposed { border-style: dashed; }
 .tb-bh-drafts { background: var(--tb-bg-soft, var(--lightgray)); }
 .tb-bh-published { border-color: var(--tb-accent, var(--secondary)); color: var(--tb-accent, var(--secondary)); }
+.tb-bh-item { scroll-margin-top: 5rem; }
+.tb-bh-item:target, .tb-bh-item:focus { outline: 2px solid var(--tb-accent, var(--secondary)); outline-offset: 4px; border-radius: 2px; }
+.tb-bh-note { font-family: var(--tb-font-ui, sans-serif); font-size: 0.85rem; }
 .tb-dialog {
   box-sizing: border-box;
   width: min(34rem, calc(100vw - 2rem));

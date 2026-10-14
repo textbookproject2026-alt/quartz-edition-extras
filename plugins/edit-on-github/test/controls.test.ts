@@ -386,7 +386,11 @@ describe("Suggest an edit", () => {
       path: "chapters/chapter-03.md",
       website: "",
     });
-    expect($<HTMLAnchorElement>(w, ".tb-sg-pane a").href).toBe("https://github.com/o/r/issues/7");
+    // The follow link (8a) first, to the item's entry on the book's /history; then GitHub.
+    const follow = $<HTMLAnchorElement>(w, ".tb-sg-follow a");
+    expect(follow.href).toMatch(/\/history#issue-7$/);
+    expect($<HTMLElement>(w, ".tb-sg-follow").textContent).toBe(`Follow your suggestion: ${follow.href}`);
+    expect($<HTMLAnchorElement>(w, ".tb-sg-pane p:not(.tb-sg-follow) a").href).toBe("https://github.com/o/r/issues/7");
   });
 
   it("shows userMessage as capped text, never `error`, and keeps the draft", async () => {

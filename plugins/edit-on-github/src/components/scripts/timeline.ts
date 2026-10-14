@@ -16,6 +16,8 @@ export interface Entry {
   role: Role | null;
   summary: string;
   pr?: number;
+  /** An accepted reader suggestion's issue (its #issue-<n> anchor). */
+  issue?: number;
   /** The page's path in that commit, where it has moved since. */
   path?: string;
 }
@@ -188,3 +190,43 @@ export const matchesFilter = (
   (!f.page || row.page === f.page) &&
   (!f.person || row.who.toLowerCase() === f.person.toLowerCase()) &&
   (!f.state || row.state === f.state);
+
+/** A history entry's stable anchor: "pr-<n>" for a proposal (pull request), "issue-<n>" for a note or suggestion. */
+export const anchorOf = (kind: "edit" | "note" | "suggestion" | "pr" | "issue", n: number): string =>
+  `${kind === "edit" || kind === "pr" ? "pr" : "issue"}-${n}`;
+
+/**
+ * The follow link a reader is given after sending (8a): the item's entry on the
+ * book's /history page, from its GitHub URL ("…/issues/12" -> "/history#issue-12",
+ * "…/pull/7" -> "/history#pr-7"). null for anything else.
+ */
+export const followUrl = (githubUrl: unknown, origin: string): string | null => {
+  const m = typeof githubUrl === "string" ? /^https:\/\/github\.com\/[^/]+\/[^/]+\/(issues|pull)\/(\d+)$/.exec(githubUrl) : null;
+  return m ? `${origin}/history#${anchorOf(m[1] === "pull" ? "pr" : "issue", Number(m[2]))}` : null;
+};
+
+/** mode=item's answer (the function), for an item the build hasn't drawn yet. */
+export interface ItemState {
+  number: number;
+  kind: "edit" | "note" | "suggestion";
+  url: string;
+  summary: string;
+  state: "open" | "closed";
+  created: string;
+  closed?: string | null;
+  merged?: boolean;
+  reason?: string | null;
+  accepted?: boolean;
+  who?: { name: string } | null;
+  files?: string[];
+}
+
+/** Which of the four states an item is in from mode=item: accepted ones are being edited until the next build. */
+export const itemState = (it: ItemState): "proposed" | "drafts" | "declined" =>
+  it.state === "open"
+    ? it.accepted
+      ? "drafts"
+      : "proposed"
+    : it.merged || it.reason === "completed"
+      ? "drafts"
+      : "declined";
