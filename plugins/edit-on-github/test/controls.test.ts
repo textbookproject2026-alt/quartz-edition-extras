@@ -145,9 +145,11 @@ describe("a note to the authors on one paragraph", () => {
       name: "A Reader",
       path: "chapters/chapter-03.md",
       paragraph: 2,
-      quote,
+      // A suggestion keeps the whole text it started from, not the shown quote.
+      quote: LONG,
       page: "/chapters/chapter-03",
     });
+    expect(quote).not.toBe(LONG);
     expect(posts[0]).not.toHaveProperty("identity");
     expect(w.calls.map((c) => c[0])).toContain("section_note_opened");
     // A short paragraph is quoted whole.
@@ -193,6 +195,8 @@ describe("a note to the authors on one paragraph", () => {
       paragraph: 2,
       page: "/chapters/chapter-03",
     });
+    // A note keeps only the start of the paragraph.
+    expect(posts[0]).toMatchObject({ quote: expect.stringMatching(/…$/) });
   });
 
   it("changed, with a comment: the edited text, the comment as the reason", async () => {
@@ -203,7 +207,12 @@ describe("a note to the authors on one paragraph", () => {
     $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "Typo.";
     $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
     await tick();
-    expect(posts[0]).toMatchObject({ suggestion: "Short two.", reasoning: "Typo.", paragraph: 1 });
+    expect(posts[0]).toMatchObject({
+      suggestion: "Short two.",
+      reasoning: "Typo.",
+      paragraph: 1,
+      quote: "Short one.",
+    });
   });
 
   it("from Contribute with text selected in a paragraph: the box starts with the selection", () => {
@@ -224,7 +233,9 @@ describe("a note to the authors on one paragraph", () => {
     $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
     expect($<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value).toBe("");
     expect($<HTMLButtonElement>(w, "#tb-suggest-overlay button.tb-sg-btn").disabled).toBe(true);
-    expect($(w, "#tb-sg-why-not").textContent).toBe("Describe the change, or add a comment, to send.");
+    expect($(w, "#tb-sg-why-not").textContent).toBe(
+      "Describe the change, or add a comment, to send.",
+    );
   });
 
   it("signed in with the editor's GitHub sign-in: the name filled in, and the sign-in sent", async () => {
@@ -389,8 +400,12 @@ describe("Suggest an edit", () => {
     // The follow link (8a) first, to the item's entry on the book's /history; then GitHub.
     const follow = $<HTMLAnchorElement>(w, ".tb-sg-follow a");
     expect(follow.href).toMatch(/\/history#issue-7$/);
-    expect($<HTMLElement>(w, ".tb-sg-follow").textContent).toBe(`Follow your suggestion: ${follow.href}`);
-    expect($<HTMLAnchorElement>(w, ".tb-sg-pane p:not(.tb-sg-follow) a").href).toBe("https://github.com/o/r/issues/7");
+    expect($<HTMLElement>(w, ".tb-sg-follow").textContent).toBe(
+      `Follow your suggestion: ${follow.href}`,
+    );
+    expect($<HTMLAnchorElement>(w, ".tb-sg-pane p:not(.tb-sg-follow) a").href).toBe(
+      "https://github.com/o/r/issues/7",
+    );
   });
 
   it("shows userMessage as capped text, never `error`, and keeps the draft", async () => {
@@ -839,13 +854,19 @@ describe("the History panel", () => {
     const noscript = (html: string) => /<noscript>(.*?)<\/noscript>/.exec(html)?.[1] ?? "";
     const props = (allFiles: unknown[]) =>
       ({
-        fileData: { relativePath: "chapters/chapter-03.md", filePath: "x", slug: "chapters/chapter-03" },
+        fileData: {
+          relativePath: "chapters/chapter-03.md",
+          filePath: "x",
+          slug: "chapters/chapter-03",
+        },
         allFiles,
       }) as unknown as QuartzComponentProps;
     const html = renderToString(EditOnGitHub(withHistory)(props([{ slug: "history" }])) as never);
     expect(noscript(html)).toBe('<a class="tb-hdr-plain" href="../history">Book history</a>');
     // No /history page: nothing, rather than a GitHub link.
-    expect(renderToString(EditOnGitHub(withHistory)(props([])) as never)).not.toContain("<noscript>");
+    expect(renderToString(EditOnGitHub(withHistory)(props([])) as never)).not.toContain(
+      "<noscript>",
+    );
   });
 
   const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });

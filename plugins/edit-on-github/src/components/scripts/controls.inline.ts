@@ -36,12 +36,29 @@
 // The "nav" listener lives as long as the page, not a route, and every other
 // listener sits on an element a route swap replaces, so none needs addCleanup.
 /* eslint-disable no-restricted-syntax */
-import { closeIfOpen as closeEditorIfOpen, EDIT_HASH, EDITOR_STATE, openEditor, PENCIL } from "./editor";
+import {
+  closeIfOpen as closeEditorIfOpen,
+  EDIT_HASH,
+  EDITOR_STATE,
+  openEditor,
+  PENCIL,
+} from "./editor";
 import { closeIfOpen as closeHistoryIfOpen, openHistory } from "./history";
 import { mountBookHistory } from "./book-history";
 import { sendWrite, WAIT_MESSAGE } from "./write";
 import { followUrl } from "./timeline";
-import { apa, attribution, bibtex, cslJson, licenceName, plain, readCiteData, ris, scoped, STYLES } from "./cite";
+import {
+  apa,
+  attribution,
+  bibtex,
+  cslJson,
+  licenceName,
+  plain,
+  readCiteData,
+  ris,
+  scoped,
+  STYLES,
+} from "./cite";
 import type { CiteData, Run, Scope, StyleKey } from "./cite";
 
 type Tracker = (name: string, props?: Record<string, string>) => void;
@@ -61,7 +78,12 @@ const track: Tracker = (name, props) => {
  * the form was opened from, for the reader to edit in place.
  */
 type About = { paragraph: number; quote: string; page: string; text?: string };
-type OpenModal = ((endpoint: string, repoPath: string, trigger: HTMLElement, about?: About) => void) & {
+type OpenModal = ((
+  endpoint: string,
+  repoPath: string,
+  trigger: HTMLElement,
+  about?: About,
+) => void) & {
   closeIfOpen: () => void;
 };
 
@@ -73,7 +95,10 @@ type OpenModal = ((endpoint: string, repoPath: string, trigger: HTMLElement, abo
 const signedIn = (): { token: string; login: string; name: string } | null => {
   try {
     const id = JSON.parse(sessionStorage.getItem("tb-gh-identity") ?? "null") as {
-      token?: unknown; login?: unknown; name?: unknown; at?: unknown;
+      token?: unknown;
+      login?: unknown;
+      name?: unknown;
+      at?: unknown;
     } | null;
     if (!id || typeof id.token !== "string" || typeof id.login !== "string") return null;
     if (typeof id.at !== "number" || Date.now() - id.at > 8 * 60 * 60 * 1000) return null;
@@ -249,7 +274,9 @@ const openSuggestModal: OpenModal | null = (() => {
       head.className = "tb-sg-head";
       const title = document.createElement("h2");
       title.id = TITLE_ID;
-      title.textContent = about ? `Note to the authors about ¶${about.paragraph}` : "Suggest an edit";
+      title.textContent = about
+        ? `Note to the authors about ¶${about.paragraph}`
+        : "Suggest an edit";
       const closeBtn = document.createElement("button");
       closeBtn.type = "button";
       closeBtn.className = "tb-sg-close";
@@ -283,7 +310,8 @@ const openSuggestModal: OpenModal | null = (() => {
       const credit = document.createElement("p");
       credit.className = "tb-sg-count";
       credit.id = "tb-sg-credit";
-      credit.textContent = "If the authors accept your suggestion, you'll be credited by this name.";
+      credit.textContent =
+        "If the authors accept your suggestion, you'll be credited by this name.";
       nameField.wrap.append(credit);
       nameField.hintId = credit.id;
       describe(nameField);
@@ -297,7 +325,6 @@ const openSuggestModal: OpenModal | null = (() => {
         nameField.hintId = `${credit.id} ${hint.id}`;
         describe(nameField);
       }
-
 
       // Readonly, not disabled: focusable and copyable, so the reader sees
       // exactly which page they are editing.
@@ -381,7 +408,8 @@ const openSuggestModal: OpenModal | null = (() => {
       cancelBtn.textContent = "Cancel";
       actions.append(submitBtn, cancelBtn);
       // The text as it came, with no comment, is nothing to send: Send waits, saying why.
-      const same = () => suggestion.value.replace(/\s+/g, " ").trim() === original.replace(/\s+/g, " ").trim();
+      const same = () =>
+        suggestion.value.replace(/\s+/g, " ").trim() === original.replace(/\s+/g, " ").trim();
       const empty = () => same() && !reasoning.value.trim();
       const whyNot = document.createElement("p");
       whyNot.className = "tb-sg-count";
@@ -572,7 +600,14 @@ const openSuggestModal: OpenModal | null = (() => {
           reasoning: note ? "" : reasoning.value.trim(),
           path: repoPath,
           website: hp.value,
-          ...(about ? { paragraph: about.paragraph, quote: about.quote, page: about.page } : {}),
+          // A suggestion keeps the whole text it started from, for the author's word-by-word view.
+          ...(about
+            ? {
+                paragraph: about.paragraph,
+                quote: !note && original ? original : about.quote,
+                page: about.page,
+              }
+            : {}),
           ...(who ? { identity: who.token } : {}),
         };
 
@@ -739,7 +774,9 @@ const selectedAbout = (): About | undefined => {
   const sel = window.getSelection?.();
   const text = sel && !sel.isCollapsed ? sel.toString().replace(/\s+/g, " ").trim() : "";
   const node = text ? sel!.anchorNode : null;
-  const p = (node instanceof Element ? node : node?.parentElement)?.closest<HTMLElement>("article [data-pnum]");
+  const p = (node instanceof Element ? node : node?.parentElement)?.closest<HTMLElement>(
+    "article [data-pnum]",
+  );
   if (!p || p.closest(".popover")) return undefined;
   const page = location.pathname.replace(/\.html$/, "").replace(/\/index$/, "/");
   return { paragraph: Number(p.dataset.pnum), quote: quoteOf(p), page, text };
@@ -773,7 +810,9 @@ const armSectionNotes = (open: (about: About, trigger: HTMLElement) => void, how
     b.querySelector("path")!.setAttribute("d", NOTE_ICON);
     b.addEventListener("click", (e) => {
       e.stopPropagation();
-      firstTime(b, howTo, `Continue: note on ¶${n}`, () => open({ paragraph: n, quote: quoteOf(p), page, text: textOf(p) }, b));
+      firstTime(b, howTo, `Continue: note on ¶${n}`, () =>
+        open({ paragraph: n, quote: quoteOf(p), page, text: textOf(p) }, b),
+      );
     });
     p.append(b);
   }
@@ -825,7 +864,8 @@ const place = (button: HTMLElement, panel: HTMLElement) => {
     s.right = "auto";
     s.width = `${Math.min(h.width, vw)}px`;
   };
-  if (hdr.classList.contains("tb-hdr-icons") || hdr.getBoundingClientRect().width <= 640) return across();
+  if (hdr.classList.contains("tb-hdr-icons") || hdr.getBoundingClientRect().width <= 640)
+    return across();
   s.left = "auto";
   s.right = `${Math.max(vw - b.right, 0)}px`;
   s.width = "";
@@ -870,7 +910,9 @@ const disclosure = (
       show(button, panel);
       button.setAttribute("aria-expanded", "true");
       openNow.add(entry);
-      const first = isMenu ? items()[0] : (panel.querySelector<HTMLElement>("input:checked") ?? items()[0]);
+      const first = isMenu
+        ? items()[0]
+        : (panel.querySelector<HTMLElement>("input:checked") ?? items()[0]);
       first?.focus();
     },
     close(focusButton = true) {
@@ -941,7 +983,12 @@ const el = <K extends keyof HTMLElementTagNameMap>(
 /** A modal <dialog>: Escape and Close shut it, and focus goes back to `trigger`. */
 const dialog = (label: string, trigger: HTMLElement, ...body: Node[]) => {
   const d = el("dialog", { class: "tb-dialog", "aria-label": label });
-  const x = el("button", { type: "button", class: "tb-dialog-x", "aria-label": "Close", text: "×" });
+  const x = el("button", {
+    type: "button",
+    class: "tb-dialog-x",
+    "aria-label": "Close",
+    text: "×",
+  });
   x.addEventListener("click", () => d.close());
   d.append(x, ...body);
   let after: (() => void) | null = null;
@@ -986,7 +1033,8 @@ const copy = (text: string, done: () => void, failed: () => void) => {
     ta.remove();
     return ok;
   };
-  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, () => (legacy() ? done() : failed()));
+  if (navigator.clipboard?.writeText)
+    navigator.clipboard.writeText(text).then(done, () => (legacy() ? done() : failed()));
   else if (legacy()) done();
   else failed();
 };
@@ -1046,7 +1094,8 @@ const ROUTES = {
     link: ["Create a Hypothes.is account ↗", "https://hypothes.is/signup"],
     // Hypothes.is keeps you signed in on its own site: logging out in the
     // sidebar alone signs the same person straight back in.
-    switchNote: "Signed in as someone else? Use Switch account first: logging out in the sidebar alone keeps you signed in.",
+    switchNote:
+      "Signed in as someone else? Use Switch account first: logging out in the sidebar alone keeps you signed in.",
   },
   comment: {
     title: "Public comment",
@@ -1057,7 +1106,8 @@ const ROUTES = {
     link: ["Create a Hypothes.is account ↗", "https://hypothes.is/signup"],
     // Hypothes.is keeps you signed in on its own site: logging out in the
     // sidebar alone signs the same person straight back in.
-    switchNote: "Signed in as someone else? Use Switch account first: logging out in the sidebar alone keeps you signed in.",
+    switchNote:
+      "Signed in as someone else? Use Switch account first: logging out in the sidebar alone keeps you signed in.",
   },
 } as const;
 const NUMBER = ["no", "one", "two", "three"];
@@ -1069,14 +1119,32 @@ const SWITCH_ACCOUNT = "https://hypothes.is/logout";
  * it needs. With `then`, it ends with a button that carries on to what the
  * reader clicked.
  */
-const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; run: () => void }) => {
+const explain = (
+  trigger: HTMLElement,
+  howTo: string,
+  then?: { label: string; run: () => void },
+) => {
   explainedHere = true;
   try {
     localStorage.setItem(EXPLAINED, "1");
   } catch {
     /* shown again on another page, then: harmless */
   }
-  const route = ({ title, what, who, account, link, switchNote }: { title: string; what: string; who: string; account: string; link?: readonly [string, string]; switchNote?: string }) =>
+  const route = ({
+    title,
+    what,
+    who,
+    account,
+    link,
+    switchNote,
+  }: {
+    title: string;
+    what: string;
+    who: string;
+    account: string;
+    link?: readonly [string, string];
+    switchNote?: string;
+  }) =>
     el(
       "section",
       { class: "tb-route" },
@@ -1089,14 +1157,21 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
         el("strong", { text: "Account: " }),
         account,
         link ? " " : null,
-        link ? el("a", { href: link[1], target: "_blank", rel: "noopener noreferrer", text: link[0] }) : null,
+        link
+          ? el("a", { href: link[1], target: "_blank", rel: "noopener noreferrer", text: link[0] })
+          : null,
       ),
       switchNote
         ? el(
             "p",
             {},
             `${switchNote} `,
-            el("a", { href: SWITCH_ACCOUNT, target: "_blank", rel: "noopener noreferrer", text: "Switch account ↗" }),
+            el("a", {
+              href: SWITCH_ACCOUNT,
+              target: "_blank",
+              rel: "noopener noreferrer",
+              text: "Switch account ↗",
+            }),
           )
         : null,
     );
@@ -1124,7 +1199,17 @@ const explain = (trigger: HTMLElement, howTo: string, then?: { label: string; ru
     ...names.map((n) => route(ROUTES[n])),
     el("p", {}, el("a", { href: howTo, text: "More about commenting and contributing" })),
     ...(header?.dataset.credits
-      ? [el("p", {}, el("a", { href: `${header.dataset.credits}#how-credit-works`, text: "How credit works" }), ": who is named as an author, an editor or a contributor.")]
+      ? [
+          el(
+            "p",
+            {},
+            el("a", {
+              href: `${header.dataset.credits}#how-credit-works`,
+              text: "How credit works",
+            }),
+            ": who is named as an author, an editor or a contributor.",
+          ),
+        ]
       : []),
     actions,
   );
@@ -1164,7 +1249,8 @@ const paragraphInView = (): number => {
   const id = decodeURIComponent(location.hash.slice(1));
   const target = id ? paras.find((p) => p.id === id) : undefined;
   if (target) return Number(target.dataset.pnum);
-  const top = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tb-hdr-bottom")) || 0;
+  const top =
+    parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tb-hdr-bottom")) || 0;
   const seen = paras.find((p) => {
     const r = p.getBoundingClientRect();
     return r.bottom > top + 8 && r.top < window.innerHeight;
@@ -1187,7 +1273,12 @@ const save = (text: string, type: string, name: string) => {
  * download. Opens on the paragraph when the address names one, else the chapter.
  * The reader's last style is kept for the next time.
  */
-const citeDialog = (data: CiteData, header: HTMLElement, trigger: HTMLElement, attributionOf: () => Run[]) => {
+const citeDialog = (
+  data: CiteData,
+  header: HTMLElement,
+  trigger: HTMLElement,
+  attributionOf: () => Run[],
+) => {
   const para = data.chapter ? paragraphInView() : 0;
   const whole = (header.querySelector(".tb-type-badge")?.textContent ?? "book").toLowerCase();
   const scopes: [Scope, string][] = [
@@ -1195,7 +1286,9 @@ const citeDialog = (data: CiteData, header: HTMLElement, trigger: HTMLElement, a
     ...(data.chapter ? [["chapter", "This page"] as [Scope, string]] : []),
     ["book", `Whole ${whole}`],
   ];
-  const named = /^#p\d+$/.test(location.hash) || document.getElementById(decodeURIComponent(location.hash.slice(1)))?.hasAttribute("data-pnum");
+  const named =
+    /^#p\d+$/.test(location.hash) ||
+    document.getElementById(decodeURIComponent(location.hash.slice(1)))?.hasAttribute("data-pnum");
   let scope: Scope = para && named ? "paragraph" : data.chapter ? "chapter" : "book";
   let style: StyleKey = "apa";
   try {
@@ -1212,7 +1305,13 @@ const citeDialog = (data: CiteData, header: HTMLElement, trigger: HTMLElement, a
     text.textContent = "";
     for (const r of now().styles[style]) text.append(r.italic ? el("i", { text: r.text }) : r.text);
   };
-  const seg = (name: string, legend: string, options: [string, string][], get: () => string, set: (v: string) => void) => {
+  const seg = (
+    name: string,
+    legend: string,
+    options: [string, string][],
+    get: () => string,
+    set: (v: string) => void,
+  ) => {
     const box = el("div", { class: "tb-seg" });
     for (const [value, label] of options) {
       const input = el("input", { type: "radio", name, value });
@@ -1227,21 +1326,34 @@ const citeDialog = (data: CiteData, header: HTMLElement, trigger: HTMLElement, a
   };
   const copyBtn = el("button", { type: "button", class: "tb-btn", text: "Copy" });
   copyBtn.addEventListener("click", () => {
-    copy(plain(now().styles[style]), () => (said.textContent = "Copied"), () => (said.textContent = "Couldn't copy: select the text instead"));
+    copy(
+      plain(now().styles[style]),
+      () => (said.textContent = "Copied"),
+      () => (said.textContent = "Couldn't copy: select the text instead"),
+    );
     track("citation_copied", { style, scope });
   });
-  const file = (data.chapter?.URL ?? data.book.URL).replace(/\/$/, "").split("/").pop() || "citation";
+  const file =
+    (data.chapter?.URL ?? data.book.URL).replace(/\/$/, "").split("/").pop() || "citation";
   const formats: [string, string, string, (i: ReturnType<typeof now>["item"]) => string][] = [
     ["BibTeX", "bib", "application/x-bibtex", bibtex],
     ["RIS", "ris", "application/x-research-info-systems", ris],
     ["CSL-JSON", "json", "application/vnd.citationstyles.csl+json", cslJson],
   ];
-  const downloads = el("div", { class: "tb-dialog-row tb-cite-files" }, el("span", { class: "tb-cite-said", text: "Download" }));
+  const downloads = el(
+    "div",
+    { class: "tb-dialog-row tb-cite-files" },
+    el("span", { class: "tb-cite-said", text: "Download" }),
+  );
   for (const [label, ext, type, make] of formats) {
     const b = el("button", { type: "button", class: "tb-btn", text: label });
     b.addEventListener("click", () => {
       const { item } = now();
-      save(make(item), type, `${scope === "book" ? "book" : file}${scope === "paragraph" ? `-p${para}` : ""}.${ext}`);
+      save(
+        make(item),
+        type,
+        `${scope === "book" ? "book" : file}${scope === "paragraph" ? `-p${para}` : ""}.${ext}`,
+      );
       track("citation_downloaded", { format: ext, scope });
     });
     downloads.append(b);
@@ -1254,15 +1366,27 @@ const citeDialog = (data: CiteData, header: HTMLElement, trigger: HTMLElement, a
     "Cite",
     trigger,
     el("h2", { text: "Cite" }),
-    seg("tb-cite-scope", "What", scopes, () => scope, (v) => (scope = v as Scope)),
-    seg("tb-cite-style", "Style", STYLES, () => style, (v) => {
-      style = v as StyleKey;
-      try {
-        localStorage.setItem("tb-cite-style", style);
-      } catch {
-        /* not kept */
-      }
-    }),
+    seg(
+      "tb-cite-scope",
+      "What",
+      scopes,
+      () => scope,
+      (v) => (scope = v as Scope),
+    ),
+    seg(
+      "tb-cite-style",
+      "Style",
+      STYLES,
+      () => style,
+      (v) => {
+        style = v as StyleKey;
+        try {
+          localStorage.setItem("tb-cite-style", style);
+        } catch {
+          /* not kept */
+        }
+      },
+    ),
     text,
     el("div", { class: "tb-dialog-row" }, said, copyBtn),
     downloads,
@@ -1289,9 +1413,19 @@ const cite = (header: HTMLElement, trigger: HTMLElement) => {
     const said = el("span", { class: "tb-cite-said", role: "status" });
     const b = el("button", { type: "button", class: "tb-btn", text: "Copy" });
     b.addEventListener("click", () =>
-      copy(plain(rs), () => (said.textContent = "Copied"), () => (said.textContent = "Couldn't copy: select the text instead")),
+      copy(
+        plain(rs),
+        () => (said.textContent = "Copied"),
+        () => (said.textContent = "Couldn't copy: select the text instead"),
+      ),
     );
-    return el("section", {}, el("h3", { text: title }), runs(rs), el("div", { class: "tb-dialog-row" }, said, b));
+    return el(
+      "section",
+      {},
+      el("h3", { text: title }),
+      runs(rs),
+      el("div", { class: "tb-dialog-row" }, said, b),
+    );
   };
   const data = readCiteData(document);
   if (data) return citeDialog(data, header, trigger, () => attribution(input));
@@ -1321,7 +1455,12 @@ const readDownloads = (): Downloads | null => {
 };
 
 /** Download: this chapter (PDF, EPUB), the whole book (PDF, EPUB, ODT), the Markdown source. */
-const downloads = (d: Downloads, header: HTMLElement, trigger: HTMLElement, markdown: () => void) => {
+const downloads = (
+  d: Downloads,
+  header: HTMLElement,
+  trigger: HTMLElement,
+  markdown: () => void,
+) => {
   const LABELS: [keyof Files, string][] = [
     ["pdf", "PDF"],
     ["epub", "EPUB"],
@@ -1334,7 +1473,9 @@ const downloads = (d: Downloads, header: HTMLElement, trigger: HTMLElement, mark
       a.addEventListener("click", () => track("download", { format: ext, scope }));
       return a;
     });
-    return links.length ? [el("h3", { text: title }), el("div", { class: "tb-dialog-row tb-cite-files" }, ...links)] : [];
+    return links.length
+      ? [el("h3", { text: title }), el("div", { class: "tb-dialog-row tb-cite-files" }, ...links)]
+      : [];
   };
   const md = el("button", { type: "button", class: "tb-btn", text: "Markdown" });
   md.addEventListener("click", markdown);
@@ -1363,16 +1504,49 @@ type Annotations = {
 
 const appearance = (panel: HTMLElement, prefs: Prefs, annotations: Annotations | undefined) => {
   const groups: [string, string, [string, string][]][] = [
-    ["text", "Text size", [["small", "Small"], ["standard", "Standard"], ["large", "Large"]]],
-    ["width", "Width", [["standard", "Standard"], ["wide", "Wide"]]],
-    ["theme", "Theme", [["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]]],
-    ["numbers", "Paragraph numbers", [["on", "On"], ["off", "Off"]]],
+    [
+      "text",
+      "Text size",
+      [
+        ["small", "Small"],
+        ["standard", "Standard"],
+        ["large", "Large"],
+      ],
+    ],
+    [
+      "width",
+      "Width",
+      [
+        ["standard", "Standard"],
+        ["wide", "Wide"],
+      ],
+    ],
+    [
+      "theme",
+      "Theme",
+      [
+        ["auto", "Auto"],
+        ["light", "Light"],
+        ["dark", "Dark"],
+      ],
+    ],
+    [
+      "numbers",
+      "Paragraph numbers",
+      [
+        ["on", "On"],
+        ["off", "Off"],
+      ],
+    ],
   ];
   if (annotations)
     groups.push([
       "annotations",
       annotations.groupsOnly ? "Margin comments" : "Public annotations",
-      [["on", "On"], ["off", "Off"]],
+      [
+        ["on", "On"],
+        ["off", "Off"],
+      ],
     ]);
   const note = el("p", { class: "tb-panel-note", role: "status" });
   for (const [name, legend, options] of groups) {
@@ -1387,7 +1561,10 @@ const appearance = (panel: HTMLElement, prefs: Prefs, annotations: Annotations |
           else if (annotations.disable().reload) {
             const reload = el("button", { type: "button", class: "tb-btn", text: "Reload" });
             reload.addEventListener("click", () => location.reload());
-            note.append("Highlights hidden. The annotation tab goes away when the page reloads.", reload);
+            note.append(
+              "Highlights hidden. The annotation tab goes away when the page reloads.",
+              reload,
+            );
           }
           return;
         }
@@ -1435,8 +1612,9 @@ const widthRow = (panel: HTMLElement, row: HTMLElement) => {
 
 /** The width at and below which the explorer is a drawer (edition-integrations' breakpointBand). */
 const narrow = () =>
-  window.matchMedia(`(max-width: ${(window as { __tbLayout?: { narrow?: string } }).__tbLayout?.narrow ?? "800px"})`)
-    .matches;
+  window.matchMedia(
+    `(max-width: ${(window as { __tbLayout?: { narrow?: string } }).__tbLayout?.narrow ?? "800px"})`,
+  ).matches;
 
 /**
  * The header row's height and bottom edge, for what opens below it on a narrow
@@ -1453,7 +1631,7 @@ const headerEdges = (row: HTMLElement) => {
     s.setProperty("--tb-hdr-bottom", `${Math.max(0, Math.round(r.bottom))}px`);
   };
   const later = () => {
-    if (!queued) (queued = true), requestAnimationFrame(set);
+    if (!queued) ((queued = true), requestAnimationFrame(set));
   };
   set();
   window.addEventListener("scroll", later, { passive: true });
@@ -1561,7 +1739,9 @@ const fitHeader = (header: HTMLElement) => {
   const reader = header.querySelector<HTMLElement>("[data-tb-reader]");
   const readerItem = header.querySelector<HTMLElement>("[data-tb-reader-item]");
   const over = () => header.scrollWidth > header.clientWidth + 1;
-  const row = header.parentElement?.classList.contains("tb-header-slot") ? header.parentElement : null;
+  const row = header.parentElement?.classList.contains("tb-header-slot")
+    ? header.parentElement
+    : null;
   const logo = row?.querySelector(".home-link") ? row : null;
   const label = header.querySelector<HTMLElement>(".tb-hdr-label");
   const labelsShown = () => !!label && getComputedStyle(label).position !== "absolute";
@@ -1681,7 +1861,10 @@ const armHeader = (header: HTMLElement) => {
     const quartz = document.querySelector<HTMLButtonElement>(".sidebar .readermode");
     if (!reader || !item || !quartz) return;
     const sync = () =>
-      reader.setAttribute("aria-pressed", String(document.documentElement.getAttribute("reader-mode") === "on"));
+      reader.setAttribute(
+        "aria-pressed",
+        String(document.documentElement.getAttribute("reader-mode") === "on"),
+      );
     document.addEventListener("readermodechange", sync);
     reader.addEventListener("click", () => quartz.click());
     item.addEventListener("click", () => quartz.click());
@@ -1694,7 +1877,8 @@ const armHeader = (header: HTMLElement) => {
   const openAnnotations = () => {
     track("annotation_badge_clicked");
     void w.tbAnnotations!.open().then((ok) => {
-      if (!ok) status("Hypothes.is didn't load. A browser extension or the network may be blocking it.");
+      if (!ok)
+        status("Hypothes.is didn't load. A browser extension or the network may be blocking it.");
     });
   };
   each(() => {
@@ -1742,7 +1926,8 @@ const armHeader = (header: HTMLElement) => {
           explorer.querySelector<HTMLButtonElement>(".mobile-explorer")?.click();
         firstTime(annotate, howTo, "Continue: open annotations", openAnnotations);
       });
-      if (!annotate.querySelector(".tb-anno-count")) annotate.append(el("span", { class: "tb-anno-count" }));
+      if (!annotate.querySelector(".tb-anno-count"))
+        annotate.append(el("span", { class: "tb-anno-count" }));
       annotate.hidden = false;
     }
     const comment = $<HTMLButtonElement>("[data-tb-comment]");
@@ -1770,7 +1955,8 @@ const armHeader = (header: HTMLElement) => {
     const endpoint = suggestBtn?.dataset.endpoint;
     const suggest =
       suggestBtn && endpoint && openSuggestModal
-        ? () => openSuggestModal(endpoint, suggestBtn.dataset.path ?? "", contribute, selectedAbout())
+        ? () =>
+            openSuggestModal(endpoint, suggestBtn.dataset.path ?? "", contribute, selectedAbout())
         : undefined;
     const edit = $<HTMLAnchorElement>("a.edit-on-github");
     const editEndpoint = edit?.dataset.editEndpoint;
@@ -1783,7 +1969,12 @@ const armHeader = (header: HTMLElement) => {
       if (EDIT_HASH.test(location.hash)) {
         const hash = location.hash;
         const ours = (window.history.state as typeof EDITOR_STATE | null)?.tbEditor === true;
-        if (!ours) window.history.replaceState(window.history.state, "", location.pathname + location.search);
+        if (!ours)
+          window.history.replaceState(
+            window.history.state,
+            "",
+            location.pathname + location.search,
+          );
         openFromHash?.(hash, !ours);
       }
     } else edit?.addEventListener("click", () => track("edit_on_github_clicked"));
@@ -1792,7 +1983,8 @@ const armHeader = (header: HTMLElement) => {
       suggestBtn.hidden = false;
       // After the pencils, so each note sits just below its paragraph's pencil.
       armSectionNotes(
-        (about, trigger) => openSuggestModal!(endpoint!, suggestBtn.dataset.path ?? "", trigger, about),
+        (about, trigger) =>
+          openSuggestModal!(endpoint!, suggestBtn.dataset.path ?? "", trigger, about),
         howTo,
       );
     }
@@ -1817,7 +2009,8 @@ const armHeader = (header: HTMLElement) => {
     $("[data-tb-cite]")?.addEventListener("click", () => cite(header, more));
     $("[data-tb-print]")?.addEventListener("click", () => window.print());
     const history = $<HTMLAnchorElement>("a.tb-history-link");
-    if (history?.dataset.revisionEndpoint) armHistory(history, history.dataset.revisionEndpoint, more);
+    if (history?.dataset.revisionEndpoint)
+      armHistory(history, history.dataset.revisionEndpoint, more);
     const backlinks = $<HTMLButtonElement>("[data-tb-backlinks]");
     const box = document.querySelector<HTMLElement>(".backlinks");
     if (backlinks) {
@@ -1851,7 +2044,9 @@ const armHeader = (header: HTMLElement) => {
           setTimeout(() => URL.revokeObjectURL(url), 1000);
         })
         .catch(() => status("That didn't download just now. View source has the same file."));
-    download?.addEventListener("click", () => (files ? downloads(files, header, more, markdown) : markdown()));
+    download?.addEventListener("click", () =>
+      files ? downloads(files, header, more, markdown) : markdown(),
+    );
     more.hidden = false;
   });
 
@@ -1876,7 +2071,11 @@ const wire = () => {
       armHeader(header);
       const mount = document.querySelector<HTMLElement>("[data-tb-book-history]");
       if (mount && header.dataset.bookHistory)
-        void mountBookHistory(mount, header.dataset.bookHistory, header.dataset.revisionEndpoint ?? "").catch(() => {});
+        void mountBookHistory(
+          mount,
+          header.dataset.bookHistory,
+          header.dataset.revisionEndpoint ?? "",
+        ).catch(() => {});
     }
   } catch {
     /* the header stays as rendered: its links still go to GitHub */

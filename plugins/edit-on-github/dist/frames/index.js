@@ -2,7 +2,7 @@ import { createRequire } from 'module';
 
 createRequire(import.meta.url);
 
-// node_modules/preact/dist/preact.mjs
+// ../../../../../../../../../Users/alecgordon/Documents/textbook_project/quartz-edition-extras/plugins/edit-on-github/node_modules/preact/dist/preact.mjs
 var n;
 var l;
 var u;
