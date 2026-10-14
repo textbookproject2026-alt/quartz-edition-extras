@@ -49,6 +49,12 @@ interface Options {
     /** The page that explains the ways to contribute, relative to the site root. */
     howTo: string;
     /**
+     * The platform's Privacy page ("https://…/privacy"). Set, the suggest form and the
+     * editor say above Send that what is sent is published, linking its
+     * #contributions section. "" (the default) leaves the line out.
+     */
+    privacyUrl: string;
+    /**
      * The platform's Plausible dashboard (its shared link, or the public dashboard),
      * with `statsHost` the hostname this site is counted under. Both set: ⋯ gets
      * "Page statistics" (filtered to the page) and, on the front page, "Book

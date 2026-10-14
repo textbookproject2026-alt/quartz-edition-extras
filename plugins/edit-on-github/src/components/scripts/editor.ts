@@ -530,6 +530,7 @@ export const openEditor = (o: EditorOptions) => {
   titleF.wrap.append(
     el("p", { class: "tb-ed-muted tb-ed-hint", id: "tb-ed-msg-hint", text: "Signed in with GitHub, you're notified there when the authors accept or decline it." }),
   );
+  const privacy = document.querySelector<HTMLElement>(".tb-page-controls")?.dataset.privacy;
   const descF = field("tb-ed-desc", "Extended description", el("textarea", { rows: 3, maxlength: 5000 }), true);
   const who = el("div", { class: "tb-ed-who" });
   const what = el("div", { class: "tb-ed-what" }, icon(BRANCH));
@@ -545,6 +546,11 @@ export const openEditor = (o: EditorOptions) => {
     descF.wrap,
     who,
     what,
+    privacy
+      ? el("p", { class: "tb-ed-muted tb-ed-hint tb-ed-published" },
+          "Your proposal is published openly on GitHub, under the book's licence. ",
+          el("a", { href: privacy, text: "How contributions are handled" }))
+      : null,
     el("div", { class: "tb-ed-row" }, dlgCancel, dlgSubmit),
   );
   const result = el("div", { class: "tb-ed-result", tabindex: -1, hidden: true });

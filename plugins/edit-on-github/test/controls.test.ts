@@ -161,6 +161,30 @@ describe("a note to the authors on one paragraph", () => {
     expect($(w, ".tb-sg-quote").textContent).toBe("Short one.");
   });
 
+  it("above Send: what is sent is published, linking the Privacy page's section; without a privacy URL, no line", () => {
+    const { w } = notePage();
+    $<HTMLButtonElement>(w, "#p2 > button.tb-pnote").click();
+    expect(w.document.querySelector(".tb-sg-published")).toBeNull();
+    const w2 = new Window({
+      url: "https://book.example.org/chapters/chapter-03",
+    }) as unknown as Page;
+    w2.document.write(
+      `<html><head></head><body>${render({ ...withSuggest, privacyUrl: "https://example.org/privacy" })}<article><p data-pnum="1" id="p1">Short one.</p></article></body></html>`,
+    );
+    w2.localStorage.setItem("tb-contribute-explained", "1");
+    w2.eval(script);
+    w2.document.dispatchEvent(new w2.CustomEvent("nav"));
+    opened.push(w2);
+    $<HTMLButtonElement>(w2, "#p1 > button.tb-pnote").click();
+    const line = $(w2, ".tb-sg-published");
+    expect(line.textContent).toContain("published openly");
+    expect(line.querySelector("a")!.getAttribute("href")).toBe(
+      "https://example.org/privacy#contributions",
+    );
+    const send = $(w2, "#tb-suggest-overlay button.tb-sg-btn");
+    expect(line.compareDocumentPosition(send) & 4).toBeTruthy(); // above Send
+  });
+
   it("starts the box with the paragraph's text; unchanged, Send waits and says why", () => {
     const { w } = notePage();
     $<HTMLButtonElement>(w, "#p2 > button.tb-pnote").click();
