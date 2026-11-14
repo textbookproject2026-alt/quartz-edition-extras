@@ -279,6 +279,7 @@ describe("a note to the authors on one paragraph", () => {
     expect(posts[0]).toMatchObject({
       identity: "tok",
       paragraph: 2,
+      note: true,
       suggestion: "Which situation?",
       anchor: { start: 2, end: 2, exact: "situation", prefix: "Consider a ", suffix: " that will be familiar to anyone", text: LONG },
     });
@@ -291,7 +292,7 @@ describe("a note to the authors on one paragraph", () => {
     $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "Too short.";
     $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
     await tick();
-    expect(posts[0]).toMatchObject({ paragraph: 1, anchor: { start: 1, end: 1, exact: "Short one.", prefix: "", suffix: "", text: "Short one." } });
+    expect(posts[0]).toMatchObject({ paragraph: 1, note: true, anchor: { start: 1, end: 1, exact: "Short one.", prefix: "", suffix: "", text: "Short one." } });
   });
 });
 

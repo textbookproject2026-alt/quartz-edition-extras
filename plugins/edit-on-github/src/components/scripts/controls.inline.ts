@@ -633,6 +633,8 @@ const openSuggestModal: OpenModal | null = (() => {
                 quote: !note && original ? original : about.quote,
                 page: about.page,
                 ...(about.anchor ? { anchor: about.anchor } : {}),
+                // A comment on the words, not a change to them (suggest-edit: no "started from" text).
+                ...(note ? { note: true } : {}),
               }
             : {}),
           ...(who ? { identity: who.token } : {}),
