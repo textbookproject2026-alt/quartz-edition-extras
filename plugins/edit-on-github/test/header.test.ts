@@ -596,6 +596,22 @@ describe("F. the ⋯ menu", () => {
     expect(scopes).toEqual(["book"]);
   });
 
+  it("Cite this page under the title opens on the page, even when the address names a paragraph; hidden in print", () => {
+    const title = `<div class="page-header"><div class="popover-hint"><h1 class="article-title">Introduction</h1><p class="tb-byline">By B</p><p class="content-meta"><span>3 min read</span></p></div></div>`;
+    const w = page(title + render(), { explained: true });
+    w.history.replaceState(null, "", "#p1");
+    w.document.head.insertAdjacentHTML("beforeend", `<script type="application/json" id="tb-cite">${JSON.stringify(CITE)}</script>`);
+    const btn = $<HTMLButtonElement>(w, ".page-header .content-meta + button.tb-cite-page");
+    expect(btn.textContent).toBe("Cite this page");
+    btn.click();
+    const d = $(w, "dialog.tb-dialog");
+    const radios = Array.from(d.querySelectorAll<HTMLInputElement>("input[name=tb-cite-scope]"));
+    expect(radios.map((r) => r.value)).toEqual(["paragraph", "chapter", "book"]);
+    expect(radios.find((r) => r.checked)!.value).toBe("chapter");
+    expect(w.document.querySelectorAll(".tb-cite-page")).toHaveLength(1);
+    expect(EditOnGitHub({}).css).toMatch(/@media print \{[^}]*\.tb-cite-page[^}]*display: none/);
+  });
+
   it("Download, on a book with the builder's files: this page's PDF and EPUB, the book's three, and the Markdown", () => {
     const files = {
       chapter: { pdf: "/downloads/b-chapter-03-2026-10-08.pdf", epub: "/downloads/b-chapter-03-2026-10-08.epub" },
