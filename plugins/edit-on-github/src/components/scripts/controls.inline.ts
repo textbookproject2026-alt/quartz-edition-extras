@@ -1290,6 +1290,7 @@ const citeDialog = (
   header: HTMLElement,
   trigger: HTMLElement,
   attributionOf: () => Run[],
+  fromPage = false,
 ) => {
   const para = data.chapter ? paragraphInView() : 0;
   const whole = (header.querySelector(".tb-type-badge")?.textContent ?? "book").toLowerCase();
@@ -1301,7 +1302,8 @@ const citeDialog = (
   const named =
     /^#p\d+$/.test(location.hash) ||
     document.getElementById(decodeURIComponent(location.hash.slice(1)))?.hasAttribute("data-pnum");
-  let scope: Scope = para && named ? "paragraph" : data.chapter ? "chapter" : "book";
+  // "Cite this page" under the title opens on the page (the whole book on the index).
+  let scope: Scope = para && named && !fromPage ? "paragraph" : data.chapter ? "chapter" : "book";
   let style: StyleKey = "apa";
   try {
     const kept = localStorage.getItem("tb-cite-style") as StyleKey | null;
@@ -1407,7 +1409,7 @@ const citeDialog = (
   );
 };
 
-const cite = (header: HTMLElement, trigger: HTMLElement) => {
+const cite = (header: HTMLElement, trigger: HTMLElement, fromPage = false) => {
   const input = {
     authors: header.dataset.authors ?? "",
     bookTitle: header.dataset.bookTitle ?? "",
@@ -1440,7 +1442,7 @@ const cite = (header: HTMLElement, trigger: HTMLElement) => {
     );
   };
   const data = readCiteData(document);
-  if (data) return citeDialog(data, header, trigger, () => attribution(input));
+  if (data) return citeDialog(data, header, trigger, () => attribution(input), fromPage);
   const lic = licenceName(input.licence);
   dialog(
     "Cite this page",
@@ -2019,6 +2021,14 @@ const armHeader = (header: HTMLElement) => {
     if (!more || !menu) return;
     disclosure(more, menu, true);
     $("[data-tb-cite]")?.addEventListener("click", () => cite(header, more));
+    // The same dialog from a button under the page title (and byline).
+    const meta = document.querySelector(".page-header h1.article-title");
+    if ($("[data-tb-cite]") && meta && !document.querySelector(".tb-cite-page")) {
+      const at = meta.parentElement!.querySelector(".content-meta") ?? meta;
+      const btn = el("button", { type: "button", class: "tb-btn tb-cite-page", text: "Cite this page" });
+      btn.addEventListener("click", () => cite(header, btn, true));
+      at.after(btn);
+    }
     $("[data-tb-print]")?.addEventListener("click", () => window.print());
     const history = $<HTMLAnchorElement>("a.tb-history-link");
     if (history?.dataset.revisionEndpoint)

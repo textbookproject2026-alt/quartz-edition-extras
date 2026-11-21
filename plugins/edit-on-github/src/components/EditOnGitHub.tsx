@@ -949,7 +949,9 @@ article td, article th { line-height: 1.45; vertical-align: top; }
 .tb-btn:focus-visible, .tb-dialog-x:focus-visible, .tb-dialog a:focus-visible {
   outline: 2px solid var(--tb-accent, var(--secondary)); outline-offset: 2px;
 }
+.tb-cite-page { display: inline-block; margin: 0 0 0.75rem; font-size: 0.9rem; font-weight: 400; }
 @media print { .tb-header, .tb-dialog { display: none !important; } }
+@media print { .tb-cite-page { display: none !important; } }
 `;
   Component.afterDOMLoaded = controlsScript;
   // The "book" frame draws this in the page grid's header row (src/frames).
