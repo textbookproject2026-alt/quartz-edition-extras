@@ -97,6 +97,7 @@ type OpenModal = ((
   repoPath: string,
   trigger: HTMLElement,
   about?: About,
+  kind?: "note",
 ) => void) & {
   closeIfOpen: () => void;
 };
@@ -265,8 +266,18 @@ const openSuggestModal: OpenModal | null = (() => {
     // Only one modal at a time.
     let close: (() => void) | null = null;
 
-    const open = (endpoint: string, repoPath: string, trigger: HTMLElement, about?: About) => {
+    // kind "note" (Comment on this, the ¶ margin, Contribute's note): the words are
+    // quoted read-only and the comment is the one thing asked for. Without it, the
+    // suggest form as it always was.
+    const open = (
+      endpoint: string,
+      repoPath: string,
+      trigger: HTMLElement,
+      about?: About,
+      kind?: "note",
+    ) => {
       if (close) return;
+      const asNote = kind === "note" && Boolean(about);
       injectStyle();
 
       const previouslyFocused = trigger;
@@ -295,7 +306,7 @@ const openSuggestModal: OpenModal | null = (() => {
       closeBtn.type = "button";
       closeBtn.className = "tb-sg-close";
       closeBtn.textContent = "×";
-      closeBtn.setAttribute("aria-label", "Close suggestion form");
+      closeBtn.setAttribute("aria-label", asNote ? "Close note form" : "Close suggestion form");
       head.append(title, closeBtn);
 
       // A real <form>: Enter-to-submit comes free, and submit is the one entry point.
@@ -309,10 +320,10 @@ const openSuggestModal: OpenModal | null = (() => {
         : "Spotted something to fix or improve? Describe the change and it goes to the maintainers as an issue.";
       const quote = document.createElement("blockquote");
       quote.className = "tb-sg-quote";
-      quote.textContent = about?.quote ?? "";
-      // The box holds the text itself, so the quote would only repeat it.
-      const original = about?.text ?? "";
-      quote.hidden = !about?.quote || Boolean(original);
+      // A note quotes the words it is about (read-only); a suggestion's box holds them.
+      quote.textContent = asNote ? (about!.text ?? about!.quote) : (about?.quote ?? "");
+      const original = asNote ? "" : (about?.text ?? "");
+      quote.hidden = !quote.textContent || Boolean(original);
       const who = signedIn();
 
       const nameInput = document.createElement("input");
@@ -324,8 +335,9 @@ const openSuggestModal: OpenModal | null = (() => {
       const credit = document.createElement("p");
       credit.className = "tb-sg-count";
       credit.id = "tb-sg-credit";
-      credit.textContent =
-        "If the authors accept your suggestion, you'll be credited by this name.";
+      credit.textContent = asNote
+        ? "If the authors act on your note, you'll be credited by this name."
+        : "If the authors accept your suggestion, you'll be credited by this name.";
       nameField.wrap.append(credit);
       nameField.hintId = credit.id;
       describe(nameField);
@@ -377,7 +389,14 @@ const openSuggestModal: OpenModal | null = (() => {
       const reasoning = document.createElement("textarea");
       reasoning.name = "reasoning";
       reasoning.rows = 3;
-      const reasoningField = makeField("tb-sg-reasoning", "Comment", reasoning, true);
+      const reasoningField = asNote
+        ? makeField("tb-sg-reasoning", "Your comment", reasoning)
+        : makeField("tb-sg-reasoning", "Comment", reasoning, true);
+      if (asNote) {
+        reasoning.rows = 6;
+        reasoning.maxLength = MAX_SUGGESTION;
+        reasoning.addEventListener("input", () => clearInvalid(reasoningField));
+      }
 
       nameField.control.addEventListener("input", () => clearInvalid(nameField));
 
@@ -415,7 +434,8 @@ const openSuggestModal: OpenModal | null = (() => {
       const submitBtn = document.createElement("button");
       submitBtn.type = "submit";
       submitBtn.className = "tb-sg-btn";
-      submitBtn.textContent = "Send suggestion";
+      const SEND = asNote ? "Send comment" : "Send suggestion";
+      submitBtn.textContent = SEND;
       const cancelBtn = document.createElement("button");
       cancelBtn.type = "button";
       cancelBtn.className = "tb-sg-quiet";
@@ -424,13 +444,15 @@ const openSuggestModal: OpenModal | null = (() => {
       // The text as it came, with no comment, is nothing to send: Send waits, saying why.
       const same = () =>
         suggestion.value.replace(/\s+/g, " ").trim() === original.replace(/\s+/g, " ").trim();
-      const empty = () => same() && !reasoning.value.trim();
+      const empty = () => (asNote ? !reasoning.value.trim() : same() && !reasoning.value.trim());
       const whyNot = document.createElement("p");
       whyNot.className = "tb-sg-count";
       whyNot.id = "tb-sg-why-not";
-      whyNot.textContent = original
-        ? "Change the text above, or add a comment, to send."
-        : "Describe the change, or add a comment, to send.";
+      whyNot.textContent = asNote
+        ? "Write your comment to send."
+        : original
+          ? "Change the text above, or add a comment, to send."
+          : "Describe the change, or add a comment, to send.";
       submitBtn.setAttribute("aria-describedby", whyNot.id);
       const gate = () => {
         whyNot.hidden = !empty();
@@ -455,7 +477,7 @@ const openSuggestModal: OpenModal | null = (() => {
         quote,
         nameField.wrap,
         pathField.wrap,
-        suggestionField.wrap,
+        ...(asNote ? [] : [suggestionField.wrap]),
         reasoningField.wrap,
         hpWrap,
         whyNot,
@@ -594,9 +616,10 @@ const openSuggestModal: OpenModal | null = (() => {
           invalidate(f, msg);
           if (!firstBad) firstBad = f.control;
         };
-        for (const f of [nameField, suggestionField]) clearInvalid(f);
+        for (const f of [nameField, suggestionField, reasoningField]) clearInvalid(f);
         if (!nameInput.value.trim()) fail(nameField, "Please add your name.");
-        if (!suggestion.value.trim() && !same())
+        if (asNote && !reasoning.value.trim()) fail(reasoningField, "Please write your comment.");
+        else if (!asNote && !suggestion.value.trim() && !same())
           fail(suggestionField, "Please describe the change you would like.");
         else if (suggestion.value.length > MAX_SUGGESTION) {
           fail(
@@ -611,7 +634,7 @@ const openSuggestModal: OpenModal | null = (() => {
       const setBusy = (busy: boolean) => {
         submitting = busy;
         submitBtn.disabled = busy || empty();
-        submitBtn.textContent = busy ? "Sending…" : "Send suggestion";
+        submitBtn.textContent = busy ? "Sending…" : SEND;
       };
 
       form.addEventListener("submit", (e) => {
@@ -619,7 +642,7 @@ const openSuggestModal: OpenModal | null = (() => {
         if (submitting || empty() || !validate()) return;
 
         // The text unchanged with a comment: a note to the authors, the comment its text.
-        const note = same();
+        const note = asNote || same();
         const payload = {
           name: nameInput.value.trim(),
           suggestion: (note ? reasoning : suggestion).value.trim(),
@@ -678,7 +701,7 @@ const openSuggestModal: OpenModal | null = (() => {
             track("suggest_edit_submitted", { outcome: "success" });
             const issueUrl = (data as { issueUrl?: unknown } | null)?.issueUrl;
             showPane(
-              "Thank you — suggestion sent",
+              asNote ? "Thank you — comment sent" : "Thank you — suggestion sent",
               "A maintainer will pick this up. Keep this link to see what they decide:",
               typeof issueUrl === "string" ? issueUrl : null,
             );
@@ -711,9 +734,15 @@ const openSuggestModal: OpenModal | null = (() => {
 
     // A throw anywhere in open() can't escape into the click handler: the
     // half-built overlay is reaped and the page carries on.
-    const guarded = ((endpoint: string, repoPath: string, trigger: HTMLElement, about?: About) => {
+    const guarded = ((
+      endpoint: string,
+      repoPath: string,
+      trigger: HTMLElement,
+      about?: About,
+      kind?: "note",
+    ) => {
       try {
-        open(endpoint, repoPath, trigger, about);
+        open(endpoint, repoPath, trigger, about, kind);
       } catch {
         close = null;
         document.getElementById(OVERLAY_ID)?.remove();
@@ -925,7 +954,7 @@ const armSectionNotes = (open: (about: About, trigger: HTMLElement) => void, how
     b.addEventListener("click", (e) => {
       e.stopPropagation();
       firstTime(b, howTo, `Continue: note on ¶${n}`, () =>
-        open({ paragraph: n, quote: quoteOf(p), page, text: textOf(p), anchor: paragraphAnchor(p) }, b),
+        open({ paragraph: n, quote: quoteOf(p), page, anchor: paragraphAnchor(p) }, b),
       );
     });
     p.append(b);
@@ -2098,7 +2127,16 @@ const armHeader = (header: HTMLElement) => {
       // Every note points at words or a paragraph: with nothing selected, say how
       // (a page with no numbered paragraphs has nothing to point at).
       suggestBtn.addEventListener("click", () => {
-        if (selectedAbout() || !document.querySelector("article [data-pnum]")) return suggest();
+        const about = selectedAbout();
+        if (about)
+          return openSuggestModal!(
+            endpoint!,
+            suggestBtn.dataset.path ?? "",
+            contribute,
+            about,
+            "note",
+          );
+        if (!document.querySelector("article [data-pnum]")) return suggest();
         dialog(
           "Note to the authors",
           contribute,
@@ -2111,7 +2149,7 @@ const armHeader = (header: HTMLElement) => {
       suggestBtn.hidden = false;
       // After the pencils, so each note sits just below its paragraph's pencil.
       const note = (about: About, trigger: HTMLElement) =>
-        openSuggestModal!(endpoint!, suggestBtn.dataset.path ?? "", trigger, about);
+        openSuggestModal!(endpoint!, suggestBtn.dataset.path ?? "", trigger, about, "note");
       armSectionNotes(note, howTo);
       armSelectionComment(note);
     }
