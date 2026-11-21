@@ -1,6 +1,7 @@
 /* eslint-disable no-restricted-syntax -- test pages are closed after each test */
 import { afterEach, describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
+import { createHash } from "node:crypto";
 import { summary } from "../src/components/scripts/history";
 import { renderToString } from "preact-render-to-string";
 import type { QuartzComponentProps } from "@quartz-community/types";
@@ -553,6 +554,14 @@ describe("the in-site editor", () => {
     w.calls = [];
     w.eval("window.tbTrack = function () { window.calls.push([].slice.call(arguments)) }");
     (w as unknown as { fetch: unknown }).fetch = async (u: string, init?: { body?: string }) => {
+      if (!init?.body && u.endsWith("&pending=1")) {
+        gets.push(u);
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ pending: (opts.pending as unknown[]) ?? [] }),
+        };
+      }
       if (!init?.body) {
         gets.push(u);
         return {
@@ -594,6 +603,47 @@ describe("the in-site editor", () => {
     w.history.back();
     await tick();
   };
+
+  it("says when a paragraph already has pending changes, with a link, and still lets the reader edit", async () => {
+    const key = createHash("sha256")
+      .update("Second paragraph, recieve.")
+      .digest("hex")
+      .slice(0, 16);
+    const { w } = editorPage({
+      ...withSuggest,
+      pending: [
+        { paragraph: 2, original: key, url: "https://github.com/o/r/pull/5" },
+        { paragraph: 2, original: "0000000000000000", url: "https://github.com/o/r/pull/6" },
+        { paragraph: 1, original: null, url: "https://github.com/o/r/pull/7" },
+      ],
+    });
+    $<HTMLButtonElement>(w, "#p2 > button.tb-pedit").click();
+    await tick();
+    await tick();
+    const note = $(w, "#tb-editor .tb-ed-pending");
+    expect(note.hidden).toBe(false);
+    expect(note.textContent).toBe("1 pending change on this paragraph · view it");
+    expect(note.querySelector("a")!.getAttribute("href")).toBe("https://github.com/o/r/pull/5");
+    expect($<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text").disabled).toBe(false);
+  });
+
+  it("an older proposal (no key) counts by its ¶ number; none, no notice", async () => {
+    const { w } = editorPage({
+      ...withSuggest,
+      pending: [{ paragraph: 2, original: null, url: "https://github.com/o/r/pull/8" }],
+    });
+    $<HTMLButtonElement>(w, "#p2 > button.tb-pedit").click();
+    await tick();
+    await tick();
+    expect($(w, "#tb-editor .tb-ed-pending").textContent).toBe(
+      "1 pending change on this paragraph · view it",
+    );
+    const other = editorPage(withSuggest).w;
+    $<HTMLButtonElement>(other, "#p2 > button.tb-pedit").click();
+    await tick();
+    await tick();
+    expect($(other, "#tb-editor .tb-ed-pending").hidden).toBe(true);
+  });
 
   it("a paragraph edit becomes a paragraph proposal, credited to the signed-in reader", async () => {
     const { w, sent } = editorPage();
@@ -670,7 +720,10 @@ describe("the in-site editor", () => {
       }) as never,
     );
     await tick();
-    expect(gets).toEqual(["https://fn.example/api/propose-edit?path=chapters%2Fchapter-03.md"]);
+    expect(gets[0]).toBe("https://fn.example/api/propose-edit?path=chapters%2Fchapter-03.md");
+    expect(gets.slice(1)).toEqual([
+      "https://fn.example/api/propose-edit?path=chapters%2Fchapter-03.md&pending=1",
+    ]);
     expect($<HTMLTextAreaElement>(w, "#tb-editor textarea.tb-ed-text").value).toBe(
       "Second paragraph, recieve.",
     );

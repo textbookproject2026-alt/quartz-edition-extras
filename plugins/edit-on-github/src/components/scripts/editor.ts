@@ -402,9 +402,11 @@ export const openEditor = (o: EditorOptions) => {
   const inner = el("div", { class: "tb-ed-inner" });
   const note = el("p", { class: "tb-ed-note", hidden: true });
   const draftNote = el("p", { class: "tb-ed-note", hidden: true, text: DRAFT_NOTE });
+  // "1 pending change on this paragraph": proposals waiting on what the reader opened.
+  const pendingNote = el("p", { class: "tb-ed-note tb-ed-pending", hidden: true });
   const loading = el("p", { class: "tb-ed-muted", role: "status", text: "Loading the page’s source…" });
   const gate = el("div", { class: "tb-ed-gate", hidden: true });
-  inner.append(draftNote, note, loading, gate);
+  inner.append(draftNote, pendingNote, note, loading, gate);
   main.append(inner);
 
   overlay.append(head, discardBar, main);
@@ -928,6 +930,7 @@ export const openEditor = (o: EditorOptions) => {
           ctxAfter.hidden = !after;
           original = block.text;
           foot.textContent = "You’re editing one paragraph, in Markdown. Your change is proposed to the editors, who decide whether it goes in.";
+          void showPending(block.text);
         } else {
           original = source;
           foot.textContent = "This is the page’s source, in Markdown. Your change is proposed to the editors, who decide whether it goes in.";
@@ -945,5 +948,38 @@ export const openEditor = (o: EditorOptions) => {
       })
       .finally(() => clearTimeout(t));
   };
+  /**
+   * The proposals already waiting on this paragraph (the function's ?pending=1):
+   * matched by the key of the text they replaced, or, for ones made before keys,
+   * by ¶ number. Only a notice: it never blocks editing, and a failure shows nothing.
+   */
+  const showPending = async (text: string) => {
+    try {
+      const res = await fetch(`${o.endpoint}?path=${encodeURIComponent(o.path)}&pending=1`);
+      const data = (await res.json()) as { pending?: { paragraph: number | null; original: string | null; url: string }[] };
+      const key = await textKey(text);
+      const mine = (data.pending ?? []).filter(
+        (p) => typeof p.url === "string" && /^https:\/\/github\.com\//.test(p.url) && (p.original ? p.original === key : p.paragraph === pnum),
+      );
+      if (!mine.length || !overlay.isConnected) return;
+      pendingNote.replaceChildren(
+        `${mine.length} pending change${mine.length === 1 ? "" : "s"} on this paragraph · `,
+        ...mine.flatMap((p, i) => [
+          ...(i ? [", "] : []),
+          el("a", { href: p.url, target: "_blank", rel: "noopener", text: mine.length === 1 ? "view it" : `view ${i + 1}` }),
+        ]),
+      );
+      pendingNote.hidden = false;
+    } catch {
+      /* only a notice */
+    }
+  };
   begin();
 };
+
+/** The function's key for a paragraph (propose-edit textKey): sha-256 of the LF text, trimmed, 16 hex. */
+export async function textKey(text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(text.replace(/\r\n/g, "\n").trim());
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+}
