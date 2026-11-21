@@ -136,21 +136,23 @@ describe("a note to the authors on one paragraph", () => {
     $<HTMLButtonElement>(w, "#p2 > button.tb-pnote").click();
     expect($(w, "#tb-suggest-title").textContent).toBe("Note to the authors about ¶2");
     const quote = $(w, ".tb-sg-quote").textContent!;
+    expect($(w, ".tb-sg-quote").hidden).toBe(false);
     expect(quote.length).toBeLessThanOrEqual(200);
     expect(quote.endsWith("…") && LONG.startsWith(quote.slice(0, -1))).toBe(true);
     $<HTMLInputElement>(w, "#tb-sg-name").value = "A Reader";
-    $<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value = "This needs a source.";
+    $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "This needs a source.";
     $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
     await tick();
     expect(posts[0]).toMatchObject({
       name: "A Reader",
       path: "chapters/chapter-03.md",
       paragraph: 2,
-      // A suggestion keeps the whole text it started from, not the shown quote.
-      quote: LONG,
+      quote,
       page: "/chapters/chapter-03",
+      note: true,
+      suggestion: "This needs a source.",
+      reasoning: "",
     });
-    expect(quote).not.toBe(LONG);
     expect(posts[0]).not.toHaveProperty("identity");
     expect(w.calls.map((c) => c[0])).toContain("section_note_opened");
     // A short paragraph is quoted whole.
@@ -161,7 +163,6 @@ describe("a note to the authors on one paragraph", () => {
     $<HTMLButtonElement>(w, "#p1 > button.tb-pnote").click();
     expect($(w, ".tb-sg-quote").textContent).toBe("Short one.");
   });
-
   it("above Send: what is sent is published, linking the Privacy page's section; without a privacy URL, no line", () => {
     const { w } = notePage();
     $<HTMLButtonElement>(w, "#p2 > button.tb-pnote").click();
@@ -186,24 +187,26 @@ describe("a note to the authors on one paragraph", () => {
     expect(line.compareDocumentPosition(send) & 4).toBeTruthy(); // above Send
   });
 
-  it("starts the box with the paragraph's text; unchanged, Send waits and says why", () => {
+  it("is the note form: the words quoted read-only, the comment required, Send comment", () => {
     const { w } = notePage();
     $<HTMLButtonElement>(w, "#p2 > button.tb-pnote").click();
-    expect($<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value).toBe(LONG);
-    expect($(w, ".tb-sg-quote").hidden).toBe(true);
+    expect(w.document.querySelector("#tb-sg-suggestion")).toBeNull();
+    expect($(w, ".tb-sg-quote").tagName).toBe("BLOCKQUOTE");
+    const label = $(w, 'label[for="tb-sg-reasoning"]');
+    expect(label.textContent).toBe("Your comment");
+    const comment = $<HTMLTextAreaElement>(w, "#tb-sg-reasoning");
+    expect(comment.required).toBe(true);
     const send = $<HTMLButtonElement>(w, "#tb-suggest-overlay button.tb-sg-btn");
     const why = $(w, "#tb-sg-why-not");
+    expect(send.textContent).toBe("Send comment");
     expect(send.disabled).toBe(true);
     expect(why.hidden).toBe(false);
-    expect(why.textContent).toBe("Change the text above, or add a comment, to send.");
-    expect(why.compareDocumentPosition(send) & 4).toBeTruthy(); // above Send
-    const box = $<HTMLTextAreaElement>(w, "#tb-sg-suggestion");
-    box.value = LONG.replace("familiar", "known");
-    box.dispatchEvent(new w.Event("input"));
+    expect(why.textContent).toBe("Write your comment to send.");
+    comment.value = "Which study?";
+    comment.dispatchEvent(new w.Event("input"));
     expect(send.disabled).toBe(false);
     expect(why.hidden).toBe(true);
   });
-
   it("unchanged with a comment: filed as a note, the comment its text", async () => {
     const { w, posts } = notePage();
     $<HTMLButtonElement>(w, "#p2 > button.tb-pnote").click();
@@ -224,23 +227,17 @@ describe("a note to the authors on one paragraph", () => {
     expect(posts[0]).toMatchObject({ quote: expect.stringMatching(/…$/) });
   });
 
-  it("changed, with a comment: the edited text, the comment as the reason", async () => {
-    const { w, posts } = notePage();
-    $<HTMLButtonElement>(w, "#p1 > button.tb-pnote").click();
-    $<HTMLInputElement>(w, "#tb-sg-name").value = "A Reader";
-    $<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value = "Short two.";
-    $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "Typo.";
-    $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
-    await tick();
-    expect(posts[0]).toMatchObject({
-      suggestion: "Short two.",
-      reasoning: "Typo.",
-      paragraph: 1,
-      quote: "Short one.",
-    });
+  it("Suggest an edit is unchanged: the suggest form, Send suggestion", () => {
+    const { w } = notePage();
+    // The editor's "Suggest an edit" goes through Contribute's suggest(): with
+    // nothing selected on a page without numbered paragraphs, the plain form.
+    w.document.querySelector("article")!.innerHTML = "<p>No numbers here.</p>";
+    $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
+    expect($(w, "#tb-suggest-title").textContent).toBe("Suggest an edit");
+    expect(w.document.querySelector("#tb-sg-suggestion")).not.toBeNull();
+    expect($(w, "#tb-suggest-overlay button.tb-sg-btn").textContent).toBe("Send suggestion");
   });
-
-  it("from Contribute with text selected in a paragraph: the box starts with the selection", () => {
+  it("from Contribute with text selected in a paragraph: the note form quotes the selection", () => {
     const { w } = notePage();
     const text = $(w, "#p2").firstChild!;
     const range = w.document.createRange();
@@ -250,9 +247,10 @@ describe("a note to the authors on one paragraph", () => {
     w.getSelection()!.addRange(range);
     $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
     expect($(w, "#tb-suggest-title").textContent).toBe("Note to the authors about ¶2");
-    expect($<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value).toBe("Consider a situation t");
+    expect($(w, ".tb-sg-quote").textContent).toBe("Consider a situation t");
+    expect(w.document.querySelector("#tb-sg-suggestion")).toBeNull();
+    expect($(w, "#tb-suggest-overlay button.tb-sg-btn").textContent).toBe("Send comment");
   });
-
   it("from Contribute with nothing selected: asks the reader to select words or use a paragraph's note", () => {
     const { w, posts } = notePage();
     $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
@@ -272,7 +270,7 @@ describe("a note to the authors on one paragraph", () => {
     $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
     expect($<HTMLInputElement>(w, "#tb-sg-name").value).toBe("Ada");
     expect($(w, "#tb-sg-who").textContent).toContain("@ada-l");
-    expect($<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value).toBe("situation");
+    expect($(w, ".tb-sg-quote").textContent).toBe("situation");
     $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "Which situation?";
     $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
     await tick();
@@ -285,6 +283,32 @@ describe("a note to the authors on one paragraph", () => {
     });
   });
 
+  it("Comment on this opens the same note form on the selected words", async () => {
+    const { w, posts } = notePage();
+    const text = $(w, "#p2").firstChild!;
+    const range = w.document.createRange();
+    range.setStart(text as never, 11);
+    range.setEnd(text as never, 20);
+    w.getSelection()!.removeAllRanges();
+    w.getSelection()!.addRange(range);
+    // happy-dom has no layout, so the button never shows: call what its click calls.
+    const btn = $<HTMLButtonElement>(w, "button.tb-sel-comment");
+    expect(btn.textContent).toBe("Comment on this");
+    const hook = (w as unknown as { tbSelectionComment: (a: unknown, t: unknown) => void }).tbSelectionComment;
+    hook(
+      { paragraph: 2, quote: "q", page: "/chapters/chapter-03", text: "situation", anchor: { start: 2, end: 2, exact: "situation", prefix: "Consider a ", suffix: "", text: LONG, commit: "" } },
+      btn,
+    );
+    expect($(w, "#tb-suggest-title").textContent).toBe("Note to the authors about ¶2");
+    expect($(w, ".tb-sg-quote").textContent).toBe("situation");
+    expect(w.document.querySelector("#tb-sg-suggestion")).toBeNull();
+    expect($(w, "#tb-suggest-overlay button.tb-sg-btn").textContent).toBe("Send comment");
+    $<HTMLInputElement>(w, "#tb-sg-name").value = "A Reader";
+    $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "Which situation?";
+    $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
+    await tick();
+    expect(posts[0]).toMatchObject({ paragraph: 2, note: true, suggestion: "Which situation?", reasoning: "", anchor: { exact: "situation" } });
+  });
   it("the ¶ margin's note anchors the whole paragraph", async () => {
     const { w, posts } = notePage();
     $<HTMLButtonElement>(w, "#p1 > button.tb-pnote").click();
