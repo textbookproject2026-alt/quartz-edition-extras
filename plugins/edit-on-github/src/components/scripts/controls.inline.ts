@@ -77,7 +77,21 @@ const track: Tracker = (name, props) => {
  * `text` is what the suggestion box starts with: the paragraph, or the selection
  * the form was opened from, for the reader to edit in place.
  */
-type About = { paragraph: number; quote: string; page: string; text?: string };
+type About = { paragraph: number; quote: string; page: string; text?: string; anchor?: Anchor };
+/**
+ * Where a note points (suggest-edit's `anchor`, for the author site's margin):
+ * the ¶ numbers it starts and ends in, the exact words, ~32 characters either
+ * side, the starting paragraph's whole text, and the commit the page was built from.
+ */
+type Anchor = {
+  start: number;
+  end: number;
+  exact: string;
+  prefix: string;
+  suffix: string;
+  text: string;
+  commit: string;
+};
 type OpenModal = ((
   endpoint: string,
   repoPath: string,
@@ -618,6 +632,9 @@ const openSuggestModal: OpenModal | null = (() => {
                 paragraph: about.paragraph,
                 quote: !note && original ? original : about.quote,
                 page: about.page,
+                ...(about.anchor ? { anchor: about.anchor } : {}),
+                // A comment on the words, not a change to them (suggest-edit: no "started from" text).
+                ...(note ? { note: true } : {}),
               }
             : {}),
           ...(who ? { identity: who.token } : {}),
@@ -784,14 +801,99 @@ const textOf = (p: HTMLElement): string => (p.textContent ?? "").replace(/\s+/g,
  */
 const selectedAbout = (): About | undefined => {
   const sel = window.getSelection?.();
-  const text = sel && !sel.isCollapsed ? sel.toString().replace(/\s+/g, " ").trim() : "";
-  const node = text ? sel!.anchorNode : null;
-  const p = (node instanceof Element ? node : node?.parentElement)?.closest<HTMLElement>(
-    "article [data-pnum]",
-  );
-  if (!p || p.closest(".popover")) return undefined;
-  const page = location.pathname.replace(/\.html$/, "").replace(/\/index$/, "/");
-  return { paragraph: Number(p.dataset.pnum), quote: quoteOf(p), page, text };
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return undefined;
+  const anchor = anchorOf(sel.getRangeAt(0));
+  if (!anchor) return undefined;
+  const p = paraOf(sel.getRangeAt(0).startContainer)!;
+  return { paragraph: anchor.start, quote: quoteOf(p), page: pagePath(), text: anchor.exact, anchor };
+};
+
+const pagePath = () => location.pathname.replace(/\.html$/, "").replace(/\/index$/, "/");
+const paraOf = (n: Node): HTMLElement | null | undefined =>
+  (n instanceof Element ? n : n.parentElement)?.closest<HTMLElement>("article [data-pnum]");
+const flat = (s: string) => s.replace(/\s+/g, " ");
+const builtFrom = () => document.querySelector<HTMLElement>("[data-source-commit]")?.dataset.sourceCommit ?? "";
+
+/** The anchor of a selection inside the book's numbered paragraphs, else undefined. */
+const anchorOf = (r: Range): Anchor | undefined => {
+  const sp = paraOf(r.startContainer);
+  const ep = paraOf(r.endContainer) ?? sp;
+  if (!sp || !ep || sp.closest(".popover")) return undefined;
+  const exact = flat(r.toString()).trim();
+  if (!exact) return undefined;
+  const before = document.createRange();
+  before.setStart(sp, 0);
+  before.setEnd(r.startContainer, r.startOffset);
+  const after = document.createRange();
+  after.setStart(r.endContainer, r.endOffset);
+  after.setEnd(ep, ep.childNodes.length);
+  return {
+    start: Number(sp.dataset.pnum),
+    end: Number(ep.dataset.pnum),
+    exact: exact.slice(0, 2000),
+    prefix: flat(before.toString()).trimStart().slice(-32),
+    suffix: flat(after.toString()).trimEnd().slice(0, 32),
+    text: textOf(sp),
+    commit: builtFrom(),
+  };
+};
+
+/** A whole paragraph as an anchor (the ¶ margin's note). */
+const paragraphAnchor = (p: HTMLElement): Anchor => {
+  const n = Number(p.dataset.pnum);
+  return { start: n, end: n, exact: textOf(p), prefix: "", suffix: "", text: textOf(p), commit: builtFrom() };
+};
+
+/**
+ * "Comment on this": a small button under a selection in the book's text, which
+ * opens the note form on it. It appears once the selection settles (longer on a
+ * touch screen, so the system's own selection menu comes first), below the
+ * selection so the two don't overlap, and goes when the selection does.
+ */
+const armSelectionComment = (open: (about: About, trigger: HTMLElement) => void) => {
+  const w = window as unknown as { tbSelectionComment?: (a: About, t: HTMLElement) => void };
+  const first = !w.tbSelectionComment;
+  w.tbSelectionComment = open;
+  if (!first) return;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "tb-sel-comment";
+  btn.textContent = "Comment on this";
+  btn.hidden = true;
+  document.body.append(btn);
+  let about: About | undefined;
+  let timer = 0;
+  const hide = () => {
+    btn.hidden = true;
+    about = undefined;
+  };
+  // Pressing the button mustn't clear the selection it is about.
+  btn.addEventListener("pointerdown", (e) => e.preventDefault());
+  btn.addEventListener("click", () => {
+    const a = about;
+    hide();
+    if (a) w.tbSelectionComment?.(a, btn);
+  });
+  btn.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hide();
+  });
+  document.addEventListener("selectionchange", () => {
+    clearTimeout(timer);
+    const touch = window.matchMedia?.("(pointer: coarse)").matches;
+    timer = window.setTimeout(() => {
+      const next = selectedAbout();
+      if (!next) return hide();
+      const rects = window.getSelection()!.getRangeAt(0).getClientRects();
+      const last = rects[rects.length - 1];
+      if (!last) return hide();
+      about = next;
+      btn.hidden = false;
+      const width = btn.offsetWidth || 130;
+      const left = Math.max(8, Math.min(last.right - width / 2, document.documentElement.clientWidth - width - 8));
+      btn.style.left = `${left + window.scrollX}px`;
+      btn.style.top = `${last.bottom + window.scrollY + (touch ? 28 : 8)}px`;
+    }, touch ? 700 : 250);
+  });
 };
 
 /** The start of a paragraph's text for a note: about 200 characters, cut at a word. */
@@ -823,7 +925,7 @@ const armSectionNotes = (open: (about: About, trigger: HTMLElement) => void, how
     b.addEventListener("click", (e) => {
       e.stopPropagation();
       firstTime(b, howTo, `Continue: note on ¶${n}`, () =>
-        open({ paragraph: n, quote: quoteOf(p), page, text: textOf(p) }, b),
+        open({ paragraph: n, quote: quoteOf(p), page, text: textOf(p), anchor: paragraphAnchor(p) }, b),
       );
     });
     p.append(b);
@@ -1993,14 +2095,25 @@ const armHeader = (header: HTMLElement) => {
       }
     } else edit?.addEventListener("click", () => track("edit_on_github_clicked"));
     if (suggestBtn && suggest) {
-      suggestBtn.addEventListener("click", suggest);
+      // Every note points at words or a paragraph: with nothing selected, say how
+      // (a page with no numbered paragraphs has nothing to point at).
+      suggestBtn.addEventListener("click", () => {
+        if (selectedAbout() || !document.querySelector("article [data-pnum]")) return suggest();
+        dialog(
+          "Note to the authors",
+          contribute,
+          el("h2", { text: "Note to the authors" }),
+          el("p", {
+            text: "Select the words your note is about, then choose Note to the authors again. Or use the note button beside a paragraph.",
+          }),
+        );
+      });
       suggestBtn.hidden = false;
       // After the pencils, so each note sits just below its paragraph's pencil.
-      armSectionNotes(
-        (about, trigger) =>
-          openSuggestModal!(endpoint!, suggestBtn.dataset.path ?? "", trigger, about),
-        howTo,
-      );
+      const note = (about: About, trigger: HTMLElement) =>
+        openSuggestModal!(endpoint!, suggestBtn.dataset.path ?? "", trigger, about);
+      armSectionNotes(note, howTo);
+      armSelectionComment(note);
     }
     contribute.hidden = false;
   });

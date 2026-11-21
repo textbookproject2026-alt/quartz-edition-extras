@@ -253,26 +253,46 @@ describe("a note to the authors on one paragraph", () => {
     expect($<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value).toBe("Consider a situation t");
   });
 
-  it("from Contribute with nothing selected: an empty box, and Send waits for text or a comment", () => {
-    const { w } = notePage();
+  it("from Contribute with nothing selected: asks the reader to select words or use a paragraph's note", () => {
+    const { w, posts } = notePage();
     $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
-    expect($<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value).toBe("");
-    expect($<HTMLButtonElement>(w, "#tb-suggest-overlay button.tb-sg-btn").disabled).toBe(true);
-    expect($(w, "#tb-sg-why-not").textContent).toBe(
-      "Describe the change, or add a comment, to send.",
-    );
+    expect(w.document.querySelector("#tb-suggest-overlay")).toBeNull();
+    expect($(w, "dialog.tb-dialog").textContent).toContain("Select the words your note is about");
+    expect(posts).toEqual([]);
   });
 
-  it("signed in with the editor's GitHub sign-in: the name filled in, and the sign-in sent", async () => {
+  it("from Contribute with words selected: the words, and their anchor, go with the note", async () => {
     const { w, posts } = notePage(true);
+    const text = $(w, "#p2").firstChild!;
+    const range = w.document.createRange();
+    range.setStart(text, 11);
+    range.setEnd(text, 20);
+    w.getSelection()!.removeAllRanges();
+    w.getSelection()!.addRange(range);
     $<HTMLButtonElement>(w, "button.tb-suggest-btn").click();
     expect($<HTMLInputElement>(w, "#tb-sg-name").value).toBe("Ada");
     expect($(w, "#tb-sg-who").textContent).toContain("@ada-l");
-    $<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value = "A note on the page.";
+    expect($<HTMLTextAreaElement>(w, "#tb-sg-suggestion").value).toBe("situation");
+    $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "Which situation?";
     $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
     await tick();
-    expect(posts[0]).toMatchObject({ identity: "tok" });
-    expect(posts[0]).not.toHaveProperty("paragraph");
+    expect(posts[0]).toMatchObject({
+      identity: "tok",
+      paragraph: 2,
+      note: true,
+      suggestion: "Which situation?",
+      anchor: { start: 2, end: 2, exact: "situation", prefix: "Consider a ", suffix: " that will be familiar to anyone", text: LONG },
+    });
+  });
+
+  it("the ¶ margin's note anchors the whole paragraph", async () => {
+    const { w, posts } = notePage();
+    $<HTMLButtonElement>(w, "#p1 > button.tb-pnote").click();
+    $<HTMLInputElement>(w, "#tb-sg-name").value = "A Reader";
+    $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "Too short.";
+    $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
+    await tick();
+    expect(posts[0]).toMatchObject({ paragraph: 1, note: true, anchor: { start: 1, end: 1, exact: "Short one.", prefix: "", suffix: "", text: "Short one." } });
   });
 });
 

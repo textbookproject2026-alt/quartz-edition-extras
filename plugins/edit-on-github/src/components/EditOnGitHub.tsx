@@ -952,6 +952,14 @@ article td, article th { line-height: 1.45; vertical-align: top; }
 .tb-cite-page { display: inline-block; margin: 0 0 0.75rem; font-size: 0.9rem; font-weight: 400; }
 @media print { .tb-header, .tb-dialog { display: none !important; } }
 @media print { .tb-cite-page { display: none !important; } }
+.tb-sel-comment {
+  position: absolute; z-index: 30; padding: 0.3rem 0.75rem; border: 1px solid var(--tb-border, var(--lightgray)); border-radius: 6px;
+  background: var(--tb-bg, var(--light)); color: var(--tb-ink, var(--dark)); font: inherit; font-size: 0.85rem; cursor: pointer;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+}
+.tb-sel-comment[hidden] { display: none; }
+.tb-sel-comment:focus-visible { outline: 2px solid var(--tb-accent, var(--secondary)); outline-offset: 2px; }
+@media print { .tb-sel-comment { display: none !important; } }
 `;
   Component.afterDOMLoaded = controlsScript;
   // The "book" frame draws this in the page grid's header row (src/frames).
