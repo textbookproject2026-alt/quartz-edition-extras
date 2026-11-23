@@ -10,7 +10,7 @@
  * block) shows line by line as text, not as the rendered block.
  */
 import { el } from "./editor";
-import { blocks, diff, tokens, unchangedLabel } from "./source";
+import { blocks, diff, pairs, showUnchanged, tokens } from "./source";
 
 /** The page's text without its front matter (the --- block at the top). */
 export const body = (md: string): string => {
@@ -113,7 +113,11 @@ export const parseLine = (line: string): Line => {
   if ((m = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line)))
     return { kind: `h${m[1]!.length}` as Line["kind"], runs: inline(m[2]!) };
   if ((m = /^\s*([-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?(.*)$/.exec(line)))
-    return { kind: "li", marker: /\d/.test(m[1]!) ? m[1]!.replace(")", ".") : "•", runs: inline(m[2]!) };
+    return {
+      kind: "li",
+      marker: /\d/.test(m[1]!) ? m[1]!.replace(")", ".") : "•",
+      runs: inline(m[2]!),
+    };
   if ((m = /^\s{0,3}>\s?(.*)$/.exec(line))) return { kind: "quote", runs: inline(m[1]!) };
   if ((m = /^\[\^([^\]]+)\]:\s*(.*)$/.exec(line)))
     return { kind: "note", marker: m[1]!, runs: inline(m[2]!) };
@@ -131,38 +135,63 @@ const runNode = (r: Run): Node => {
   return n;
 };
 
-type Kind = "=" | "-" | "+";
+/** A run as it was ("="), removed ("-") or added ("+"). */
+type Part = { run: Run; t: "=" | "-" | "+" };
 
 /**
- * One line's row. `parts` is its runs, each marked kept or changed; changed runs
- * go in <del> (a removed line) or <ins> (an added one).
+ * One paragraph's row, as track changes: kept runs as they are, removed ones struck
+ * in <del>, added ones in <ins>, in reading order. A paragraph only removed is all
+ * <del>, one only added all <ins>.
  */
-const row = (kind: Kind, line: Line, parts: { run: Run; changed: boolean }[]) => {
-  const cls = `tb-rd-line tb-rd-${line.kind}${kind === "-" ? " tb-ed-del" : kind === "+" ? " tb-ed-add" : ""}`;
-  const sign = el("span", {
-    class: "tb-rd-sign",
-    "aria-hidden": "true",
-    text: kind === "-" ? "−" : kind === "+" ? "+" : "",
-  });
+const row = (line: Line, parts: Part[]) => {
+  const t = parts.some((p) => p.t !== "=")
+    ? parts.every((p) => p.t !== "+")
+      ? " tb-ed-del"
+      : parts.every((p) => p.t !== "-")
+        ? " tb-ed-add"
+        : " tb-ed-mod"
+    : "";
   const text = el("div", { class: "tb-rd-text" });
   if (line.marker) text.append(el("span", { class: "tb-rd-marker", text: line.marker }));
   let wrap: HTMLElement | null = null;
-  for (const { run, changed } of parts) {
-    if (changed && kind !== "=") {
-      if (!wrap) {
-        wrap = el(kind === "-" ? "del" : "ins");
-        text.append(wrap);
-      }
-      wrap.append(runNode(run));
-    } else {
+  for (const { run, t: k } of parts) {
+    if (k === "=") {
       wrap = null;
       text.append(runNode(run));
+      continue;
     }
+    const tag = k === "-" ? "DEL" : "INS";
+    if (wrap?.tagName !== tag) {
+      wrap = el(k === "-" ? "del" : "ins");
+      text.append(wrap);
+    }
+    wrap.append(runNode(run));
   }
-  return el("div", { class: cls }, sign, text);
+  return el("div", { class: `tb-rd-line tb-rd-${line.kind}${t}` }, text);
 };
 
-const whole = (runs: Run[], changed: boolean) => runs.map((run) => ({ run, changed }));
+const whole = (runs: Run[], t: Part["t"]): Part[] => runs.map((run) => ({ run, t }));
+
+/** A removed paragraph and the one it became, as one paragraph of track changes. */
+const tracked = (was: Line, now: Line): HTMLElement => {
+  const x = was.runs;
+  const y = now.runs;
+  const parts: Part[] = [];
+  let i = 0;
+  let j = 0;
+  for (const w of diff(
+    x.map((r) => r.v),
+    y.map((r) => r.v),
+  ))
+    parts.push(
+      w.t === "-"
+        ? { run: x[i++]!, t: "-" }
+        : w.t === "+"
+          ? { run: y[j++]!, t: "+" }
+          : (i++, { run: y[j++]!, t: "=" }),
+    );
+  return row(now, parts);
+};
 
 /** The History panel's "What changed": front matter dropped, Markdown shown as formatting. */
 export const renderRichDiff = (before: string, after: string): HTMLElement => {
@@ -184,10 +213,14 @@ export const renderRichDiff = (before: string, after: string): HTMLElement => {
   }
   for (const bl of bs) {
     if ("same" in bl) {
-      const same = el("details", { class: "tb-rd-same" }, el("summary", { text: unchangedLabel(bl.same.length) }));
+      const same = el(
+        "details",
+        { class: "tb-rd-same" },
+        el("summary", { text: showUnchanged(bl.same.length) }),
+      );
       for (const v of bl.same) {
         const line = parseLine(v);
-        same.append(row("=", line, whole(line.runs, false)));
+        same.append(row(line, whole(line.runs, "=")));
       }
       box.append(same);
       continue;
@@ -197,38 +230,32 @@ export const renderRichDiff = (before: string, after: string): HTMLElement => {
       const op = ops[k]!;
       if (op.t === "=") {
         const line = parseLine(op.v);
-        box.append(row("=", line, whole(line.runs, false)));
+        box.append(row(line, whole(line.runs, "=")));
         k++;
         continue;
       }
-      // A run of removed lines then added ones: pair them up, words compared as shown.
-      const dels: Line[] = [];
-      const adds: Line[] = [];
-      while (ops[k]?.t === "-") dels.push(parseLine(ops[k++]!.v));
-      while (ops[k]?.t === "+") adds.push(parseLine(ops[k++]!.v));
-      const paired = Math.min(dels.length, adds.length);
-      const delParts = dels.map((l) => whole(l.runs, true));
-      const addParts = adds.map((l) => whole(l.runs, true));
-      for (let p = 0; p < paired; p++) {
-        const x = dels[p]!.runs;
-        const y = adds[p]!.runs;
-        const words = diff(
-          x.map((r) => r.v),
-          y.map((r) => r.v),
-        );
-        let i = 0;
-        let j = 0;
-        const dp: { run: Run; changed: boolean }[] = [];
-        const ap: { run: Run; changed: boolean }[] = [];
-        for (const w of words) {
-          if (w.t !== "+") dp.push({ run: x[i++]!, changed: w.t === "-" });
-          if (w.t !== "-") ap.push({ run: y[j++]!, changed: w.t === "+" });
-        }
-        delParts[p] = dp;
-        addParts[p] = ap;
-      }
-      dels.forEach((l, p) => box.append(row("-", l, delParts[p]!)));
-      adds.forEach((l, p) => box.append(row("+", l, addParts[p]!)));
+      // A run of removed lines then added ones, in reading order: each added paragraph
+      // with the removed one it came from (removed ones before it struck first), new ones
+      // alone, removed ones left over at the end.
+      const dels: string[] = [];
+      const adds: string[] = [];
+      while (ops[k]?.t === "-") dels.push(ops[k++]!.v);
+      while (ops[k]?.t === "+") adds.push(ops[k++]!.v);
+      const from = new Map(pairs(dels, adds).map(([i, j]) => [j, i]));
+      const gone = (i: number) => {
+        const l = parseLine(dels[i]!);
+        box.append(row(l, whole(l.runs, "-")));
+      };
+      let i = 0;
+      adds.forEach((v, j) => {
+        const now = parseLine(v);
+        const at = from.get(j);
+        if (at === undefined) return void box.append(row(now, whole(now.runs, "+")));
+        for (; i < at; i++) gone(i);
+        box.append(tracked(parseLine(dels[at]!), now));
+        i = at + 1;
+      });
+      for (; i < dels.length; i++) gone(i);
     }
   }
   return box;

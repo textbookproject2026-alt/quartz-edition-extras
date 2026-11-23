@@ -11,10 +11,13 @@ describe("the History panel's What changed, as the page shows it", () => {
   });
 
   it("turns Markdown marks into formatting", () => {
-    const text = (s: string) => inline(s).map((r) => r.v).join("");
-    expect(text("Some **bold** and *italic* and [a link](https://x) and [[chapters/two|Two]]")).toBe(
-      "Some bold and italic and a link and Two",
-    );
+    const text = (s: string) =>
+      inline(s)
+        .map((r) => r.v)
+        .join("");
+    expect(
+      text("Some **bold** and *italic* and [a link](https://x) and [[chapters/two|Two]]"),
+    ).toBe("Some bold and italic and a link and Two");
     expect(inline("**bold**").every((r) => r.s.b)).toBe(true);
     expect(inline("*it*")[0]!.s.i).toBe(true);
     expect(text("snake_case_name stays")).toBe("snake_case_name stays");
@@ -41,9 +44,32 @@ describe("the History panel's What changed, as the page shows it", () => {
 
   it("collapses each run of unchanged paragraphs into one line", () => {
     const box = renderRichDiff("One.\n\nTwo.\n\nOld end.\n", "One.\n\nTwo.\n\nNew end.\n");
-    expect([...box.querySelectorAll("details > summary")].map((s) => s.textContent)).toEqual(["2 unchanged paragraphs"]);
+    expect([...box.querySelectorAll("details > summary")].map((s) => s.textContent)).toEqual([
+      "Show 2 unchanged paragraphs",
+    ]);
+    // The changed paragraph is one paragraph of track changes, not a removed line and an added one.
+    expect(
+      [...box.querySelectorAll(".tb-rd-line")].filter((r) => !r.closest("details")),
+    ).toHaveLength(1);
+    expect(box.querySelector(".tb-ed-mod")?.textContent).toBe("OldNew end.");
     expect(box.querySelector("del")?.textContent).toBe("Old");
     expect(box.querySelector("ins")?.textContent).toBe("New");
+  });
+
+  it("pairs an edited paragraph with what it became even when a new one comes before it", () => {
+    const was = "Soil forms slowly from weathered rock over many years.";
+    const box = renderRichDiff(
+      `${was}\n`,
+      `A whole new paragraph about something else.\n\n${was.replace("slowly", "very slowly")}\n`,
+    );
+    const rows = [...box.querySelectorAll(".tb-rd-line")];
+    expect(rows.map((r) => r.className.replace("tb-rd-line tb-rd-p ", ""))).toEqual([
+      "tb-ed-add",
+      "tb-ed-add",
+    ]);
+    expect([...rows[1]!.querySelectorAll("ins")].map((i) => i.textContent)).toEqual(["very "]);
+    expect(rows[1]!.querySelector("del")).toBeNull();
+    expect(rows[1]!.textContent).toBe(was.replace("slowly", "very slowly"));
   });
 
   it("says when only the front matter changed", () => {
