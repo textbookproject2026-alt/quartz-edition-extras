@@ -12,7 +12,7 @@
  *   - defines the --tb-* tokens the controls row, the suggest modal, the tag
  *     helper and the badge already use (their literal fallbacks stay);
  *   - carries the rules publish.css applies to book one: the type scale and
- *     measure, the lead paragraph, the h4 capitals, the annotation highlight,
+ *     measure, the h4 capitals, the annotation highlight,
  *     the mobile scale and the print styles (publish.css §3, §6, §8, §9).
  * Selectors live here; every value comes from the file.
  */
@@ -49,7 +49,6 @@ const SCHEMA = {
   fonts: { text: "font", ui: "font", mono: "font" },
   type: {
     body: { size: "length", lineHeight: "number" },
-    lead: { size: "length", lineHeight: "number" },
     h1: HEADING,
     h2: HEADING,
     h3: HEADING,
@@ -257,8 +256,6 @@ export const designCss = (d: Design): string => {
   --tb-annotation-focused: ${d.annotation.focused};
   --tb-size-body: ${t.body.size};
   --tb-lh-body: ${t.body.lineHeight};
-  --tb-size-lead: ${t.lead.size};
-  --tb-lh-lead: ${t.lead.lineHeight};
   --tb-size-h1: ${t.h1.size};
   --tb-size-h2: ${t.h2.size};
   --tb-size-h3: ${t.h3.size};
@@ -329,11 +326,6 @@ article li {
   line-height: var(--tb-lh-body) !important; /* base.scss sets ~1.42 */
 }
 article p { margin: var(--tb-rhythm) 0; }
-/* The paragraph right after a chapter's title (transforms.ts marks it). */
-article p.tb-lead {
-  font-size: calc(var(--tb-size-lead) * var(--tb-text-scale));
-  line-height: var(--tb-lh-lead) !important;
-}
 article h1 { font-size: calc(var(--tb-size-h1) * var(--tb-text-scale)); font-weight: ${t.h1.weight}; line-height: ${t.h1.lineHeight}; }
 article h2 { font-size: calc(var(--tb-size-h2) * var(--tb-text-scale)); font-weight: ${t.h2.weight}; line-height: ${t.h2.lineHeight}; }
 article h3 { font-size: calc(var(--tb-size-h3) * var(--tb-text-scale)); font-weight: ${t.h3.weight}; line-height: ${t.h3.lineHeight}; }
@@ -422,10 +414,6 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     --tb-size-h2: ${t.mobile.h2};
     --tb-size-h3: ${t.mobile.h3};
     --tb-lh-body: ${t.mobile.lineHeight};
-  }
-  article p.tb-lead {
-    font-size: calc(var(--tb-size-body) * var(--tb-text-scale));
-    line-height: var(--tb-lh-body) !important;
   }
 }
 

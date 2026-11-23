@@ -896,7 +896,7 @@ export const paragraphNumbers = `
       "[data-pnum] { position: relative; }",
       "[data-pnum]::before { content: attr(data-pnum); position: absolute; left: -3.25rem; width: 2.5rem;",
       // line-height 1 and a top in the number's own ems put it on the first
-      // line's baseline at the body and lead sizes alike.
+      // line's baseline at any text size.
       "  top: 1.15em; text-align: right; font-family: var(--tb-font-ui, sans-serif); font-size: 0.72rem;",
       "  font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;",
       "  color: var(--tb-faint, #9B9BA1); cursor: pointer; user-select: none; -webkit-user-select: none; }",

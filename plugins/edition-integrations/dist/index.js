@@ -7343,7 +7343,6 @@ var SCHEMA = {
   fonts: { text: "font", ui: "font", mono: "font" },
   type: {
     body: { size: "length", lineHeight: "number" },
-    lead: { size: "length", lineHeight: "number" },
     h1: HEADING,
     h2: HEADING,
     h3: HEADING,
@@ -7509,8 +7508,6 @@ var designCss = (d2) => {
   --tb-annotation-focused: ${d2.annotation.focused};
   --tb-size-body: ${t2.body.size};
   --tb-lh-body: ${t2.body.lineHeight};
-  --tb-size-lead: ${t2.lead.size};
-  --tb-lh-lead: ${t2.lead.lineHeight};
   --tb-size-h1: ${t2.h1.size};
   --tb-size-h2: ${t2.h2.size};
   --tb-size-h3: ${t2.h3.size};
@@ -7581,11 +7578,6 @@ article li {
   line-height: var(--tb-lh-body) !important; /* base.scss sets ~1.42 */
 }
 article p { margin: var(--tb-rhythm) 0; }
-/* The paragraph right after a chapter's title (transforms.ts marks it). */
-article p.tb-lead {
-  font-size: calc(var(--tb-size-lead) * var(--tb-text-scale));
-  line-height: var(--tb-lh-lead) !important;
-}
 article h1 { font-size: calc(var(--tb-size-h1) * var(--tb-text-scale)); font-weight: ${t2.h1.weight}; line-height: ${t2.h1.lineHeight}; }
 article h2 { font-size: calc(var(--tb-size-h2) * var(--tb-text-scale)); font-weight: ${t2.h2.weight}; line-height: ${t2.h2.lineHeight}; }
 article h3 { font-size: calc(var(--tb-size-h3) * var(--tb-text-scale)); font-weight: ${t2.h3.weight}; line-height: ${t2.h3.lineHeight}; }
@@ -7674,10 +7666,6 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     --tb-size-h2: ${t2.mobile.h2};
     --tb-size-h3: ${t2.mobile.h3};
     --tb-lh-body: ${t2.mobile.lineHeight};
-  }
-  article p.tb-lead {
-    font-size: calc(var(--tb-size-body) * var(--tb-text-scale));
-    line-height: var(--tb-lh-body) !important;
   }
 }
 
@@ -8012,20 +8000,6 @@ var titleFromFirstHeading = (tree, data, source) => {
   return own === null ? title : null;
 };
 var isElement = (node) => node?.type === "element";
-var isBlank = (node) => node.type === "text" && !(node.value ?? "").trim();
-var markLeadParagraph = (tree) => {
-  const children = tree.children ?? [];
-  const index = children.findIndex((n2) => isElement(n2) && n2.tagName === "h1");
-  if (index === -1) return false;
-  const next = children.slice(index + 1).find((n2) => !isBlank(n2));
-  if (!isElement(next) || next.tagName !== "p") return false;
-  const props = next.properties ??= {};
-  const existing = props.className;
-  const classes = Array.isArray(existing) ? existing.map(String) : typeof existing === "string" ? existing.split(/\s+/).filter(Boolean) : [];
-  if (!classes.includes("tb-lead")) classes.push("tb-lead");
-  props.className = classes;
-  return true;
-};
 var REFERENCE_HEADING = /^(?:[\d.]+\s+)?(?:references|reference list|bibliography|works cited|literature cited)\s*:?$/i;
 var numberParagraphs = (tree) => {
   let n2 = 0;
@@ -8776,7 +8750,7 @@ var paragraphNumbers = `
       "[data-pnum] { position: relative; }",
       "[data-pnum]::before { content: attr(data-pnum); position: absolute; left: -3.25rem; width: 2.5rem;",
       // line-height 1 and a top in the number's own ems put it on the first
-      // line's baseline at the body and lead sizes alike.
+      // line's baseline at any text size.
       "  top: 1.15em; text-align: right; font-family: var(--tb-font-ui, sans-serif); font-size: 0.72rem;",
       "  font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;",
       "  color: var(--tb-faint, #9B9BA1); cursor: pointer; user-select: none; -webkit-user-select: none; }",
@@ -9106,7 +9080,6 @@ var EditionIntegrations = (userOpts) => {
         () => (tree, file) => {
           const data = file.data;
           fixBlockRefLinks(tree);
-          markLeadParagraph(tree);
           titleFromFirstHeading(tree, data, String(file.value ?? ""));
           if (opts.paragraphNumbers && wantsParagraphNumbers(data.slug, data.frontmatter))
             numberParagraphs(tree);

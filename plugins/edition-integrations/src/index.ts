@@ -17,9 +17,8 @@
  *      public-annotations switch (readerPrefs, annotationsControl in src/runtime.ts);
  *      the header that changes them is edit-on-github's
  *
- * and applies four HTML transforms to every page (src/transforms.ts):
+ * and applies three HTML transforms to every page (src/transforms.ts):
  *   - same-page citations `#^id` point at the reference they name
- *   - the paragraph right after the first H1 is marked as the lead
  *   - with no frontmatter title, the first H1 becomes the page's title
  *   - body paragraphs are numbered (data-pnum), every page but the home page
  *
@@ -44,7 +43,6 @@ import type { QuartzTransformerPlugin } from "@quartz-community/types";
 import { designCss, fontHref, loadDesign } from "./design";
 import {
   fixBlockRefLinks,
-  markLeadParagraph,
   numberParagraphs,
   titleFromFirstHeading,
   wantsParagraphNumbers,
@@ -133,7 +131,7 @@ const defaultOptions: Options = {
 // --- 1. Design values --------------------------------------------------------
 // design.yaml, beside dist/, read now (when the book builds): the palette and
 // fonts (overriding the config's theme block), the --tb-* tokens, the type
-// scale, the lead paragraph, the annotation highlight and print (src/design.ts).
+// scale, the annotation highlight and print (src/design.ts).
 
 // --- 2. Hypothes.is -----------------------------------------------------------
 // Editions keep Hypothes.is's public layer (publicAnnotations, the default).
@@ -278,7 +276,6 @@ export const EditionIntegrations: QuartzTransformerPlugin<Partial<Options>> = (u
         () => (tree: unknown, file: { value?: unknown; data: unknown }) => {
           const data = file.data as PageData;
           fixBlockRefLinks(tree as HastNode);
-          markLeadParagraph(tree as HastNode);
           titleFromFirstHeading(tree as HastNode, data, String(file.value ?? ""));
           // After the title: the H1 that became the title is gone by now.
           if (opts.paragraphNumbers && wantsParagraphNumbers(data.slug, data.frontmatter))

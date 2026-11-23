@@ -27,7 +27,7 @@ production infrastructure, not a scratch repo.
 Injects these into every page's `<head>`, site-wide:
 
 1. **The design values from `design.yaml`** (below): the palette and fonts, the
-   type scale and reading measure, the lead paragraph, the annotation
+   type scale and reading measure, the annotation
    highlight, and the print styles.
 2. **The Hypothes.is client**, sidebar collapsed — the same first-party flow the
    canonical Obsidian Publish site runs from `publish.js`.
@@ -59,11 +59,6 @@ BOOK-ONE-TO-QUARTZ §8 steps 3 and 6):
   Now the first top-level H1 becomes the title and leaves the body, with its
   table-of-contents entry. A page with a frontmatter `title`, or with no H1, is
   unchanged.
-- **The lead paragraph.** A paragraph directly after the page's first H1 gets
-  class `tb-lead`, which `design.yaml`'s stylesheet sets larger, as book one's
-  `publish.css` does. It is marked before the title transform removes the H1.
-  A chapter that opens with anything else (Chapter 3 opens with a callout) has
-  no lead, as on Publish.
 
 `scripts/check-citations-and-titles.mjs <source> <before> <after>` checks the
 first two against two builds of a book, one with the plugin as it was and one

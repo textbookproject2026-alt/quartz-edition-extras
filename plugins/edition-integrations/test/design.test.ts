@@ -109,8 +109,6 @@ describe("design.yaml as shipped", () => {
       "--tb-annotation-focused": "rgba(155, 149, 105, 0.50)",
       "--tb-size-body": "1.125rem",
       "--tb-lh-body": "1.65",
-      "--tb-size-lead": "1.25rem",
-      "--tb-lh-lead": "1.6",
       "--tb-size-h1": "2.25rem",
       "--tb-size-h2": "1.75rem",
       "--tb-size-h3": "1.375rem",
@@ -142,10 +140,8 @@ describe("design.yaml as shipped", () => {
     expect(declared(css, "article a", "text-decoration-color")).toBe("var(--tb-accent-soft)");
   });
 
-  it("has the lead paragraph, the h4 capitals and the annotation highlight", () => {
-    expect(declared(css, "article p.tb-lead", "font-size")).toBe(
-      "calc(var(--tb-size-lead) * var(--tb-text-scale))",
-    );
+  it("sets every paragraph alike (no larger first one), the h4 capitals and the annotation highlight", () => {
+    expect(css).not.toMatch(/tb-lead|--tb-size-lead|p:first-of-type|p:first-child|h1 \+ p/);
     expect(declared(css, "article h4", "text-transform")).toBe("uppercase");
     expect(declared(css, "article h4", "letter-spacing")).toBe("0.04em");
     expect(declared(css, ".hypothesis-highlight", "background-color")).toBe("var(--tb-annotation)");
