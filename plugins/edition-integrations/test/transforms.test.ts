@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   fixBlockRefLinks,
   hasOwnTitle,
-  markLeadParagraph,
   numberParagraphs,
   titleFromFirstHeading,
   wantsParagraphNumbers,
@@ -128,58 +127,10 @@ describe("the title from the first heading", () => {
   });
 });
 
-describe("the lead paragraph", () => {
-  const classOf = (node: HastNode) => node.properties?.className;
-
-  it("marks the paragraph right after the first H1, across whitespace", () => {
-    const lead = el("p", {}, text("Welcome."));
-    const tree = root(
-      el("h1", { id: "t" }, text("Title")),
-      text("\n"),
-      lead,
-      el("p", {}, text("x")),
-    );
-    expect(markLeadParagraph(tree)).toBe(true);
-    expect(classOf(lead)).toEqual(["tb-lead"]);
-  });
-
-  it("keeps a paragraph's own classes", () => {
-    const lead = el("p", { className: ["intro"] }, text("Welcome."));
-    markLeadParagraph(root(el("h1", {}, text("Title")), lead));
-    expect(classOf(lead)).toEqual(["intro", "tb-lead"]);
-  });
-
-  it("marks nothing when the H1 is followed by something else, or there is no H1", () => {
-    const afterCallout = el("p", {}, text("x"));
-    expect(
-      markLeadParagraph(
-        root(
-          el("h1", {}, text("Chapter 3")),
-          el("blockquote", { className: ["callout"] }),
-          afterCallout,
-        ),
-      ),
-    ).toBe(false);
-    expect(classOf(afterCallout)).toBeUndefined();
-    const first = el("p", {}, text("x"));
-    expect(markLeadParagraph(root(el("h2", {}, text("A")), first))).toBe(false);
-    expect(classOf(first)).toBeUndefined();
-  });
-
-  it("survives the title transform removing the H1", () => {
-    const lead = el("p", {}, text("Welcome."));
-    const tree = root(el("h1", { id: "t" }, text("Title")), lead);
-    markLeadParagraph(tree);
-    titleFromFirstHeading(tree, {}, "# Title\n\nWelcome.\n");
-    expect(tree.children).toEqual([lead]);
-    expect(classOf(lead)).toEqual(["tb-lead"]);
-  });
-});
-
 describe("paragraph numbers", () => {
   const page = () =>
     root(
-      el("p", { className: ["tb-lead"] }, text("Lead.")),
+      el("p", {}, text("Lead.")),
       text("\n"),
       el("p", {}, el("img", { src: "figure.png" })),
       el("ul", {}, el("li", {}, el("p", {}, text("In a list.")))),
@@ -201,7 +152,6 @@ describe("paragraph numbers", () => {
       ["2", "ref-bhaskar-1979"], // a citation target keeps its id
       ["3", "p3"],
     ]);
-    expect(tree.children![0]!.properties!.className).toEqual(["tb-lead"]);
   });
 
   it("writes nothing into the text, so Hypothes.is anchors don't move", () => {
