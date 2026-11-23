@@ -279,7 +279,14 @@ describe("a note to the authors on one paragraph", () => {
       paragraph: 2,
       note: true,
       suggestion: "Which situation?",
-      anchor: { start: 2, end: 2, exact: "situation", prefix: "Consider a ", suffix: " that will be familiar to anyone", text: LONG },
+      anchor: {
+        start: 2,
+        end: 2,
+        exact: "situation",
+        prefix: "Consider a ",
+        suffix: " that will be familiar to anyone",
+        text: LONG,
+      },
     });
   });
 
@@ -294,9 +301,24 @@ describe("a note to the authors on one paragraph", () => {
     // happy-dom has no layout, so the button never shows: call what its click calls.
     const btn = $<HTMLButtonElement>(w, "button.tb-sel-comment");
     expect(btn.textContent).toBe("Comment on this");
-    const hook = (w as unknown as { tbSelectionComment: (a: unknown, t: unknown) => void }).tbSelectionComment;
+    const hook = (w as unknown as { tbSelectionComment: (a: unknown, t: unknown) => void })
+      .tbSelectionComment;
     hook(
-      { paragraph: 2, quote: "q", page: "/chapters/chapter-03", text: "situation", anchor: { start: 2, end: 2, exact: "situation", prefix: "Consider a ", suffix: "", text: LONG, commit: "" } },
+      {
+        paragraph: 2,
+        quote: "q",
+        page: "/chapters/chapter-03",
+        text: "situation",
+        anchor: {
+          start: 2,
+          end: 2,
+          exact: "situation",
+          prefix: "Consider a ",
+          suffix: "",
+          text: LONG,
+          commit: "",
+        },
+      },
       btn,
     );
     expect($(w, "#tb-suggest-title").textContent).toBe("Note to the authors about ¶2");
@@ -307,7 +329,13 @@ describe("a note to the authors on one paragraph", () => {
     $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "Which situation?";
     $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
     await tick();
-    expect(posts[0]).toMatchObject({ paragraph: 2, note: true, suggestion: "Which situation?", reasoning: "", anchor: { exact: "situation" } });
+    expect(posts[0]).toMatchObject({
+      paragraph: 2,
+      note: true,
+      suggestion: "Which situation?",
+      reasoning: "",
+      anchor: { exact: "situation" },
+    });
   });
   it("the ¶ margin's note anchors the whole paragraph", async () => {
     const { w, posts } = notePage();
@@ -316,7 +344,11 @@ describe("a note to the authors on one paragraph", () => {
     $<HTMLTextAreaElement>(w, "#tb-sg-reasoning").value = "Too short.";
     $<HTMLFormElement>(w, "#tb-suggest-overlay form").requestSubmit();
     await tick();
-    expect(posts[0]).toMatchObject({ paragraph: 1, note: true, anchor: { start: 1, end: 1, exact: "Short one.", prefix: "", suffix: "", text: "Short one." } });
+    expect(posts[0]).toMatchObject({
+      paragraph: 1,
+      note: true,
+      anchor: { start: 1, end: 1, exact: "Short one.", prefix: "", suffix: "", text: "Short one." },
+    });
   });
 });
 
@@ -1095,8 +1127,8 @@ describe("the History panel", () => {
       sha: "b".repeat(40),
       path: "chapters/chapter-03.md",
     });
-    expect($(w, "#tb-editor .tb-ed-del").textContent).toContain("old");
-    expect($(w, "#tb-editor .tb-ed-add").textContent).toContain("new");
+    expect($(w, "#tb-editor .tb-rd del").textContent).toContain("old");
+    expect($(w, "#tb-editor .tb-rd ins").textContent).toContain("new");
     // The older version was at its old path.
     btn(w, "Show changes", 1).click();
     await tick();

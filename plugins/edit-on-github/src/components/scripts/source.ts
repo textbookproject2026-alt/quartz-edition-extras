@@ -17,7 +17,8 @@ const FENCE = /^\s{0,3}(```|~~~)/;
 // Blocks whose first line marks them as something other than a running-text
 // paragraph: headings, quotes and callouts, lists, tables, HTML, embeds, math,
 // rules, footnote definitions.
-const NOT_PARAGRAPH = /^\s{0,3}(#{1,6}\s|>|[-*+]\s|\d+[.)]\s|\||<|!\[|\$\$|---|\*\*\*|___|\[\^[^\]]+\]:)/;
+const NOT_PARAGRAPH =
+  /^\s{0,3}(#{1,6}\s|>|[-*+]\s|\d+[.)]\s|\||<|!\[|\$\$|---|\*\*\*|___|\[\^[^\]]+\]:)/;
 
 /**
  * The source's blank-line-separated blocks, skipping frontmatter, fenced code and
@@ -74,8 +75,7 @@ export const sourceWords = (md: string): string[] =>
       .replace(/<[^>]+>/g, " "),
   );
 
-export const words = (text: string): string[] =>
-  text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+export const words = (text: string): string[] => text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
 
 /** Shared words (as a multiset) over the longer list's length: 1 is identical. */
 export const overlap = (a: string[], b: string[]): number => {
@@ -111,7 +111,10 @@ export const findParagraph = (source: string, renderedText: string, pnum: number
     const score = overlap(sourceWords(block.text), target);
     if (score < THRESHOLD) continue;
     const distance = block.ordinal ? Math.abs(block.ordinal - pnum) : 1e6;
-    if (score > bestScore + 0.02 || (Math.abs(score - bestScore) <= 0.02 && distance < bestDistance)) {
+    if (
+      score > bestScore + 0.02 ||
+      (Math.abs(score - bestScore) <= 0.02 && distance < bestDistance)
+    ) {
       best = block;
       bestScore = Math.max(score, bestScore);
       bestDistance = distance;
@@ -150,7 +153,9 @@ export const diff = (a: string[], b: string[]): Op[] => {
     for (let i = ma.length - 1; i >= 0; i--)
       for (let j = mb.length - 1; j >= 0; j--)
         L[i * w + j] =
-          ma[i] === mb[j] ? L[(i + 1) * w + j + 1]! + 1 : Math.max(L[(i + 1) * w + j]!, L[i * w + j + 1]!);
+          ma[i] === mb[j]
+            ? L[(i + 1) * w + j + 1]! + 1
+            : Math.max(L[(i + 1) * w + j]!, L[i * w + j + 1]!);
     mid = [];
     let i = 0;
     let j = 0;
@@ -196,9 +201,37 @@ export const blocks = (before: string, after: string): DiffBlock[] => {
 /** "1 unchanged paragraph", "3 unchanged paragraphs". */
 export const unchangedLabel = (n: number) => `${n} unchanged paragraph${n === 1 ? "" : "s"}`;
 
+/** "Show 3 unchanged paragraphs": the toggle that opens a folded run. */
+export const showUnchanged = (n: number) => `Show ${unchangedLabel(n)}`;
+
+/** Words two paragraphs share, as a share of the longer: how alike they are. */
+const alike = (x: string, y: string): number => {
+  const a = x.split(/\s+/).filter(Boolean);
+  const b = new Set(y.split(/\s+/).filter(Boolean));
+  return a.length || b.size ? a.filter((w) => b.has(w)).length / Math.max(a.length, b.size) : 1;
+};
+
+/**
+ * Which removed paragraph became which added one, in order: each removed one with the
+ * first added one after the last pair that shares at least half its words. A new
+ * paragraph inserted above an edited one stays alone instead of pairing the wrong two.
+ */
+export const pairs = (dels: string[], adds: string[]): [number, number][] => {
+  const out: [number, number][] = [];
+  let from = 0;
+  for (let i = 0; i < dels.length; i++)
+    for (let j = from; j < adds.length; j++)
+      if (alike(dels[i]!, adds[j]!) >= 0.5) {
+        out.push([i, j]);
+        from = j + 1;
+        break;
+      }
+  return out;
+};
+
 export type Word = { v: string; changed: boolean };
 /**
- * Runs of removed lines then added ones, paired line by line and word-diffed: each
+ * Runs of removed lines then added ones, paired by likeness (pairs) and word-diffed: each
  * line's tokens marked kept or changed. Unpaired lines are changed throughout.
  */
 export const pairRuns = (ops: Op[]): { t: "-" | "+"; words: Word[] }[] => {
@@ -211,10 +244,10 @@ export const pairRuns = (ops: Op[]): { t: "-" | "+"; words: Word[] }[] => {
     while (ops[k]?.t === "+") adds.push(ops[k++]!.v);
     const d = dels.map((v) => ({ t: "-" as const, words: [{ v, changed: true }] }));
     const a = adds.map((v) => ({ t: "+" as const, words: [{ v, changed: true }] }));
-    for (let i = 0; i < Math.min(dels.length, adds.length); i++) {
-      const w = diff(tokens(dels[i]!), tokens(adds[i]!));
+    for (const [i, j] of pairs(dels, adds)) {
+      const w = diff(tokens(dels[i]!), tokens(adds[j]!));
       d[i]!.words = w.filter((o) => o.t !== "+").map((o) => ({ v: o.v, changed: o.t === "-" }));
-      a[i]!.words = w.filter((o) => o.t !== "-").map((o) => ({ v: o.v, changed: o.t === "+" }));
+      a[j]!.words = w.filter((o) => o.t !== "-").map((o) => ({ v: o.v, changed: o.t === "+" }));
     }
     // Neighbouring words with the same mark join, so a changed phrase is one <del>/<ins>.
     for (const r of [...d, ...a])
