@@ -756,6 +756,15 @@ describe("Cite's files and scopes (the builder's data)", () => {
     ]);
     expect(ris(CITE.book)).toMatch(/^TY {2}- BOOK\r\n/);
   });
+  it("an edited volume: editors in BibTeX and RIS; APA/Chicago access dates in US form", () => {
+    const edited = { ...CITE, chapter: null, book: { ...CITE.book, author: undefined, editor: [{ family: "Carberry", given: "Josiah" }] },
+      styles: { book: { ...CITE.styles.book, apa: [R("Carberry, J. (Ed.). (2026). Retrieved {accessed-us}, from https://book.example.org/")] } } };
+    const s = scoped(edited, "book", day);
+    expect(bibtex(s.item)).toMatch(/\n {2}editor = \{Carberry, Josiah\},\n/);
+    expect(bibtex(s.item)).not.toMatch(/author =/);
+    expect(ris(s.item)).toMatch(/\r\nED {2}- Carberry, Josiah\r\n/);
+    expect(plain(s.styles.apa)).toBe("Carberry, J. (Ed.). (2026). Retrieved October 9, 2026, from https://book.example.org/");
+  });
   it("CSL-JSON: the item, as an array", () => {
     const item = scoped(CITE, "book", day).item;
     expect(JSON.parse(cslJson(item))).toEqual([item]);
