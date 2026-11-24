@@ -184,6 +184,17 @@ export function scoped(data: CiteData, scope: Scope, accessed: Date, para = 0) {
   return { item, styles: out };
 }
 
+/**
+ * The attribution's names from the builder's item (the page metadata, as every
+ * citation): its authors, else (an edited volume) its editors, "(ed.)"/"(eds.)".
+ */
+export const creditNames = (item: CslItem): string => {
+  const full = (a: CslName) => a.literal ?? [a.given, a.family].filter(Boolean).join(" ");
+  if (item.author?.length) return item.author.map(full).join(", ");
+  if (!item.editor?.length) return "";
+  return `${item.editor.map(full).join(", ")} (${item.editor.length > 1 ? "eds." : "ed."})`;
+};
+
 const ymd = (d?: CslDate): number[] => d?.["date-parts"]?.[0] ?? [];
 const pad = (n?: number) => String(n ?? "").padStart(2, "0");
 const nameOf = (a: CslName) => (a.literal ? a.literal : [a.family, a.given].filter(Boolean).join(", "));
@@ -192,7 +203,8 @@ const nameOf = (a: CslName) => (a.literal ? a.literal : [a.family, a.given].filt
 export const citeKey = (item: CslItem): string => {
   const ascii = (s: string) =>
     s.normalize("NFKD").replace(/[^A-Za-z0-9]/g, "");
-  const who = ascii(item.author?.[0]?.family ?? item.author?.[0]?.literal ?? "");
+  const first = item.author?.[0] ?? item.editor?.[0];
+  const who = ascii(first?.family ?? first?.literal ?? "");
   const word = ascii((item.title.match(/[\p{L}\p{N}]+/gu) ?? []).find((w) => w.length > 3) ?? "");
   return `${who}${ymd(item.issued)[0] ?? ""}${word}`.toLowerCase() || "citation";
 };

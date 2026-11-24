@@ -51,6 +51,7 @@ import {
   apa,
   attribution,
   bibtex,
+  creditNames,
   cslJson,
   licenceName,
   plain,
@@ -1573,7 +1574,12 @@ const cite = (header: HTMLElement, trigger: HTMLElement, fromPage = false) => {
     );
   };
   const data = readCiteData(document);
-  if (data) return citeDialog(data, header, trigger, () => attribution(input), fromPage);
+  if (data) {
+    // The builder's item, the same metadata as every citation (not the registry's authors).
+    const own = data.chapter ?? data.book;
+    const named = { ...input, authors: creditNames(own), url: own.URL };
+    return citeDialog(data, header, trigger, () => attribution(named), fromPage);
+  }
   const lic = licenceName(input.licence);
   dialog(
     "Cite this page",
