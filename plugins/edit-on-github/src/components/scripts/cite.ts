@@ -119,6 +119,7 @@ export interface CslItem {
   title: string;
   URL: string;
   author?: CslName[];
+  editor?: CslName[];
   publisher?: string;
   issued?: CslDate;
   accessed?: CslDate;
@@ -162,11 +163,16 @@ export function scoped(data: CiteData, scope: Scope, accessed: Date, para = 0) {
   const n = scope === "paragraph" && own ? para : 0;
   const url = n ? `${base.URL}#p${n}` : base.URL;
   const day = accessedText(accessed);
+  // APA's "Retrieved …" and Chicago's "Accessed …" (the builder marks them {accessed-us}).
+  const dayUS = accessed.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const out = {} as Record<StyleKey, Run[]>;
   for (const [key] of STYLES)
     out[key] = (styles[key] ?? []).map((r) => ({
       ...r,
-      text: r.text.replaceAll("{accessed}", day).replace(base.URL, n ? `${url} (para. ${n})` : url),
+      text: r.text
+        .replaceAll("{accessed-us}", dayUS)
+        .replaceAll("{accessed}", day)
+        .replace(base.URL, n ? `${url} (para. ${n})` : url),
     }));
   const item: CslItem = {
     ...base,
@@ -200,8 +206,12 @@ export function bibtex(item: CslItem): string {
   const [ay, am, ad] = ymd(item.accessed);
   const esc = (v?: string) => (v ? bibEscape(v) : undefined);
   // Values escaped here; the url stays verbatim, as biblatex reads it.
+  const names = (xs?: CslName[]) =>
+    xs?.map((a) => (a.literal ? `{${bibEscape(a.literal)}}` : bibEscape(nameOf(a)))).join(" and ");
   const fields: [string, string | undefined][] = [
-    ["author", item.author?.map((a) => (a.literal ? `{${bibEscape(a.literal)}}` : bibEscape(nameOf(a)))).join(" and ")],
+    ["author", names(item.author)],
+    // A chapter's are its book's editors (booktitle); an edited volume is cited by them.
+    ["editor", names(item.editor)],
     ["title", esc(item.title)],
     ["booktitle", item.type === "chapter" ? esc(item["container-title"]) : undefined],
     [item.type === "report" ? "institution" : "publisher", esc(item.publisher)],
@@ -231,6 +241,7 @@ export function ris(item: CslItem): string {
     ["TY", RIS_TYPES[item.type] ?? "GEN"],
     ["TI", item.title],
     ...(item.author ?? []).map((a): [string, string] => ["AU", nameOf(a)]),
+    ...(item.editor ?? []).map((a): [string, string] => ["ED", nameOf(a)]),
     ["T2", item["container-title"]],
     ["PB", item.publisher],
     ["PY", y ? String(y) : undefined],
