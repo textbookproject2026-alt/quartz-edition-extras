@@ -6,7 +6,7 @@ import { Window } from "happy-dom";
 import { renderToString } from "preact-render-to-string";
 import type { QuartzComponentProps } from "@quartz-community/types";
 import EditOnGitHub, { SUBTITLES, folderName, rootOf } from "../src/components/EditOnGitHub";
-import { apa, apaName, attribution, bibtex, citeKey, cslJson, plain, ris, scoped, splitAuthors } from "../src/components/scripts/cite";
+import { apa, apaName, attribution, bibtex, citeKey, creditNames, cslJson, plain, ris, scoped, splitAuthors } from "../src/components/scripts/cite";
 import type { CiteData } from "../src/components/scripts/cite";
 import { roleBadge } from "../src/components/scripts/roles";
 
@@ -764,6 +764,10 @@ describe("Cite's files and scopes (the builder's data)", () => {
     expect(bibtex(s.item)).not.toMatch(/author =/);
     expect(ris(s.item)).toMatch(/\r\nED {2}- Carberry, Josiah\r\n/);
     expect(plain(s.styles.apa)).toBe("Carberry, J. (Ed.). (2026). Retrieved October 9, 2026, from https://book.example.org/");
+    expect(citeKey(s.item)).toBe("carberry2026ontology");
+    // The attribution's names come from the same item, not the registry's authors.
+    expect(creditNames(s.item)).toBe("Josiah Carberry (ed.)");
+    expect(creditNames(CITE.chapter!)).toBe("Brandon Sommer");
   });
   it("CSL-JSON: the item, as an array", () => {
     const item = scoped(CITE, "book", day).item;
