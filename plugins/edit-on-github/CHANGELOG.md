@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `donateUrl` (the registry's platform.donate_url, from the builder): set, ⋯ gets
+  "Donate ↗" and the book frame draws the donation line and a Donate button above
+  the site footer, a plain link to PayPal in a new tab (no PayPal script). Never
+  in print. "" (the default): neither, and the page is as before.
 - Page history is a timeline: Being edited (proposed, then drafts) above Published,
   releases as milestones, Show changes, Read this version (with a banner) and
   Compare. Book history (⋯) and the /history page's script: proposed dots, tap to
