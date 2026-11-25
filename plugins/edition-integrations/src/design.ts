@@ -551,7 +551,8 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     padding-left: 0;
     padding-right: var(--tb-annotation-gutter);
   }
-  .page[data-frame="book"] > #quartz-body > .sidebar.right { height: auto; }
+  /* Under the text, not beside it: no sticky offset, which pushed it into the footer. */
+  .page[data-frame="book"] > #quartz-body > .sidebar.right { height: auto; top: auto; }
 }
 
 /* Where the explorer is a drawer (phones, small tablets): the reading column is
@@ -570,7 +571,8 @@ article [data-pnum] { scroll-margin-top: calc(var(--tb-header-h) + 1rem); }
     padding-left: 0;
     padding-right: 0;
   }
-  .page[data-frame="book"] > #quartz-body > .sidebar.right { height: auto; }
+  /* Under the text, not beside it: no sticky offset, which pushed it into the footer. */
+  .page[data-frame="book"] > #quartz-body > .sidebar.right { height: auto; top: auto; }
   #quartz-body .explorer .explorer-content {
     top: var(--tb-hdr-bottom, 0px);
     height: calc(100dvh - var(--tb-hdr-bottom, 0px));
