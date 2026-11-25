@@ -29,9 +29,30 @@ n = v.slice, l = { __e: function(n2, l2, u2, t2) {
   throw n2;
 } }, u = 0, "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout;
 
+// src/donate.ts
+var DONATE_LABEL = "Donate via PayPal (opens in a new tab)";
+var DONATE_TEXT = "Confused for Now is free to read and free to use. Donations help pay for hosting, domains and the upkeep of the site.";
+
 // src/frames/BookFrame.tsx
 var isHeader = (c2) => c2.tbHeader === true;
 var isLead = (c2) => c2.tbHeaderLead === true;
+var donateOf = (c2) => c2.tbDonate ?? "";
+var donation = (url) => _(
+  "div",
+  { class: "tb-donate" },
+  _("p", { class: "tb-donate-text" }, DONATE_TEXT),
+  _(
+    "a",
+    {
+      class: "tb-donate-btn",
+      href: url,
+      target: "_blank",
+      rel: "noopener noreferrer",
+      "aria-label": DONATE_LABEL
+    },
+    "Donate"
+  )
+);
 var BookFrame = {
   name: "book",
   css: `
@@ -43,6 +64,41 @@ var BookFrame = {
   min-width: 0;
 }
 @media print { .page[data-frame="book"] > #quartz-body > .tb-header-slot { display: none; } }
+.page[data-frame="book"] > #quartz-body > .tb-footer-slot {
+  grid-area: grid-footer;
+  min-width: 100%;
+  max-width: 100%;
+}
+.tb-donate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 1.5rem 0 1.25rem;
+  font-family: var(--tb-font-ui, sans-serif);
+}
+.tb-donate-text {
+  flex: 1 1 18rem;
+  max-width: 40rem;
+  margin: 0;
+  color: var(--tb-muted, var(--gray));
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.tb-donate-btn {
+  flex: none;
+  padding: 0.3rem 0.95rem;
+  border: 1px solid var(--tb-border, var(--lightgray));
+  border-radius: 6px;
+  color: var(--tb-accent, var(--secondary));
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.tb-donate-btn:hover { background: var(--tb-accent-wash, var(--highlight)); border-color: var(--tb-accent-soft, var(--gray)); }
+.tb-donate-btn:focus-visible { outline: 2px solid var(--tb-accent, var(--secondary)); outline-offset: 2px; }
+@media print { .page[data-frame="book"] > #quartz-body > .tb-footer-slot { display: none !important; } }
 `,
   render({
     componentData,
@@ -57,6 +113,7 @@ var BookFrame = {
     const each = (list) => list.map(draw);
     const top = beforeBody.filter(isHeader);
     const lead = top.length ? left.filter(isLead) : [];
+    const donate = top.map(donateOf).find(Boolean);
     return _(
       k,
       null,
@@ -75,7 +132,8 @@ var BookFrame = {
         _("div", { class: "page-footer" }, ...each(afterBody))
       ),
       _("div", { class: "right sidebar" }, ...each(right)),
-      draw(Footer)
+      // With a donation link, the footer and the line above it share the footer's cell.
+      donate ? _("div", { class: "tb-footer-slot" }, donation(donate), draw(Footer)) : draw(Footer)
     );
   }
 };

@@ -7,6 +7,7 @@ import type {
 } from "@quartz-community/types";
 // @ts-expect-error: .inline.ts is bundled to a browser script string by tsup.config.ts
 import controlsScript from "./scripts/controls.inline";
+import { DONATE_LABEL } from "../donate";
 
 export interface Options {
   /** "owner/repo" of THIS book's or edition's repository. */
@@ -73,6 +74,12 @@ export interface Options {
   statsHost: string;
   /** What kind of text this is (registry books[].type): a badge beside the title. "" for none. */
   type: string;
+  /**
+   * The platform's donation link (registry platform.donate_url, a PayPal address the
+   * builder has checked). Set: ⋯ gets "Donate" and the book frame draws the
+   * donation line in the page footer. "" (the default): neither.
+   */
+  donateUrl: string;
 }
 
 /** The header badge's words for each registry `type`. */
@@ -108,6 +115,7 @@ const defaultOptions: Options = {
   statsUrl: "",
   statsHost: "",
   type: "",
+  donateUrl: "",
 };
 
 /** Where the builder writes a page's revision list (quartz-book's HISTORY_DIR). */
@@ -340,6 +348,13 @@ const EditOnGitHub: QuartzComponentConstructor<Partial<Options>> = (userOpts) =>
             "a",
             { class: "tb-stats-book", href: statsHref(opts.statsUrl, opts.statsHost), ...away },
             "Book statistics ↗",
+          )
+        : null,
+      opts.donateUrl
+        ? item(
+            "a",
+            { class: "tb-donate-item", href: opts.donateUrl, ...away, "aria-label": DONATE_LABEL },
+            "Donate ↗",
           )
         : null,
       // Reader mode is a header button; here instead only when the header is short of room.
@@ -964,6 +979,8 @@ article td, article th { line-height: 1.45; vertical-align: top; }
   Component.afterDOMLoaded = controlsScript;
   // The "book" frame draws this in the page grid's header row (src/frames).
   (Component as typeof Component & { tbHeader: boolean }).tbHeader = true;
+  // ...and its page footer gets the donation line when this is set.
+  (Component as typeof Component & { tbDonate: string }).tbDonate = opts.donateUrl;
 
   return Component;
 };

@@ -520,6 +520,18 @@ describe("F. the ⋯ menu", () => {
     expect(items(front, "#tb-more-menu").find((i) => i.textContent?.includes("Page statistics"))!.getAttribute("href")).toMatch(/f=is,page,\/$/);
   });
 
+  it("Donate in ⋯ only with a donation link: PayPal, in a new tab, with no referrer", () => {
+    const url = "https://www.paypal.com/donate/?hosted_button_id=TEST";
+    const w = page(render({ ...BOOK, donateUrl: url }), { explained: true });
+    const d = items(w, "#tb-more-menu").find((i) => i.textContent?.includes("Donate"))!;
+    expect(d.getAttribute("href")).toBe(url);
+    expect(d.getAttribute("target")).toBe("_blank");
+    expect(d.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(d.getAttribute("aria-label")).toBe("Donate via PayPal (opens in a new tab)");
+    const none = page(render(BOOK), { explained: true });
+    expect(items(none, "#tb-more-menu").some((i) => i.textContent?.includes("Donate"))).toBe(false);
+  });
+
   it("no statistics where the site isn't counted", () => {
     const w = page(render(BOOK), { explained: true });
     expect(items(w, "#tb-more-menu").some((i) => /statistics/.test(i.textContent ?? ""))).toBe(false);

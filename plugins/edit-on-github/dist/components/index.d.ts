@@ -65,6 +65,12 @@ interface Options {
     statsHost: string;
     /** What kind of text this is (registry books[].type): a badge beside the title. "" for none. */
     type: string;
+    /**
+     * The platform's donation link (registry platform.donate_url, a PayPal address the
+     * builder has checked). Set: ⋯ gets "Donate" and the book frame draws the
+     * donation line in the page footer. "" (the default): neither.
+     */
+    donateUrl: string;
 }
 /**
  * The sticky header on every page (A): the book's title and where the page sits
